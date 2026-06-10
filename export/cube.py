@@ -327,7 +327,7 @@ def main():
         written.add(f"{subj}.js")
     # prune shards for subjects that left the menu + the legacy monolith
     for f in cube_dir.glob("*.js"):
-        if f.name not in written and f.name not in ("index.js", "baskets.js"):
+        if f.name not in written and f.name not in ("index.js", "baskets.js", "drawdowns.js"):
             f.unlink()
     legacy = out_dir / "trader-profile-cube.js"
     if legacy.exists():
@@ -353,6 +353,43 @@ def main():
     (cube_dir / "baskets.js").write_text(
         "window.QUANT_BASKETS = " + json.dumps({"as_of": str(as_of), "baskets": bdata},
                                                separators=(",", ":")) + ";\n")
+
+    # Drawdown-from-ATH episodes + weekly underwater series for market-lab-drawdowns.html.
+    # Episode = decline from the running all-time high until a NEW high; depth = max
+    # close-based drawdown within it. Episodes <3% deep are omitted.
+    dd_idx = []
+    for vid, lbl in [("gspc", "S&P 500"), ("ixic", "Nasdaq Composite"), ("ndx", "Nasdaq-100")]:
+        d = conn.execute(f"select date, close from {vid} order by date").df()
+        d["date"] = pd.to_datetime(d["date"])
+        c = d.close.to_numpy()
+        dt = d.date
+        dd = c / np.maximum.accumulate(c) - 1
+        eps = []
+        i, N = 1, len(c)
+        while i < N:
+            if dd[i] < 0:
+                j = i
+                while j < N and dd[j] < 0:
+                    j += 1
+                k = i + int(np.argmin(dd[i:j]))
+                depth = -float(dd[i:j].min()) * 100
+                if depth >= 3:
+                    eps.append({"depth": round(depth, 1), "peak": str(dt[i - 1].date()),
+                                "trough": str(dt[k].date()), "p2t": int((dt[k] - dt[i - 1]).days),
+                                "rec": int((dt[j] - dt[k]).days) if j < N else None})
+                i = j
+            else:
+                i += 1
+        wk = pd.DataFrame({"date": dt, "dd": dd}).set_index("date").resample("W-FRI").last().dropna()
+        dd_idx.append({"id": vid, "label": lbl,
+                       "years": round((dt.iloc[-1] - dt.iloc[0]).days / 365.25, 1),
+                       "start": str(dt.iloc[0].date()), "end": str(dt.iloc[-1].date()),
+                       "episodes": eps,
+                       "weekly": {"dates": [str(x.date()) for x in wk.index],
+                                  "dd": [round(float(v) * 100, 1) for v in wk.dd]}})
+    (cube_dir / "drawdowns.js").write_text(
+        "window.QUANT_DRAWDOWNS = " + json.dumps({"as_of": str(as_of), "indexes": dd_idx},
+                                                 separators=(",", ":")) + ";\n")
     total_bytes = sum(f.stat().st_size for f in cube_dir.glob("*.js"))
     print(f"\nWrote {cube_dir}/index.js + {len(written)} shards "
           f"({total_bytes:,} bytes total)  kept {kept}/{total} combos")
