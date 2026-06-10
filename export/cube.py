@@ -161,7 +161,7 @@ def build(conn):
         _feats(conn, "hyg",    {"hyg": "val", "hyg_50dma": "50"}),
         _feats(conn, "uup",    {"uup": "val", "uup_50dma": "50"}),
         _feats(conn, "wti",    {"wti": "val", "wti_50dma": "50"}),
-    ], axis=1).sort_index()
+    ], axis=1, sort=False).sort_index()
     hz = {h["h"]: h["id"] for h in HORIZONS}
 
     results, kept, total = {}, 0, 0
