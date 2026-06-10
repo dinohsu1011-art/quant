@@ -134,6 +134,7 @@ SUBJECTS = [
     {"id": "miners", "label": "Metals—Miners (basket)"}, {"id": "materials", "label": "Materials (basket)"},
 ]
 TRIGGERS = [
+    {"id": "any", "label": "Any session"},
     {"id": "d1", "label": "Down ≥ 1%", "threshold": -0.01},
     {"id": "d2", "label": "Down ≥ 2%", "threshold": -0.02},
     {"id": "d25", "label": "Down ≥ 2.5%", "threshold": -0.025},
@@ -142,15 +143,18 @@ TRIGGERS = [
     {"id": "d5", "label": "Down ≥ 5%", "threshold": -0.05},
     {"id": "w20", "label": "Worst 20 days", "worst_n": 20},
     {"id": "w50", "label": "Worst 50 days", "worst_n": 50},
-] + [
-    # streak triggers: fire on the Nth consecutive day in the direction, each day
-    # optionally also gapping (open vs prior close). NOT enumerated in the cube —
-    # the lab computes them client-side (live mode uses the API).
+]
+
+# Streak PATTERNS (their own optional field): the trigger day is day 1 of a run of
+# N consecutive days in the direction, each optionally gapping; the outcome is
+# measured after the run's last day. NOT enumerated in the cube — computed
+# client-side (live mode uses the API's streak_n/streak_dir/streak_gap).
+STREAKS = [{"id": "none", "label": "— none —"}] + [
     {"id": f"s{n}{d}{g or ''}",
-     "label": f"{n} {'red' if d == 'dn' else 'green'} days in a row"
+     "label": f"starts {n} {'red' if d == 'dn' else 'green'} days in a row"
               + ("" if not g else f", each gapping {'up' if g == 'gu' else 'down'}"),
      "streak": n, "dir": d, "gap": None if not g else ("up" if g == "gu" else "down"),
-     "group": "Streaks" if not g else ("Streaks of gap-up days" if g == "gu" else "Streaks of gap-down days")}
+     "group": "Plain runs" if not g else ("Runs of gap-up days" if g == "gu" else "Runs of gap-down days")}
     for g in ("", "gu", "gd") for d in ("dn", "up") for n in (2, 3, 4, 5)
 ]
 WEEKDAYS = [
@@ -291,8 +295,6 @@ def build(conn):
                 cmask[cond["id"]] = F.eval(expr).fillna(False).to_numpy(dtype=bool)
 
         for t in TRIGGERS:
-            if "streak" in t:
-                continue            # streak triggers are computed client-side / live
             thr, wn = t.get("threshold"), t.get("worst_n")
             for wd in WEEKDAYS:
                 wmask = retfin if wd["day"] is None else (retfin & (isodow == wd["day"]))
@@ -348,7 +350,7 @@ def main():
         },
         "menus": {
             "subjects": [{**s, "group": _ID2GROUP.get(s["id"], "Other")} for s in SUBJECTS],
-            "triggers": TRIGGERS, "weekdays": WEEKDAYS,
+            "triggers": TRIGGERS, "streaks": STREAKS, "weekdays": WEEKDAYS,
             "conditions": CONDITIONS, "horizons": HORIZONS,
             "bin_labels": BIN_LABELS, "bin_edges": EDGES,
         },

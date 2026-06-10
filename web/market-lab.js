@@ -12,7 +12,7 @@
   const DOWN = { 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri" };
 
   // ---------- state ----------
-  const state = { s: "spy", t: "d25", wd: "fri", c: "none", h: "h1", thr: null }; // thr = live custom %
+  const state = { s: "spy", t: "d25", wd: "fri", c: "none", h: "h1", thr: null, sk: "none" }; // thr = live custom %; sk = streak pattern
   let SERVER = null, PIN = null, lastRows = null;
   const GRID = M.triggers.filter((t) => t.threshold != null)
                          .map((t) => ({ id: t.id, pct: -t.threshold * 100 }));
@@ -25,14 +25,16 @@
       if (get(M.subjects, s)) state.s = s;
       if (t.startsWith("x")) { state.t = "custom"; state.thr = parseFloat(t.slice(1)) || 2.5; }
       else if (get(M.triggers, t)) { state.t = t; state.thr = null; }
+      else if (M.streaks && get(M.streaks, t)) { state.t = "any"; state.sk = t; state.thr = null; } // legacy links
       if (get(M.weekdays, wd)) state.wd = wd;
       if (get(M.conditions, c)) state.c = c;
       if (get(M.horizons, h)) state.h = h;
+      if (p[5] && M.streaks && get(M.streaks, p[5])) state.sk = p[5];
     }
   }
   function writeHash(push) {
     const t = state.t === "custom" ? "x" + state.thr : state.t;
-    const h = `#${state.s}|${t}|${state.wd}|${state.c}|${state.h}`;
+    const h = `#${state.s}|${t}|${state.wd}|${state.c}|${state.h}|${state.sk}`;
     if (h !== location.hash) (push ? history.pushState(null, "", h) : history.replaceState(null, "", h));
   }
 
@@ -129,7 +131,7 @@
     return m;
   }
   const SELF_CONTAINED = ["none", "up", "down", "prev_dn", "prev_up", "prev_dn1", "prev_dn2", "prev_up1"];
-  async function computeRows(s, t, wd, c, h) {
+  async function computeRows(s, t, wd, c, h, sk) {
     const raw = L.series && L.series[s];
     if (!raw) return null;
     if (!SELF_CONTAINED.includes(c)) {
@@ -147,36 +149,43 @@
     const mask = condMask(c, subj);
     if (!mask) return null;
     const H = get(M.horizons, h).h, WD = get(M.weekdays, wd), T = get(M.triggers, t);
-    let idx = [];
-    if (T.streak != null) {
-      // fire on the day the run count hits exactly N (matches the SQL engine)
-      if (T.gap && !ser.open) return null;
-      let run = 0;
+    // optional streak pattern: trigger day = day 1 (run start) of N consecutive
+    // qualifying days; outcome measured from the run's LAST day
+    const K = sk && sk !== "none" && M.streaks ? get(M.streaks, sk) : null;
+    let hit = null;
+    if (K && K.streak != null) {
+      if (K.gap && !ser.open) return null;
+      hit = new Array(N).fill(false);
       for (let i = 1; i < N; i++) {
-        const dirOK = T.dir === "dn" ? ser.close[i] < ser.close[i - 1] : ser.close[i] > ser.close[i - 1];
-        const gapOK = !T.gap ? true : (T.gap === "up" ? ser.open[i] > ser.close[i - 1]
-                                                      : ser.open[i] < ser.close[i - 1]);
-        run = (dirOK && gapOK) ? run + 1 : 0;
-        if (run === T.streak && mask[i] && (WD.day == null || isodow(ser.days[i]) === WD.day)) idx.push(i);
+        const dirOK = K.dir === "dn" ? ser.close[i] < ser.close[i - 1] : ser.close[i] > ser.close[i - 1];
+        hit[i] = dirOK && (!K.gap ? true : (K.gap === "up" ? ser.open[i] > ser.close[i - 1]
+                                                           : ser.open[i] < ser.close[i - 1]));
       }
-      idx.sort((x, y) => y - x);
-    } else {
-      for (let i = 1; i < N; i++) {
-        if (!mask[i]) continue;
-        if (WD.day != null && isodow(ser.days[i]) !== WD.day) continue;
-        if (T.threshold != null) { if (ret[i] <= T.threshold) idx.push(i); }
-        else idx.push(i);
-      }
-      if (T.worst_n != null) { idx.sort((x, y) => ret[x] - ret[y]); idx = idx.slice(0, T.worst_n); }
-      else idx.sort((x, y) => y - x);   // trigger_date DESC, like the server
     }
+    const fok = (i) => {
+      if (!hit) return true;
+      if (!hit[i] || hit[i - 1]) return false;          // must START the run
+      for (let j = 1; j < K.streak; j++) if (i + j >= N || !hit[i + j]) return false;
+      return true;
+    };
+    let idx = [];
+    for (let i = 1; i < N; i++) {
+      if (!mask[i]) continue;
+      if (WD.day != null && isodow(ser.days[i]) !== WD.day) continue;
+      if (!fok(i)) continue;
+      if (T.threshold != null) { if (ret[i] <= T.threshold) idx.push(i); }
+      else idx.push(i);
+    }
+    if (T.worst_n != null) { idx.sort((x, y) => ret[x] - ret[y]); idx = idx.slice(0, T.worst_n); }
+    else idx.sort((x, y) => y - x);     // trigger_date DESC, like the server
+    const off = hit ? K.streak - 1 : 0;
     return idx.map(i => {
-      const j = i + H, pend = j >= N;
+      const a = i + off, j = a + H, pend = j >= N;
       return { trigger_date: dstr(ser.days[i]), trigger_dow: isodow(ser.days[i]),
                trigger_ret: Math.round(ret[i] * 10000) / 100,
                outcome_date: pend ? null : dstr(ser.days[j]),
                outcome_dow: pend ? null : isodow(ser.days[j]),
-               outcome_ret: pend ? null : Math.round((ser.close[j] / ser.close[i] - 1) * 10000) / 100 };
+               outcome_ret: pend ? null : Math.round((ser.close[j] / ser.close[a] - 1) * 10000) / 100 };
     });
   }
   window.__rows = computeRows;          // programmatic hook (tests/console)
@@ -204,13 +213,14 @@
              ci_hi: sd > 0 ? r3(mean + tc * se) : r3(mean), counts, rows: null };
   }
 
-  async function getResult(s, t, wd, c, h, thr) {
+  async function getResult(s, t, wd, c, h, thr, sk) {
+    sk = sk || "none";
     if (SERVER === null) {
       if (t === "custom") return null;            // custom thresholds are live-only
       await loadShard(s);
-      let base = norm((L.shards[s] || {})[`${t}|${wd}|${c}|${h}`]);
+      let base = sk === "none" ? norm((L.shards[s] || {})[`${t}|${wd}|${c}|${h}`]) : null;
       let rows = null;
-      try { rows = await computeRows(s, t, wd, c, h); } catch (e) {}
+      try { rows = await computeRows(s, t, wd, c, h, sk); } catch (e) {}
       if (!base && rows) base = statsFromRows(rows);   // cube-pruned combo: compute locally
       if (base) base.rows = rows;
       return base;
@@ -219,12 +229,13 @@
     const q = new URLSearchParams({ subject: s, horizon: get(M.horizons, h).h });
     if (t === "custom") q.set("threshold", (-thr / 100).toFixed(4));
     else if (T.threshold != null) q.set("threshold", T.threshold);
-    else if (T.streak != null) {
-      q.set("streak_n", T.streak);
-      q.set("streak_dir", T.dir === "dn" ? "down" : "up");
-      if (T.gap) q.set("streak_gap", T.gap);
+    else if (T.worst_n != null) q.set("worst_n", T.worst_n);
+    const K = M.streaks ? get(M.streaks, sk) : null;
+    if (K && K.streak != null) {
+      q.set("streak_n", K.streak);
+      q.set("streak_dir", K.dir === "dn" ? "down" : "up");
+      if (K.gap) q.set("streak_gap", K.gap);
     }
-    else q.set("worst_n", T.worst_n);
     const wdo = get(M.weekdays, wd);
     if (wdo.day != null) q.set("day", wd);
     const cnd = get(M.conditions, c);
@@ -272,16 +283,20 @@
   function trigLabel() {
     if (state.t === "custom") return `falls ≥ ${state.thr.toFixed(1)}%`;
     const T = get(M.triggers, state.t);
-    if (T.streak != null)
-      return `closes ${T.dir === "dn" ? "red" : "green"} ${T.streak} days in a row` +
-             (T.gap ? `, each gapping ${T.gap}` : "");
-    return T.threshold != null ? `falls ≥ ${Math.abs(T.threshold * 100)}%` : `has one of its ${T.worst_n} worst days`;
+    if (T.threshold != null) return `falls ≥ ${Math.abs(T.threshold * 100)}%`;
+    if (T.worst_n != null) return `has one of its ${T.worst_n} worst days`;
+    return "closes any session";
+  }
+  function skLabel() {
+    const K = get(M.streaks, state.sk);
+    return K && K.streak != null ? K.label : "(no streak)";
   }
   function renderSentence() {
     const wdo = get(M.weekdays, state.wd), cnd = get(M.conditions, state.c);
     $("sentence").innerHTML =
       `<span class="quiet">After</span> <span class="tok" data-d="s">${esc(get(M.subjects, state.s).label)}</span> ` +
-      `<span class="tok" data-d="t">${esc(trigLabel())}</span> ` +
+      `<span class="tok" data-d="t">${esc(trigLabel())}</span><span class="quiet">,</span> ` +
+      `<span class="tok" data-d="sk">${esc(skLabel())}</span><span class="quiet">,</span> ` +
       `<span class="quiet">on</span> <span class="tok" data-d="wd">${wdo.day == null ? "any weekday" : esc(wdo.label) + "s"}</span>` +
       `<span class="quiet">, when</span> <span class="tok" data-d="c">${state.c === "none" ? "(no condition)" : esc(cnd.label)}</span>` +
       `<span class="quiet">, what happens over the</span> <span class="tok" data-d="h">${esc(get(M.horizons, state.h).label.toLowerCase())}</span>` +
@@ -315,6 +330,18 @@
             byG[g].forEach((o) => items.push({ id: o.id, label: o.label, sel: o.id === state.t }));
           }
           if (SERVER !== null) items.push({ id: "custom", label: "custom threshold (slider)", sel: state.t === "custom" });
+        } else if (d === "sk") {
+          items = [{ id: "none", label: "— none —", sel: state.sk === "none" }];
+          const order = [], byG = {};
+          for (const o of M.streaks) {
+            if (o.streak == null) continue;
+            if (!byG[o.group]) { order.push(o.group); byG[o.group] = []; }
+            byG[o.group].push(o);
+          }
+          for (const g of order) {
+            items.push({ group: g });
+            byG[g].forEach((o) => items.push({ id: o.id, label: o.label, sel: o.id === state.sk }));
+          }
         } else {
           const src = { wd: M.weekdays, c: M.conditions, h: M.horizons }[d];
           items = src.map((o) => ({ id: o.id, label: o.label, sel: o.id === state[d], dis: !available(d, o.id) }));
@@ -376,7 +403,7 @@
     const wrap = $("regimes");
     const outs = await Promise.all(M.conditions.map(async (c) => {
       try {
-        const r = (c.id === state.c) ? cur : await getResult(state.s, state.t, state.wd, c.id, state.h, state.thr);
+        const r = (c.id === state.c) ? cur : await getResult(state.s, state.t, state.wd, c.id, state.h, state.thr, state.sk);
         return { id: c.id, label: c.label, r };
       } catch (e) { return { id: c.id, label: c.label, r: null }; }
     }));
@@ -469,7 +496,7 @@
   PRESETS.forEach(([label, st]) => {
     const b = document.createElement("button");
     b.textContent = label;
-    b.onclick = () => { Object.assign(state, { thr: null }, st); update(true); };
+    b.onclick = () => { Object.assign(state, { thr: null, sk: "none" }, st); update(true); };
     $("presets").appendChild(b);
   });
 
@@ -486,7 +513,7 @@
 
   // ---------- main ----------
   async function safeResult() {
-    try { return await getResult(state.s, state.t, state.wd, state.c, state.h, state.thr); }
+    try { return await getResult(state.s, state.t, state.wd, state.c, state.h, state.thr, state.sk); }
     catch (e) {
       // live backend hiccup — fall back to the offline cube for on-grid combos
       if (SERVER !== null && state.t !== "custom") {

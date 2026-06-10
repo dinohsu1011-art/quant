@@ -126,12 +126,14 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
     day             isodow of the trigger day (FRI=5); None = any day
     threshold       trigger when trigger_ret <= threshold (e.g. -0.0477)
     worst_n         instead of a threshold, take the N most negative trigger days
-    streak          consecutive-day trigger: fires on the day the subject completes
-                    its Nth consecutive day in `streak_dir` ('down'|'up'), each day
-                    optionally also gapping (`streak_gap`: 'up'|'down'|None — open vs
-                    prior close). E.g. streak=3, streak_dir='down', streak_gap='up'
-                    = 3 red days in a row, each opening above the prior close.
-                    Mutually exclusive with threshold/worst_n.
+    streak          consecutive-day PATTERN anchored at the trigger day: the trigger
+                    day must be the START of a run (prior day breaks the pattern) of
+                    N days each in `streak_dir` ('down'|'up'), each optionally also
+                    gapping (`streak_gap`: 'up'|'down'|None — open vs prior close).
+                    The outcome is measured from the LAST day of the pattern.
+                    COMPOSES with threshold/worst_n, which apply to day 1 — e.g.
+                    threshold=-0.02, streak=2, streak_gap='up' = a ≥2% drop that is
+                    day 1 of two consecutive gap-up red days; outcome after day 2.
     horizon         sessions ahead to measure (1 = next session)
     strict_next_dow require the outcome day to equal this isodow (e.g. MON)
     since           ISO date string lower bound on the trigger day
@@ -147,10 +149,13 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
     view = _view(symbol)
     px = "adj_close" if price == "adj_close" else "close"
     h = int(horizon)
-    if measure_field == "ret":     outcome_expr = f"LEAD({px}, {h}) OVER w / {px} - 1"
-    elif measure_field == "hi":    outcome_expr = f"LEAD(high, {h}) OVER w / close - 1"
-    elif measure_field == "lo":    outcome_expr = f"LEAD(low, {h}) OVER w / close - 1"
-    elif measure_field == "range": outcome_expr = f"(LEAD(high, {h}) OVER w - LEAD(low, {h}) OVER w) / close"
+    k = int(streak) - 1 if streak is not None else 0   # pattern days after the trigger day
+    pxb = f"LEAD({px}, {k}) OVER w" if k else px       # outcome base = last pattern day's close
+    clb = f"LEAD(close, {k}) OVER w" if k else "close"
+    if measure_field == "ret":     outcome_expr = f"LEAD({px}, {k + h}) OVER w / {pxb} - 1"
+    elif measure_field == "hi":    outcome_expr = f"LEAD(high, {k + h}) OVER w / {clb} - 1"
+    elif measure_field == "lo":    outcome_expr = f"LEAD(low, {k + h}) OVER w / {clb} - 1"
+    elif measure_field == "range": outcome_expr = f"(LEAD(high, {k + h}) OVER w - LEAD(low, {k + h}) OVER w) / {clb}"
     else: raise ValueError(f"measure_field {measure_field!r} not in ret/hi/lo/range")
     if measure_field != "ret":
         flat = conn.execute(f"select avg((high = low)::int) from query_table('{view}')").fetchone()[0]
@@ -166,9 +171,7 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
     if threshold is not None:
         where.append(f"r.trigger_ret <= {float(threshold)}")
     if streak is not None:
-        if threshold is not None or worst_n:
-            raise ValueError("streak is mutually exclusive with threshold/worst_n")
-        where.append(f"r.scount = {int(streak)}")
+        where.append("r.fok")
     if strict_next_dow is not None:
         where.append(f"r.outcome_dow = {int(strict_next_dow)}")
     if since is not None:
@@ -195,38 +198,29 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
 
     if streak is not None:
         # Per-day predicate = direction (close vs prior close) AND optional gap
-        # qualifier (open vs prior close); consecutive-run counter via the
-        # gaps-and-islands trick; the trigger fires where the run count == N.
+        # qualifier (open vs prior close). fok = the trigger day STARTS a run
+        # (prior day misses) and the next N-1 days all hit.
         dirt = "close < pc" if streak_dir == "down" else "close > pc"
         gapt = {"up": " AND open > pc", "down": " AND open < pc", None: ""}[streak_gap]
-        src = f"""(
-        WITH raw AS (
-            SELECT date, open, high, low, close, adj_close,
-                   LAG(close) OVER (ORDER BY date) AS pc
-            FROM query_table('{view}')
-        ), flag AS (
-            SELECT *, CASE WHEN pc IS NOT NULL AND {dirt}{gapt} THEN 1 ELSE 0 END AS hit
-            FROM flag_src
-        ), grp AS (
-            SELECT *, ROW_NUMBER() OVER (ORDER BY date)
-                      - SUM(hit) OVER (ORDER BY date ROWS UNBOUNDED PRECEDING) AS gid
-            FROM flag
-        )
-        SELECT *, CASE WHEN hit = 1 THEN ROW_NUMBER() OVER (PARTITION BY gid, hit ORDER BY date) END AS scount
-        FROM grp)""".replace("FROM flag_src", "FROM raw")
-        scount_col = ",\n            scount"
+        chain = " AND ".join(["hit = 1", "COALESCE(LAG(hit) OVER w, 0) = 0"]
+                             + [f"LEAD(hit, {i}) OVER w = 1" for i in range(1, int(streak))])
+        src = f"""(SELECT *, CASE WHEN pc IS NOT NULL AND {dirt}{gapt} THEN 1 ELSE 0 END AS hit
+                 FROM (SELECT date, open, high, low, close, adj_close,
+                              LAG(close) OVER (ORDER BY date) AS pc
+                       FROM query_table('{view}')))"""
+        fok_col = f",\n            ({chain}) AS fok"
     else:
         src = f"query_table('{view}')"
-        scount_col = ""
+        fok_col = ""
 
     cte_block = f"""WITH r AS (
         SELECT
             date                                AS trigger_date,
             isodow(date)                        AS trigger_dow,
             {px} / LAG({px}) OVER w - 1         AS trigger_ret,
-            LEAD(date,  {h}) OVER w             AS outcome_date,
-            isodow(LEAD(date, {h}) OVER w)      AS outcome_dow,
-            {outcome_expr}  AS outcome_ret{scount_col}
+            LEAD(date,  {k + h}) OVER w         AS outcome_date,
+            isodow(LEAD(date, {k + h}) OVER w)  AS outcome_dow,
+            {outcome_expr}  AS outcome_ret{fok_col}
         FROM {src}
         WINDOW w AS (ORDER BY date)
     )"""

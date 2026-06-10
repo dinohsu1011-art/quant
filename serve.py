@@ -43,11 +43,11 @@ def _run_event(q):
     kw = {"horizon": int(q.get("horizon", 1))}
     d = q.get("day", "any").lower()
     kw["day"] = _DAY.get(d, int(d) if d.isdigit() else None)
-    if q.get("streak_n"):
+    if q.get("streak_n"):                      # anchored pattern — composes with the trigger
         kw["streak"] = int(q["streak_n"])
         kw["streak_dir"] = q.get("streak_dir", "down")
         kw["streak_gap"] = q.get("streak_gap") or None
-    elif q.get("worst_n"):
+    if q.get("worst_n"):
         kw["worst_n"] = int(q["worst_n"])
     elif q.get("threshold") not in (None, ""):
         kw["threshold"] = float(q["threshold"])
