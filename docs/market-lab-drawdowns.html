@@ -184,7 +184,24 @@
 
         const og = eps.find(e => e.rec == null);
         $("ongoing").style.display = og ? "inline-block" : "none";
-        if (og) $("ongoing").textContent = `current: −${og.depth}% from the ${og.peak} high (ongoing)`;
+        if (og) {
+          const st = ddStats(eps, ix.years, og.depth, og);
+          const last = st.since != null
+            ? `${st.since.toLocaleString()}d ago (${st.lastT})` : "none prior";
+          $("ongoing").textContent =
+            `current: −${og.depth}% from the ${og.peak} high — if it bottoms here: ` +
+            `${st.share.toFixed(1)}% of all pullbacks · ${st.yrPct.toFixed(0)}% of years see one · ` +
+            `last ≥${og.depth}%: ${last}`;
+        }
+      }
+
+      function ddStats(eps, years, depth, excl) {
+        const geqAll = eps.filter(o => o.depth >= depth);
+        const share = geqAll.length / eps.length * 100;
+        const yrPct = Math.min(100, new Set(geqAll.map(o => +o.trough.slice(0, 4))).size / years * 100);
+        const lastT = geqAll.filter(o => o !== excl).map(o => o.trough).sort().at(-1) || null;
+        const since = lastT ? Math.round((new Date(D.as_of) - new Date(lastT)) / 86400e3) : null;
+        return { share, yrPct, lastT, since };
       }
 
       function drawTimeline(ix) {
@@ -196,6 +213,7 @@
         const X = (t) => L + (t - t0) / (t1 - t0) * (R - L);
 
         const wd = ix.weekly.dates, wv = ix.weekly.dd;
+        const wmsAll = wd.map(ms);
         let a = wd.findIndex(d => ms(d) >= t0); if (a < 0) a = wd.length - 1;
         let b = wd.length - 1;
         for (let i = wd.length - 1; i >= 0; i--) { if (ms(wd[i]) <= t1) { b = i; break; } }
@@ -241,17 +259,13 @@
           const deep = e.depth >= 20, mid = e.depth >= 10;
           const r = 2.5 + Math.min(e.depth, 60) / 9;
           // recurrence stats for "this deep or deeper", vs the full episode set
-          const geq = eps.filter(o => o.depth >= e.depth);
-          const share = geq.length / eps.length * 100;
-          const yrPct = Math.min(100, new Set(geq.map(o => +o.trough.slice(0, 4))).size / ix.years * 100);
-          const lastT = geq.map(o => o.trough).sort().at(-1);
-          const since = Math.round((new Date(D.as_of) - new Date(lastT)) / 86400e3);
-          const sinceTxt = since.toLocaleString() + "d" + (since >= 365 ? ` (~${(since/365.25).toFixed(1)}y)` : "") +
-                           " ago" + (lastT === e.trough ? " — this one" : ` (on ${lastT})`);
+          const st = ddStats(eps, ix.years, e.depth);
+          const sinceTxt = st.since.toLocaleString() + "d" + (st.since >= 365 ? ` (~${(st.since/365.25).toFixed(1)}y)` : "") +
+                           " ago" + (st.lastT === e.trough ? " — this one" : ` (on ${st.lastT})`);
           const tipTxt = `−${e.depth}% · peak ${e.peak} → trough ${e.trough} (${days(e.p2t)})` +
                          (e.rec != null ? ` · recovered in ${days(e.rec)}` : " · ONGOING") +
-                         `&#10;≥${e.depth}% happens: ${share.toFixed(1)}% of all pullbacks` +
-                         `&#10;chance in any year: ${yrPct.toFixed(0)}%` +
+                         `&#10;${st.share.toFixed(1)}% of all pullbacks` +
+                         `&#10;chance in any year: ${st.yrPct.toFixed(0)}%` +
                          `&#10;last one this deep: ${sinceTxt}`;
           s += `<circle cx="${X(ms(e.trough)).toFixed(1)}" cy="${Y(e.depth).toFixed(1)}" r="${r.toFixed(1)}" ` +
                `fill="${deep ? "#0c0a09" : mid ? "#1d7fc4" : "#ffffff"}" stroke="${deep ? "#0c0a09" : "#3ba6f1"}" ` +
@@ -276,12 +290,38 @@
           svg.appendChild(el); brush.el = el;
           svg.setPointerCapture(e.pointerId); e.preventDefault();
         };
+        // hover crosshair: date + drawdown under the pointer (suppressed while
+        // brushing or over an episode dot, whose own tooltip takes precedence)
+        const xhair = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        xhair.setAttribute("y1", top); xhair.setAttribute("y2", bot);
+        xhair.setAttribute("stroke", "#a8a29e"); xhair.setAttribute("stroke-dasharray", "2 4");
+        xhair.setAttribute("pointer-events", "none"); xhair.style.display = "none";
+        svg.appendChild(xhair);
         svg.onpointermove = (e) => {
-          if (!brush) return;
-          brush.x1 = Math.max(L, Math.min(R, toVB(e)));
-          brush.el.setAttribute("x", Math.min(brush.x0, brush.x1));
-          brush.el.setAttribute("width", Math.abs(brush.x1 - brush.x0));
+          if (brush) {
+            xhair.style.display = "none"; delete svg.dataset.tip;
+            brush.x1 = Math.max(L, Math.min(R, toVB(e)));
+            brush.el.setAttribute("x", Math.min(brush.x0, brush.x1));
+            brush.el.setAttribute("width", Math.abs(brush.x1 - brush.x0));
+            return;
+          }
+          const r = svg.getBoundingClientRect();
+          const vx = (e.clientX - r.left) / r.width * W, vy = (e.clientY - r.top) / r.height * H;
+          const overDot = e.target.closest && e.target.closest("circle[data-tip]");
+          if (overDot || vx < L || vx > R || vy < top || vy > bot) {
+            xhair.style.display = "none";
+            if (!overDot) delete svg.dataset.tip;
+            return;
+          }
+          const t = t0 + (vx - L) / (R - L) * (t1 - t0);
+          let lo = a, hi = b;
+          while (lo < hi) { const m = (lo + hi) >> 1; if (wmsAll[m] < t) lo = m + 1; else hi = m; }
+          if (lo > a && Math.abs(wmsAll[lo - 1] - t) < Math.abs(wmsAll[lo] - t)) lo--;
+          const px = X(wmsAll[lo]).toFixed(1);
+          xhair.setAttribute("x1", px); xhair.setAttribute("x2", px); xhair.style.display = "";
+          svg.dataset.tip = `${wd[lo]} · ${wv[lo] <= -0.05 ? "−" + Math.abs(wv[lo]).toFixed(1) + "% from ATH" : "at ATH"}`;
         };
+        svg.onpointerleave = () => { xhair.style.display = "none"; delete svg.dataset.tip; };
         svg.onpointerup = () => {
           if (!brush) return;
           const { x0, x1, el } = brush; el.remove(); brush = null;
