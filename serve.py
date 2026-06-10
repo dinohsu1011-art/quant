@@ -47,6 +47,7 @@ def _run_event(q):
         kw["streak"] = int(q["streak_n"])
         kw["streak_dir"] = q.get("streak_dir", "down")
         kw["streak_gap"] = q.get("streak_gap") or None
+        kw["streak_anchor"] = q.get("streak_anchor", "start")
     if q.get("worst_n"):
         kw["worst_n"] = int(q["worst_n"])
     elif q.get("threshold") not in (None, ""):

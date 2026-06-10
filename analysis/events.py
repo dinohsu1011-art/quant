@@ -115,7 +115,7 @@ def _compile_condition(when):
 
 
 def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
-                streak=None, streak_dir="down", streak_gap=None,
+                streak=None, streak_dir="down", streak_gap=None, streak_anchor="start",
                 horizon=1, strict_next_dow=None, since=None, price="close",
                 measure_field="ret", when=None):
     """Conditional next-session returns.
@@ -126,14 +126,23 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
     day             isodow of the trigger day (FRI=5); None = any day
     threshold       trigger when trigger_ret <= threshold (e.g. -0.0477)
     worst_n         instead of a threshold, take the N most negative trigger days
-    streak          consecutive-day PATTERN anchored at the trigger day: the trigger
-                    day must be the START of a run (prior day breaks the pattern) of
+    streak          consecutive-day PATTERN anchored at the trigger day: a run of
                     N days each in `streak_dir` ('down'|'up'), each optionally also
                     gapping (`streak_gap`: 'up'|'down'|None — open vs prior close).
                     The outcome is measured from the LAST day of the pattern.
-                    COMPOSES with threshold/worst_n, which apply to day 1 — e.g.
+                    COMPOSES with day/threshold/worst_n/when, which apply to the
+                    trigger day.
+    streak_anchor   where the trigger day sits relative to the run:
+                    'start' (default) — the trigger day IS day 1 of the run (the
+                    prior day breaks the pattern, so the run starts here); e.g.
                     threshold=-0.02, streak=2, streak_gap='up' = a ≥2% drop that is
                     day 1 of two consecutive gap-up red days; outcome after day 2.
+                    'after' — the run FOLLOWS the trigger day: days T+1..T+N each
+                    hit the pattern, while day T itself only carries the trigger
+                    conditions; e.g. threshold=-0.025, day=FRI, streak=2,
+                    streak_gap='up', streak_anchor='after' = "after SPY falls
+                    ≥2.5% on a Friday, then 2 consecutive gap-up-and-fade days";
+                    outcome after day T+2.
     horizon         sessions ahead to measure (1 = next session)
     strict_next_dow require the outcome day to equal this isodow (e.g. MON)
     since           ISO date string lower bound on the trigger day
@@ -149,7 +158,11 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
     view = _view(symbol)
     px = "adj_close" if price == "adj_close" else "close"
     h = int(horizon)
-    k = int(streak) - 1 if streak is not None else 0   # pattern days after the trigger day
+    if streak_anchor not in ("start", "after"):
+        raise ValueError(f"streak_anchor {streak_anchor!r} not in start/after")
+    # pattern days after the trigger day: 'start' counts the trigger as day 1 of
+    # the run (N-1 more days follow); 'after' puts the whole N-day run after it.
+    k = (int(streak) if streak_anchor == "after" else int(streak) - 1) if streak is not None else 0
     pxb = f"LEAD({px}, {k}) OVER w" if k else px       # outcome base = last pattern day's close
     clb = f"LEAD(close, {k}) OVER w" if k else "close"
     if measure_field == "ret":     outcome_expr = f"LEAD({px}, {k + h}) OVER w / {pxb} - 1"
@@ -198,12 +211,18 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
 
     if streak is not None:
         # Per-day predicate = direction (close vs prior close) AND optional gap
-        # qualifier (open vs prior close). fok = the trigger day STARTS a run
-        # (prior day misses) and the next N-1 days all hit.
+        # qualifier (open vs prior close). fok with anchor='start' = the trigger
+        # day STARTS a run (prior day misses) and the next N-1 days all hit;
+        # anchor='after' = the N days following the trigger all hit (the trigger
+        # day itself is unconstrained by the pattern — it carries the trigger
+        # conditions instead).
         dirt = "close < pc" if streak_dir == "down" else "close > pc"
         gapt = {"up": " AND open > pc", "down": " AND open < pc", None: ""}[streak_gap]
-        chain = " AND ".join(["hit = 1", "COALESCE(LAG(hit) OVER w, 0) = 0"]
-                             + [f"LEAD(hit, {i}) OVER w = 1" for i in range(1, int(streak))])
+        if streak_anchor == "after":
+            chain = " AND ".join(f"LEAD(hit, {i}) OVER w = 1" for i in range(1, int(streak) + 1))
+        else:
+            chain = " AND ".join(["hit = 1", "COALESCE(LAG(hit) OVER w, 0) = 0"]
+                                 + [f"LEAD(hit, {i}) OVER w = 1" for i in range(1, int(streak))])
         src = f"""(SELECT *, CASE WHEN pc IS NOT NULL AND {dirt}{gapt} THEN 1 ELSE 0 END AS hit
                  FROM (SELECT date, open, high, low, close, adj_close,
                               LAG(close) OVER (ORDER BY date) AS pc

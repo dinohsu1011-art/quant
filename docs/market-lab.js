@@ -149,8 +149,10 @@
     const mask = condMask(c, subj);
     if (!mask) return null;
     const H = get(M.horizons, h).h, WD = get(M.weekdays, wd), T = get(M.triggers, t);
-    // optional streak pattern: trigger day = day 1 (run start) of N consecutive
-    // qualifying days; outcome measured from the run's LAST day
+    // optional streak pattern, two anchors: 'start' — trigger day = day 1 (run
+    // start) of N consecutive qualifying days; 'after' — the N-day run FOLLOWS
+    // the trigger day (days T+1..T+N), the trigger day itself only carries the
+    // drop/weekday/condition. Outcome measured from the run's LAST day either way.
     const K = sk && sk !== "none" && M.streaks ? get(M.streaks, sk) : null;
     let hit = null;
     if (K && K.streak != null) {
@@ -164,6 +166,10 @@
     }
     const fok = (i) => {
       if (!hit) return true;
+      if (K.anchor === "after") {                       // run follows the trigger day
+        for (let j = 1; j <= K.streak; j++) if (i + j >= N || !hit[i + j]) return false;
+        return true;
+      }
       if (!hit[i] || hit[i - 1]) return false;          // must START the run
       for (let j = 1; j < K.streak; j++) if (i + j >= N || !hit[i + j]) return false;
       return true;
@@ -178,7 +184,7 @@
     }
     if (T.worst_n != null) { idx.sort((x, y) => ret[x] - ret[y]); idx = idx.slice(0, T.worst_n); }
     else idx.sort((x, y) => y - x);     // trigger_date DESC, like the server
-    const off = hit ? K.streak - 1 : 0;
+    const off = hit ? (K.anchor === "after" ? K.streak : K.streak - 1) : 0;
     return idx.map(i => {
       const a = i + off, j = a + H, pend = j >= N;
       return { trigger_date: dstr(ser.days[i]), trigger_dow: isodow(ser.days[i]),
@@ -235,6 +241,7 @@
       q.set("streak_n", K.streak);
       q.set("streak_dir", K.dir === "dn" ? "down" : "up");
       if (K.gap) q.set("streak_gap", K.gap);
+      if (K.anchor === "after") q.set("streak_anchor", "after");
     }
     const wdo = get(M.weekdays, wd);
     if (wdo.day != null) q.set("day", wd);
@@ -385,11 +392,12 @@
   // ---------- renderers ----------
   function renderStats(r) {
     const cells = r ? [
-      ["next " + (get(M.horizons, state.h).h === 1 ? "session" : "5 sessions") + " up", r.up + "%", ""],
+      ["next " + (get(M.horizons, state.h).h === 1 ? "session" : "5 sessions") + " up",
+        r.up == null ? "—" : r.up + "%", ""],
       ["mean", f2(r.mean), "t = " + (r.t == null ? "—" : r.t)],
       ["sample", "n = " + r.n, r.n < 15 ? "small — read with care" : ""],
       ["95% CI", `${f2(r.ci_lo)} · ${f2(r.ci_hi)}`,
-        r.ci_lo != null && r.ci_lo <= 0 && r.ci_hi >= 0 ? "straddles zero" : "clears zero"],
+        r.ci_lo == null ? "" : r.ci_lo <= 0 && r.ci_hi >= 0 ? "straddles zero" : "clears zero"],
     ] : [["no data", "—", "combo pruned (n<3) or live-only"], ["", "—", ""], ["", "—", ""], ["", "—", ""]];
     $("stats").innerHTML = cells.map(([l, v, s]) =>
       `<div class="stat"><div class="l">${esc(l)}&nbsp;</div><div class="v">${esc(v)}</div><div class="s">${esc(s)}&nbsp;</div></div>`).join("");

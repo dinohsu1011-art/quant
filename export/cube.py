@@ -145,17 +145,26 @@ TRIGGERS = [
     {"id": "w50", "label": "Worst 50 days", "worst_n": 50},
 ]
 
-# Streak PATTERNS (their own optional field): the trigger day is day 1 of a run of
-# N consecutive days in the direction, each optionally gapping; the outcome is
-# measured after the run's last day. NOT enumerated in the cube — computed
-# client-side (live mode uses the API's streak_n/streak_dir/streak_gap).
+# Streak PATTERNS (their own optional field). Two anchors:
+#   'start' — the trigger day is day 1 of a run of N consecutive days in the
+#             direction, each optionally gapping; outcome after the run's last day.
+#   'after' — the run FOLLOWS the trigger day (days T+1..T+N hit the pattern);
+#             the trigger day only carries the drop/weekday/condition; outcome
+#             after day T+N. ("After SPY falls ≥2.5% on Fridays, then 2 gap-up
+#             red days in a row, what happens next session?")
+# NOT enumerated in the cube — computed client-side (live mode uses the API's
+# streak_n/streak_dir/streak_gap/streak_anchor).
 STREAKS = [{"id": "none", "label": "— none —"}] + [
-    {"id": f"s{n}{d}{g or ''}",
-     "label": f"starts {n} {'red' if d == 'dn' else 'green'} days in a row"
+    {"id": f"{a}{n}{d}{g or ''}",
+     "label": ("starts " if a == "s" else "then ")
+              + f"{n} {'red' if d == 'dn' else 'green'} days in a row"
               + ("" if not g else f", each gapping {'up' if g == 'gu' else 'down'}"),
      "streak": n, "dir": d, "gap": None if not g else ("up" if g == "gu" else "down"),
-     "group": "Plain runs" if not g else ("Runs of gap-up days" if g == "gu" else "Runs of gap-down days")}
-    for g in ("", "gu", "gd") for d in ("dn", "up") for n in (2, 3, 4, 5)
+     "anchor": "start" if a == "s" else "after",
+     "group": ("" if a == "s" else "Followed by: ")
+              + ("Plain runs" if not g else
+                 ("Runs of gap-up days" if g == "gu" else "Runs of gap-down days"))}
+    for a in ("s", "f") for g in ("", "gu", "gd") for d in ("dn", "up") for n in (2, 3, 4, 5)
 ]
 WEEKDAYS = [
     {"id": "any", "label": "Any day", "day": None},
