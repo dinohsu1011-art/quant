@@ -51,11 +51,118 @@
     return arr ? { n: arr[0], up: arr[1], mean: arr[2], t: arr[3], ci_lo: arr[4], ci_hi: arr[5],
                    counts: arr.slice(6), rows: rows || null } : null;
   }
+  // ---------- offline occurrence engine ----------
+  // Recomputes the per-event rows client-side from the compact daily series in
+  // each shard (same close-to-close semantics as serve.py's event_study).
+  function decodeSeries(raw) {
+    const n = raw.dd.length + 1, days = new Array(n);
+    days[0] = raw.d0;
+    for (let i = 1; i < n; i++) days[i] = days[i - 1] + raw.dd[i - 1];
+    return { days, close: raw.c.map(x => x / 10000) };
+  }
+  const isodow = (day) => { const d = new Date(day * 86400000).getUTCDay(); return d === 0 ? 7 : d; };
+  const dstr = (day) => new Date(day * 86400000).toISOString().slice(0, 10);
+  function rollMA(arr, win) {           // min_periods=1, matches the cube build
+    const out = new Array(arr.length); let sum = 0; const q = [];
+    for (let i = 0; i < arr.length; i++) {
+      q.push(arr[i]); sum += arr[i];
+      if (q.length > win) sum -= q.shift();
+      out[i] = sum / q.length;
+    }
+    return out;
+  }
+  function featureMaps(raw) {
+    const s = decodeSeries(raw);
+    const val = new Map(), prev = new Map(), ret = new Map(), ma50 = new Map();
+    const ma = rollMA(s.close, 50);
+    for (let i = 0; i < s.days.length; i++) {
+      const d = s.days[i];
+      val.set(d, s.close[i]); ma50.set(d, ma[i]);
+      if (i > 0) { prev.set(d, s.close[i - 1]); ret.set(d, s.close[i] / s.close[i - 1] - 1); }
+    }
+    return { val, prev, ret, ma50 };
+  }
+  let CONDM = null;
+  function loadCondJs() {
+    return new Promise((res, rej) => {
+      if (L.cond) return res();
+      const sc = document.createElement("script");
+      sc.src = "cube/conditioners.js";
+      sc.onload = () => res();
+      sc.onerror = () => rej(new Error("conditioners.js not found"));
+      document.body.appendChild(sc);
+    });
+  }
+  function condMask(id, subj) {         // exact-date alignment; missing -> false
+    const n = subj.days.length, m = new Array(n).fill(true);
+    const F = (ser) => CONDM[ser];
+    const apply = (fn) => { for (let i = 0; i < n; i++) m[i] = fn(subj.days[i], i) === true; };
+    switch (id) {
+      case "none": break;
+      case "up":          apply((d, i) => subj.close[i] > subj.ma200[i]); break;
+      case "down":        apply((d, i) => subj.close[i] < subj.ma200[i]); break;
+      case "vix_hi":      apply((d) => F("vix").val.get(d) > 30); break;
+      case "vix_lo":      apply((d) => F("vix").val.get(d) < 20); break;
+      case "vixprev_hi":  apply((d) => F("vix").prev.get(d) >= 25); break;
+      case "gold_up":     apply((d) => F("gold").ret.get(d) > 0); break;
+      case "gold_dn":     apply((d) => F("gold").ret.get(d) < 0); break;
+      case "cu_up":       apply((d) => F("copper").val.get(d) > F("copper").ma50.get(d)); break;
+      case "cu_dn":       apply((d) => F("copper").val.get(d) < F("copper").ma50.get(d)); break;
+      case "tnx_up":      apply((d) => F("tnx").val.get(d) > F("tnx").ma50.get(d)); break;
+      case "tnx_dn":      apply((d) => F("tnx").val.get(d) < F("tnx").ma50.get(d)); break;
+      case "credit_wide": apply((d) => F("hyg").val.get(d) < F("hyg").ma50.get(d)); break;
+      case "usd_up":      apply((d) => F("uup").val.get(d) > F("uup").ma50.get(d)); break;
+      case "vix_bw":      apply((d) => F("vix3m").val.get(d) < F("vix").val.get(d)); break;
+      case "oil_up":      apply((d) => F("wti").val.get(d) > F("wti").ma50.get(d)); break;
+      default: return null;
+    }
+    return m;
+  }
+  async function computeRows(s, t, wd, c, h) {
+    const raw = L.series && L.series[s];
+    if (!raw) return null;
+    if (!["none", "up", "down"].includes(c)) {
+      await loadCondJs();
+      if (!CONDM) {
+        CONDM = {};
+        for (const k of Object.keys(L.cond)) CONDM[k] = featureMaps(L.cond[k]);
+      }
+    }
+    const ser = decodeSeries(raw);
+    const subj = { days: ser.days, close: ser.close,
+                   ma200: (c === "up" || c === "down") ? rollMA(ser.close, 200) : null };
+    const mask = condMask(c, subj);
+    if (!mask) return null;
+    const H = get(M.horizons, h).h, WD = get(M.weekdays, wd), T = get(M.triggers, t);
+    const N = ser.days.length, ret = new Array(N).fill(NaN);
+    for (let i = 1; i < N; i++) ret[i] = ser.close[i] / ser.close[i - 1] - 1;
+    let idx = [];
+    for (let i = 1; i < N; i++) {
+      if (!mask[i]) continue;
+      if (WD.day != null && isodow(ser.days[i]) !== WD.day) continue;
+      if (T.threshold != null) { if (ret[i] <= T.threshold) idx.push(i); }
+      else idx.push(i);
+    }
+    if (T.worst_n != null) { idx.sort((x, y) => ret[x] - ret[y]); idx = idx.slice(0, T.worst_n); }
+    else idx.sort((x, y) => y - x);     // trigger_date DESC, like the server
+    return idx.map(i => {
+      const j = i + H, pend = j >= N;
+      return { trigger_date: dstr(ser.days[i]), trigger_dow: isodow(ser.days[i]),
+               trigger_ret: Math.round(ret[i] * 10000) / 100,
+               outcome_date: pend ? null : dstr(ser.days[j]),
+               outcome_dow: pend ? null : isodow(ser.days[j]),
+               outcome_ret: pend ? null : Math.round((ser.close[j] / ser.close[i] - 1) * 10000) / 100 };
+    });
+  }
+  window.__rows = computeRows;          // programmatic hook (tests/console)
+
   async function getResult(s, t, wd, c, h, thr) {
     if (SERVER === null) {
       if (t === "custom") return null;            // custom thresholds are live-only
       await loadShard(s);
-      return norm((L.shards[s] || {})[`${t}|${wd}|${c}|${h}`]);
+      const base = norm((L.shards[s] || {})[`${t}|${wd}|${c}|${h}`]);
+      if (base) { try { base.rows = await computeRows(s, t, wd, c, h); } catch (e) {} }
+      return base;
     }
     const T = t === "custom" ? null : get(M.triggers, t);
     const q = new URLSearchParams({ subject: s, horizon: get(M.horizons, h).h });
@@ -248,12 +355,12 @@
 
   function renderOcc(r) {
     lastRows = r && r.rows;
-    if (SERVER === null) {
-      $("occsub").textContent = "· live mode only";
-      $("occ").innerHTML = `<div class="note">The per-event list needs the live backend:&nbsp; <b>./.venv/bin/python serve.py</b> &nbsp;then open <b>localhost:8765/market-lab.html</b></div>`;
+    if (!lastRows) {
+      $("occsub").textContent = "";
+      $("occ").innerHTML = `<div class="note">Event list unavailable for this combo.</div>`;
       return;
     }
-    if (!lastRows || !lastRows.length) { $("occsub").textContent = ""; $("occ").innerHTML = `<div class="note">no events</div>`; return; }
+    if (!lastRows.length) { $("occsub").textContent = ""; $("occ").innerHTML = `<div class="note">no events</div>`; return; }
     const rows = lastRows.filter((x) => x.outcome_ret != null);
     $("occsub").textContent = `· ${rows.length} events · hover a histogram bin to highlight`;
     $("occ").innerHTML = `<table><tr><th>trigger</th><th style="text-align:right">move</th><th>outcome session</th><th style="text-align:right">return</th><th></th></tr>` +
@@ -264,7 +371,7 @@
       `</table>` + (rows.length > 100 ? `<div class="note">showing 100 of ${rows.length}</div>` : "");
   }
   function highlightRows(binIdx) {
-    if (SERVER === null || !lastRows) return;
+    if (!lastRows) return;
     const E = M.bin_edges;
     document.querySelectorAll("#occ tr[data-ret]").forEach((tr) => {
       const v = parseFloat(tr.dataset.ret);

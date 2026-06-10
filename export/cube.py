@@ -211,6 +211,16 @@ def _feats(conn, view, specs):
     return pd.DataFrame(out)
 
 
+def _pack_series(dates_idx, closes):
+    """Compact daily series for client-side row computation: epoch-day deltas +
+    closes ×10,000 as ints. Decoded in market-lab.js (decodeSeries).
+    Unit-agnostic date math — DuckDB hands pandas datetime64[us], so raw asi8
+    division by a nanosecond constant silently corrupts the day numbers."""
+    days = ((dates_idx - pd.Timestamp("1970-01-01")) // pd.Timedelta("1D")).astype("int64").to_numpy()
+    return {"d0": int(days[0]), "dd": [int(x) for x in np.diff(days)],
+            "c": [int(round(v * 10000)) for v in closes]}
+
+
 def build(conn):
     """Vectorized: pull each subject once, evaluate every combo in numpy (no per-combo query).
     Conditioner features are computed on each series' OWN history, then aligned per subject —
@@ -228,11 +238,12 @@ def build(conn):
     ], axis=1, sort=False).sort_index()
     hz = {h["h"]: h["id"] for h in HORIZONS}
 
-    results, kept, total = {}, 0, 0
+    results, series_by, kept, total = {}, {}, 0, 0
     for s in SUBJECTS:
         c = conn.execute(f'select date, close from "{s["id"]}" order by date').df()
         c["date"] = pd.to_datetime(c["date"])
         close = c.set_index("date")["close"]
+        series_by[s["id"]] = _pack_series(close.index, close.to_numpy())
         ret = close.pct_change().to_numpy()
         retfin = np.isfinite(ret)
         isodow = np.asarray(close.index.dayofweek) + 1
@@ -284,7 +295,7 @@ def build(conn):
                                         round(ci_lo, 3), round(ci_hi, 3), *[int(x) for x in counts]]
                         kept += 1
         print(f"  {s['id']:6} done · kept {kept}")
-    return results, kept, total
+    return results, series_by, kept, total
 
 
 def main():
@@ -293,7 +304,7 @@ def main():
     cube_dir.mkdir(parents=True, exist_ok=True)
     conn = db.connect()
     as_of = conn.execute("select max(date) from spy").fetchone()[0]
-    results, kept, total = build(conn)
+    results, series_by, kept, total = build(conn)
 
     # Shard per subject: index.js carries meta+menus (~15KB, instant load); each
     # subject's results load on demand via <script> injection (works on file://).
@@ -313,7 +324,7 @@ def main():
     }
     (cube_dir / "index.js").write_text(
         "window.QUANT_LAB = " + json.dumps(index, separators=(",", ":"))
-        + ";\nwindow.QUANT_LAB.shards = {};\n")
+        + ";\nwindow.QUANT_LAB.shards = {};\nwindow.QUANT_LAB.series = {};\n")
 
     by_subj = {s["id"]: {} for s in SUBJECTS}
     for key, row in results.items():
@@ -323,11 +334,24 @@ def main():
     for subj, rows in by_subj.items():
         (cube_dir / f"{subj}.js").write_text(
             f"window.QUANT_LAB.shards[{json.dumps(subj)}] = "
-            + json.dumps(rows, separators=(",", ":")) + ";\n")
+            + json.dumps(rows, separators=(",", ":")) + ";\n"
+            + f"window.QUANT_LAB.series[{json.dumps(subj)}] = "
+            + json.dumps(series_by[subj], separators=(",", ":")) + ";\n")
         written.add(f"{subj}.js")
+
+    # raw closes of the 8 conditioner source series — lets the page evaluate
+    # when= gates client-side for the offline occurrence list
+    cond = {}
+    for v in ["vix", "vix3m", "gold", "copper", "tnx", "hyg", "uup", "wti"]:
+        d = conn.execute(f'select date, close from "{v}" order by date').df()
+        d["date"] = pd.to_datetime(d["date"])
+        cs = d.set_index("date")["close"]
+        cond[v] = _pack_series(cs.index, cs.to_numpy())
+    (cube_dir / "conditioners.js").write_text(
+        "window.QUANT_LAB.cond = " + json.dumps(cond, separators=(",", ":")) + ";\n")
     # prune shards for subjects that left the menu + the legacy monolith
     for f in cube_dir.glob("*.js"):
-        if f.name not in written and f.name not in ("index.js", "baskets.js", "drawdowns.js"):
+        if f.name not in written and f.name not in ("index.js", "baskets.js", "drawdowns.js", "conditioners.js"):
             f.unlink()
     legacy = out_dir / "trader-profile-cube.js"
     if legacy.exists():
