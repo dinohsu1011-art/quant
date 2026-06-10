@@ -73,15 +73,16 @@ def _compile_condition(when):
             return str(float(term))                      # numeric literal
         except ValueError:
             pass
-        m = re.fullmatch(r"([a-z0-9]+?)(_prev|_ret|_(\d+)dma)?", term)
+        m = re.fullmatch(r"([a-z0-9]+?)(_ret_prev|_prev|_ret|_(\d+)dma)?", term)
         if not m:
             raise ValueError(f"unparseable term {term!r} in when=")
         s, suf = m.group(1), m.group(2)
         feats.setdefault(s, set())
-        if suf is None:      feats[s].add("val");  col = "val"
-        elif suf == "_prev": feats[s].add("prev"); col = "prev"
-        elif suf == "_ret":  feats[s].add("ret");  col = "ret"
-        else:                N = int(m.group(3)); feats[s].add(f"ma:{N}"); col = f"ma{N}"
+        if suf is None:           feats[s].add("val");   col = "val"
+        elif suf == "_ret_prev":  feats[s].add("rprev"); col = "rprev"
+        elif suf == "_prev":      feats[s].add("prev");  col = "prev"
+        elif suf == "_ret":       feats[s].add("ret");   col = "ret"
+        else:                     N = int(m.group(3)); feats[s].add(f"ma:{N}"); col = f"ma{N}"
         return f"c_{s}.{s}__{col}"
 
     mflag = re.fullmatch(r"([a-z0-9]+)_(up|down)", when)
@@ -98,9 +99,10 @@ def _compile_condition(when):
     ctes, joins = [], []
     for s, fs in feats.items():
         cols = ["date"]
-        if "val" in fs:  cols.append(f"close AS {s}__val")
-        if "prev" in fs: cols.append(f"LAG(close) OVER w AS {s}__prev")
-        if "ret" in fs:  cols.append(f"close / LAG(close) OVER w - 1 AS {s}__ret")
+        if "val" in fs:   cols.append(f"close AS {s}__val")
+        if "prev" in fs:  cols.append(f"LAG(close) OVER w AS {s}__prev")
+        if "ret" in fs:   cols.append(f"close / LAG(close) OVER w - 1 AS {s}__ret")
+        if "rprev" in fs: cols.append(f"LAG(close) OVER w / LAG(close, 2) OVER w - 1 AS {s}__rprev")
         for f in sorted(fs):
             if f.startswith("ma:"):
                 N = int(f.split(":")[1])
@@ -229,11 +231,11 @@ def compare_regimes(conn, symbol, regimes, **kw):
     return pd.DataFrame(rows)
 
 
-_TOK = re.compile(r"[a-z][a-z0-9]*(?:_ret|_prev|_\d+dma)?")
+_TOK = re.compile(r"[a-z][a-z0-9]*(?:_ret_prev|_ret|_prev|_\d+dma)?")
 
 
 def _parse_tok(t):
-    m = re.fullmatch(r"([a-z][a-z0-9]*?)(_ret|_prev|_(\d+)dma)?", t)
+    m = re.fullmatch(r"([a-z][a-z0-9]*?)(_ret_prev|_ret|_prev|_(\d+)dma)?", t)
     return m.group(1), m.group(2), (int(m.group(3)) if m.group(3) else None)
 
 
@@ -306,6 +308,7 @@ def sequence(conn, legs, subject, *, anchor_day=None, measure_offset=1,
         base, feat, n = _parse_tok(t)
         c = J[base + "__c"]
         J[t] = c if feat is None else (c.pct_change() if feat == "_ret"
+                                       else c.pct_change().shift(1) if feat == "_ret_prev"
                                        else c.shift(1) if feat == "_prev" else c.rolling(n).mean())
 
     dow = (J.index.dayofweek + 1).to_numpy()      # isodow Mon=1..Sun=7

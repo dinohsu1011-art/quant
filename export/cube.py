@@ -169,6 +169,14 @@ CONDITIONS = [
     {"id": "usd_up", "label": "Dollar strong (UUP > 50DMA)", "when": "uup>uup_50dma"},
     {"id": "vix_bw", "label": "VIX backwardated (VIX3M < VIX)", "when": "vix3m<vix"},
     {"id": "oil_up", "label": "Oil rising (WTI > 50DMA)", "when": "wti>wti_50dma"},
+    # previous-session gates
+    {"id": "prev_dn", "label": "Subject was down the previous day", "when": "{subj}_ret_prev<0"},
+    {"id": "prev_up", "label": "Subject was up the previous day", "when": "{subj}_ret_prev>0"},
+    {"id": "prev_dn1", "label": "Subject fell ≥1% the previous day", "when": "{subj}_ret_prev<=-0.01"},
+    {"id": "prev_dn2", "label": "Subject fell ≥2% the previous day", "when": "{subj}_ret_prev<=-0.02"},
+    {"id": "prev_up1", "label": "Subject rose ≥1% the previous day", "when": "{subj}_ret_prev>=0.01"},
+    {"id": "spy_prev_dn1", "label": "SPY fell ≥1% the previous day", "when": "spy_ret_prev<=-0.01"},
+    {"id": "spy_prev_dn2", "label": "SPY fell ≥2% the previous day", "when": "spy_ret_prev<=-0.02"},
 ]
 HORIZONS = [
     {"id": "h1", "label": "Next session", "h": 1},
@@ -206,7 +214,9 @@ def _feats(conn, view, specs):
     c["date"] = pd.to_datetime(c["date"])
     c = c.set_index("date")["close"]
     out = {n: (c if k == "val" else c.shift(1) if k == "prev"
-               else c.pct_change() if k == "ret" else c.rolling(int(k), min_periods=1).mean())
+               else c.pct_change() if k == "ret"
+               else c.pct_change().shift(1) if k == "rprev"
+               else c.rolling(int(k), min_periods=1).mean())
            for n, k in specs.items()}
     return pd.DataFrame(out)
 
@@ -235,6 +245,7 @@ def build(conn):
         _feats(conn, "hyg",    {"hyg": "val", "hyg_50dma": "50"}),
         _feats(conn, "uup",    {"uup": "val", "uup_50dma": "50"}),
         _feats(conn, "wti",    {"wti": "val", "wti_50dma": "50"}),
+        _feats(conn, "spy",    {"spy_ret_prev": "rprev"}),
     ], axis=1, sort=False).sort_index()
     hz = {h["h"]: h["id"] for h in HORIZONS}
 
@@ -252,6 +263,7 @@ def build(conn):
         F = G.reindex(close.index)
         F["SUBJ"] = close.to_numpy()
         F["SUBJ_200dma"] = close.rolling(200, min_periods=1).mean().to_numpy()
+        F["SUBJ_ret_prev"] = close.pct_change().shift(1).to_numpy()
         cmask = {}
         for cond in CONDITIONS:
             if cond["when"] is None:
@@ -342,7 +354,7 @@ def main():
     # raw closes of the 8 conditioner source series — lets the page evaluate
     # when= gates client-side for the offline occurrence list
     cond = {}
-    for v in ["vix", "vix3m", "gold", "copper", "tnx", "hyg", "uup", "wti"]:
+    for v in ["vix", "vix3m", "gold", "copper", "tnx", "hyg", "uup", "wti", "spy"]:
         d = conn.execute(f'select date, close from "{v}" order by date').df()
         d["date"] = pd.to_datetime(d["date"])
         cs = d.set_index("date")["close"]

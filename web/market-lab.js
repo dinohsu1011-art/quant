@@ -73,14 +73,15 @@
   }
   function featureMaps(raw) {
     const s = decodeSeries(raw);
-    const val = new Map(), prev = new Map(), ret = new Map(), ma50 = new Map();
+    const val = new Map(), prev = new Map(), ret = new Map(), rprev = new Map(), ma50 = new Map();
     const ma = rollMA(s.close, 50);
     for (let i = 0; i < s.days.length; i++) {
       const d = s.days[i];
       val.set(d, s.close[i]); ma50.set(d, ma[i]);
       if (i > 0) { prev.set(d, s.close[i - 1]); ret.set(d, s.close[i] / s.close[i - 1] - 1); }
+      if (i > 1) rprev.set(d, s.close[i - 1] / s.close[i - 2] - 1);
     }
-    return { val, prev, ret, ma50 };
+    return { val, prev, ret, rprev, ma50 };
   }
   let CONDM = null;
   function loadCondJs() {
@@ -114,14 +115,22 @@
       case "usd_up":      apply((d) => F("uup").val.get(d) > F("uup").ma50.get(d)); break;
       case "vix_bw":      apply((d) => F("vix3m").val.get(d) < F("vix").val.get(d)); break;
       case "oil_up":      apply((d) => F("wti").val.get(d) > F("wti").ma50.get(d)); break;
+      case "prev_dn":  apply((d, i) => i >= 2 && subj.ret[i - 1] < 0); break;
+      case "prev_up":  apply((d, i) => i >= 2 && subj.ret[i - 1] > 0); break;
+      case "prev_dn1": apply((d, i) => i >= 2 && subj.ret[i - 1] <= -0.01); break;
+      case "prev_dn2": apply((d, i) => i >= 2 && subj.ret[i - 1] <= -0.02); break;
+      case "prev_up1": apply((d, i) => i >= 2 && subj.ret[i - 1] >= 0.01); break;
+      case "spy_prev_dn1": apply((d) => F("spy").rprev.get(d) <= -0.01); break;
+      case "spy_prev_dn2": apply((d) => F("spy").rprev.get(d) <= -0.02); break;
       default: return null;
     }
     return m;
   }
+  const SELF_CONTAINED = ["none", "up", "down", "prev_dn", "prev_up", "prev_dn1", "prev_dn2", "prev_up1"];
   async function computeRows(s, t, wd, c, h) {
     const raw = L.series && L.series[s];
     if (!raw) return null;
-    if (!["none", "up", "down"].includes(c)) {
+    if (!SELF_CONTAINED.includes(c)) {
       await loadCondJs();
       if (!CONDM) {
         CONDM = {};
@@ -129,13 +138,13 @@
       }
     }
     const ser = decodeSeries(raw);
-    const subj = { days: ser.days, close: ser.close,
+    const N = ser.days.length, ret = new Array(N).fill(NaN);
+    for (let i = 1; i < N; i++) ret[i] = ser.close[i] / ser.close[i - 1] - 1;
+    const subj = { days: ser.days, close: ser.close, ret,
                    ma200: (c === "up" || c === "down") ? rollMA(ser.close, 200) : null };
     const mask = condMask(c, subj);
     if (!mask) return null;
     const H = get(M.horizons, h).h, WD = get(M.weekdays, wd), T = get(M.triggers, t);
-    const N = ser.days.length, ret = new Array(N).fill(NaN);
-    for (let i = 1; i < N; i++) ret[i] = ser.close[i] / ser.close[i - 1] - 1;
     let idx = [];
     for (let i = 1; i < N; i++) {
       if (!mask[i]) continue;
@@ -156,12 +165,38 @@
   }
   window.__rows = computeRows;          // programmatic hook (tests/console)
 
+  // analytic stats from locally-computed rows — covers combos the cube pruned
+  // (n<3) or never enumerated, so nothing in the menus needs graying out
+  const TCRIT = [12.71, 4.30, 3.18, 2.78, 2.57, 2.45, 2.36, 2.31, 2.26, 2.23, 2.20, 2.18, 2.16,
+                 2.14, 2.13, 2.12, 2.11, 2.10, 2.09, 2.09, 2.08, 2.07, 2.07, 2.06, 2.06, 2.06,
+                 2.05, 2.05, 2.05, 2.04];
+  const tcrit = (df) => df <= 0 ? NaN : df <= 30 ? TCRIT[df - 1] : 1.96 + 2.4 / df;
+  function statsFromRows(rows) {
+    const v = rows.map(r => r.outcome_ret).filter(x => x != null);
+    const E = M.bin_edges, counts = new Array(E.length - 1).fill(0);
+    for (const x of v) for (let i = 0; i < counts.length; i++) if (x >= E[i] && x < E[i + 1]) { counts[i]++; break; }
+    const n = v.length;
+    if (!n) return { n: 0, up: null, mean: null, t: null, ci_lo: null, ci_hi: null, counts, rows: null };
+    const mean = v.reduce((a, b) => a + b, 0) / n;
+    const up = v.filter(x => x > 0).length / n * 100;
+    const sd = n > 1 ? Math.sqrt(v.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1)) : 0;
+    const se = sd / Math.sqrt(n), tc = tcrit(n - 1);
+    const r3 = (x) => Math.round(x * 1000) / 1000;
+    return { n, up: Math.round(up * 100) / 100, mean: r3(mean),
+             t: sd > 0 ? Math.round(mean / se * 100) / 100 : null,
+             ci_lo: sd > 0 ? r3(mean - tc * se) : r3(mean),
+             ci_hi: sd > 0 ? r3(mean + tc * se) : r3(mean), counts, rows: null };
+  }
+
   async function getResult(s, t, wd, c, h, thr) {
     if (SERVER === null) {
       if (t === "custom") return null;            // custom thresholds are live-only
       await loadShard(s);
-      const base = norm((L.shards[s] || {})[`${t}|${wd}|${c}|${h}`]);
-      if (base) { try { base.rows = await computeRows(s, t, wd, c, h); } catch (e) {} }
+      let base = norm((L.shards[s] || {})[`${t}|${wd}|${c}|${h}`]);
+      let rows = null;
+      try { rows = await computeRows(s, t, wd, c, h); } catch (e) {}
+      if (!base && rows) base = statsFromRows(rows);   // cube-pruned combo: compute locally
+      if (base) base.rows = rows;
       return base;
     }
     const T = t === "custom" ? null : get(M.triggers, t);
@@ -206,17 +241,10 @@
   }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePop(); });
 
-  function available(dim, id) {                    // offline graying within the loaded shard
-    if (SERVER !== null || state.t === "custom") return true;
-    const sh = L.shards[state.s];
-    if (!sh) return true;
-    const k = {
-      t: `${id}|${state.wd}|${state.c}|${state.h}`,
-      wd: `${state.t}|${id}|${state.c}|${state.h}`,
-      c: `${state.t}|${state.wd}|${id}|${state.h}`,
-      h: `${state.t}|${state.wd}|${state.c}|${id}`,
-    }[dim];
-    return !!sh[k];
+  function available(dim, id) {
+    // every on-grid combo is computable now (cube hit, or local row engine for
+    // pruned combos) — so nothing in the pickers needs graying out
+    return true;
   }
 
   // ---------- sentence ----------
