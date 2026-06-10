@@ -185,7 +185,7 @@
         const og = eps.find(e => e.rec == null);
         $("ongoing").style.display = og ? "inline-block" : "none";
         if (og) {
-          const st = ddStats(eps, ix.years, og.depth, og);
+          const st = ddStats(eps, ix.years, og.depth, { excl: og });
           const last = st.since != null
             ? `${st.since.toLocaleString()}d ago (${st.lastT})` : "none prior";
           $("ongoing").textContent =
@@ -195,14 +195,18 @@
         }
       }
 
-      function ddStats(eps, years, depth, excl) {
+      function ddStats(eps, years, depth, opts = {}) {
         const geqAll = eps.filter(o => o.depth >= depth);
         const share = geqAll.length / eps.length * 100;
         const yrPct = Math.min(100, new Set(geqAll.map(o => +o.trough.slice(0, 4))).size / years * 100);
-        const lastT = geqAll.filter(o => o !== excl).map(o => o.trough).sort().at(-1) || null;
-        const since = lastT ? Math.round((new Date(D.as_of) - new Date(lastT)) / 86400e3) : null;
+        let pool = geqAll.filter(o => o !== opts.excl);
+        if (opts.before) pool = pool.filter(o => o.trough < opts.before);   // only earlier events
+        const lastT = pool.map(o => o.trough).sort().at(-1) || null;
+        const anchor = opts.anchor ? new Date(opts.anchor) : new Date(D.as_of);
+        const since = lastT ? Math.round((anchor - new Date(lastT)) / 86400e3) : null;
         return { share, yrPct, lastT, since };
       }
+      const fmtGap = (d) => d.toLocaleString() + "d" + (d >= 365 ? ` (~${(d/365.25).toFixed(1)}y)` : "");
 
       function drawTimeline(ix) {
         const eps = ix.episodes;
@@ -218,8 +222,12 @@
         let b = wd.length - 1;
         for (let i = wd.length - 1; i >= 0; i--) { if (ms(wd[i]) <= t1) { b = i; break; } }
         a = Math.max(0, a - 1); b = Math.min(wd.length - 1, b + 1);
-        const vis = eps.filter(e => ms(e.trough) >= t0 && ms(e.trough) <= t1);
-        const maxD = Math.max(8, ...wv.slice(a, b + 1).map(v => -v), ...vis.map(e => e.depth)) * 1.08;
+        const ogEp = eps.find(o => o.rec == null);
+        // completed episodes only — the in-progress pullback is drawn as the live
+        // marker at the latest date instead of at its trough-so-far
+        const vis = eps.filter(e => e !== ogEp && ms(e.trough) >= t0 && ms(e.trough) <= t1);
+        const maxD = Math.max(8, ...wv.slice(a, b + 1).map(v => -v), ...vis.map(e => e.depth),
+                              ...(ogEp ? [ogEp.depth] : [])) * 1.08;
         const Y = (d) => top + d / maxD * (bot - top);
 
         let s = `<defs><clipPath id="plotclip"><rect x="${L}" y="${top - 2}" width="${R - L}" height="${bot - top + 4}"/></clipPath></defs>`;
@@ -258,20 +266,41 @@
         vis.forEach(e => {
           const deep = e.depth >= 20, mid = e.depth >= 10;
           const r = 2.5 + Math.min(e.depth, 60) / 9;
-          // recurrence stats for "this deep or deeper", vs the full episode set
-          const st = ddStats(eps, ix.years, e.depth);
-          const sinceTxt = st.since.toLocaleString() + "d" + (st.since >= 365 ? ` (~${(st.since/365.25).toFixed(1)}y)` : "") +
-                           " ago" + (st.lastT === e.trough ? " — this one" : ` (on ${st.lastT})`);
+          // recurrence stats for "this deep or deeper" — gap measured to the
+          // PREVIOUS occurrence before this event (not anchored to today)
+          const st = ddStats(eps, ix.years, e.depth, { excl: e, before: e.trough, anchor: e.trough });
+          const prevTxt = st.lastT ? `${fmtGap(st.since)} prior (${st.lastT})` : "first this deep in the data";
           const tipTxt = `−${e.depth}% · peak ${e.peak} → trough ${e.trough} (${days(e.p2t)})` +
                          (e.rec != null ? ` · recovered in ${days(e.rec)}` : " · ONGOING") +
                          `&#10;${st.share.toFixed(1)}% of all pullbacks` +
                          `&#10;chance in any year: ${st.yrPct.toFixed(0)}%` +
-                         `&#10;last one this deep: ${sinceTxt}`;
+                         `&#10;previous one this deep: ${prevTxt}`;
           s += `<circle cx="${X(ms(e.trough)).toFixed(1)}" cy="${Y(e.depth).toFixed(1)}" r="${r.toFixed(1)}" ` +
                `fill="${deep ? "#0c0a09" : mid ? "#1d7fc4" : "#ffffff"}" stroke="${deep ? "#0c0a09" : "#3ba6f1"}" ` +
                `stroke-width="1.4" data-tip="${tipTxt}" style="cursor:crosshair"/>`;
           if (e.depth >= 30) s += `<text x="${X(ms(e.trough)).toFixed(1)}" y="${(Y(e.depth)+r+12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="600" fill="#0c0a09">−${Math.round(e.depth)}%</text>`;
         });
+        // live marker: the in-progress pullback (or current distance from ATH),
+        // always plotted at the latest date
+        const endMs = ms(ix.end);
+        if (endMs >= t0 && endMs <= t1) {
+          const curDD = Math.max(0, -wv[wv.length - 1]);
+          const liveDepth = ogEp ? ogEp.depth : curDD;
+          let liveTip;
+          if (ogEp) {
+            const st = ddStats(eps, ix.years, ogEp.depth, { excl: ogEp });
+            liveTip = `NOW (${ix.end}): −${ogEp.depth}% pullback in progress · peak ${ogEp.peak} · trough so far ${ogEp.trough}` +
+                      `&#10;today: −${curDD.toFixed(1)}% from ATH` +
+                      `&#10;if it bottoms here: ${st.share.toFixed(1)}% of all pullbacks · ${st.yrPct.toFixed(0)}% of years` +
+                      `&#10;last ≥${ogEp.depth}%: ${st.lastT ? fmtGap(st.since) + " ago (" + st.lastT + ")" : "none prior"}`;
+          } else {
+            liveTip = `NOW (${ix.end}): −${curDD.toFixed(1)}% from ATH — below the 3% pullback threshold`;
+          }
+          const lr = 3.5 + Math.min(liveDepth, 60) / 9;
+          const lx = X(endMs).toFixed(1), ly = Y(Math.max(liveDepth, 0.3)).toFixed(1);
+          s += `<circle cx="${lx}" cy="${ly}" r="${(lr + 3).toFixed(1)}" fill="none" stroke="#3ba6f1" stroke-width="1.2" stroke-dasharray="2 3" pointer-events="none"/>` +
+               `<circle cx="${lx}" cy="${ly}" r="${lr.toFixed(1)}" fill="#3ba6f1" stroke="#1d7fc4" stroke-width="1.5" data-tip="${liveTip}" style="cursor:crosshair"/>`;
+        }
         $("timeline").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="drawdown timeline" style="touch-action:none; user-select:none; cursor:crosshair;">${s}</svg>`;
 
         $("zoomreset").style.display = view ? "inline-block" : "none";
