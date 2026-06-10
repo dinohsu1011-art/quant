@@ -316,7 +316,18 @@
   // ---------- main ----------
   async function safeResult() {
     try { return await getResult(state.s, state.t, state.wd, state.c, state.h, state.thr); }
-    catch (e) { $("mode").textContent = "error: " + e.message; return null; }
+    catch (e) {
+      // live backend hiccup — fall back to the offline cube for on-grid combos
+      if (SERVER !== null && state.t !== "custom") {
+        try {
+          await loadShard(state.s);
+          const r = norm((L.shards[state.s] || {})[`${state.t}|${state.wd}|${state.c}|${state.h}`]);
+          if (r) { $("mode").textContent = "Live (cube fallback: " + e.message + ")"; return r; }
+        } catch (e2) {}
+      }
+      $("mode").textContent = "error: " + e.message;
+      return null;
+    }
   }
   let seq = 0;
   async function update(push) {

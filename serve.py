@@ -29,6 +29,7 @@ from analysis.events import event_study, summarize_event, MON, TUE, WED, THU, FR
 from export.cube import EDGES, BIN_LABELS
 
 import numpy as np
+import pandas as pd
 
 DEFAULT_DIR = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 _DAY = {"any": None, "": None, "mon": MON, "tue": TUE, "wed": WED, "thu": THU, "fri": FRI}
@@ -60,15 +61,20 @@ def _run_event(q):
         "t_stat": float("nan"), "ci_95_lo": float("nan"), "ci_95_hi": float("nan")}
     counts = [int(x) for x in np.histogram(out, bins=EDGES)[0]] if len(out) else [0] * len(BIN_LABELS)
 
+    # pd.isna handles NaN/NaT/pd.NA — pending outcomes (trigger within `horizon`
+    # sessions of the data edge) arrive as pandas NA, where `x != x` raises.
+    def _v(x, f):
+        return None if pd.isna(x) else f(x)
+
     rows = []
     for r in df.itertuples():
         rows.append({
             "trigger_date": str(r.trigger_date)[:10],
-            "trigger_dow": None if r.trigger_dow != r.trigger_dow else int(r.trigger_dow),
-            "trigger_ret": None if r.trigger_ret != r.trigger_ret else round(r.trigger_ret * 100, 2),
-            "outcome_date": None if (r.outcome_date is None or r.outcome_date != r.outcome_date) else str(r.outcome_date)[:10],
-            "outcome_dow": None if r.outcome_dow != r.outcome_dow else int(r.outcome_dow),
-            "outcome_ret": None if r.outcome_ret != r.outcome_ret else round(r.outcome_ret * 100, 2),
+            "trigger_dow": _v(r.trigger_dow, int),
+            "trigger_ret": _v(r.trigger_ret, lambda y: round(y * 100, 2)),
+            "outcome_date": _v(r.outcome_date, lambda y: str(y)[:10]),
+            "outcome_dow": _v(r.outcome_dow, int),
+            "outcome_ret": _v(r.outcome_ret, lambda y: round(y * 100, 2)),
         })
 
     def f(x):
