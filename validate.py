@@ -71,7 +71,7 @@ def main():
         m = re.search(pat, p.read_text()) if p.exists() else None
         return m.group(1) if m else None
 
-    cube = as_of("trader-profile-cube.js", r'"as_of":"([^"]+)"')
+    cube = as_of("cube/index.js", r'"as_of":"([^"]+)"')
     djs = as_of("trader-profile-data.js", r'"as_of": ?"([^"]+)"')
     check("artifact as_of consistency",
           [] if cube == djs == spy_max else [f"spy={spy_max}", f"cube={cube}", f"data.js={djs}"])

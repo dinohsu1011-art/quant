@@ -225,11 +225,15 @@ def build(conn):
 
 def main():
     out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_OUT
-    out_dir.mkdir(parents=True, exist_ok=True)
+    cube_dir = out_dir / "cube"
+    cube_dir.mkdir(parents=True, exist_ok=True)
     conn = db.connect()
     as_of = conn.execute("select max(date) from spy").fetchone()[0]
     results, kept, total = build(conn)
-    cube = {
+
+    # Shard per subject: index.js carries meta+menus (~15KB, instant load); each
+    # subject's results load on demand via <script> injection (works on file://).
+    index = {
         "meta": {
             "as_of": str(as_of), "kept": kept, "total": total,
             "schema": ["n", "up_pct", "mean_pct", "t", "ci_lo", "ci_hi", "...14 hist counts"],
@@ -240,14 +244,34 @@ def main():
             "subjects": [{**s, "group": _ID2GROUP.get(s["id"], "Other")} for s in SUBJECTS],
             "triggers": TRIGGERS, "weekdays": WEEKDAYS,
             "conditions": CONDITIONS, "horizons": HORIZONS,
-            "bin_labels": BIN_LABELS,
+            "bin_labels": BIN_LABELS, "bin_edges": EDGES,
         },
-        "results": results,
     }
-    payload = "window.QUANT_CUBE = " + json.dumps(cube, separators=(",", ":")) + ";\n"
-    out = out_dir / "trader-profile-cube.js"
-    out.write_text(payload)
-    print(f"\nWrote {out}  ({len(payload):,} bytes)  kept {kept}/{total} combos")
+    (cube_dir / "index.js").write_text(
+        "window.QUANT_LAB = " + json.dumps(index, separators=(",", ":"))
+        + ";\nwindow.QUANT_LAB.shards = {};\n")
+
+    by_subj = {s["id"]: {} for s in SUBJECTS}
+    for key, row in results.items():
+        subj, rest = key.split("|", 1)
+        by_subj[subj][rest] = row
+    written = set()
+    for subj, rows in by_subj.items():
+        (cube_dir / f"{subj}.js").write_text(
+            f"window.QUANT_LAB.shards[{json.dumps(subj)}] = "
+            + json.dumps(rows, separators=(",", ":")) + ";\n")
+        written.add(f"{subj}.js")
+    # prune shards for subjects that left the menu + the legacy monolith
+    for f in cube_dir.glob("*.js"):
+        if f.name != "index.js" and f.name not in written:
+            f.unlink()
+    legacy = out_dir / "trader-profile-cube.js"
+    if legacy.exists():
+        legacy.unlink()
+        print(f"removed legacy {legacy.name}")
+    total_bytes = sum(f.stat().st_size for f in cube_dir.glob("*.js"))
+    print(f"\nWrote {cube_dir}/index.js + {len(written)} shards "
+          f"({total_bytes:,} bytes total)  kept {kept}/{total} combos")
 
 
 if __name__ == "__main__":
