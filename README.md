@@ -1,5 +1,9 @@
 # quant
 
+**Live site:** https://dinohsu1011-art.github.io/quant/ — Market Lab (event-study explorer),
+basket components, and pullback/drawdown distributions, served from `docs/` (offline-cube
+mode; refreshed by `update.py` + push).
+
 Daily-prices research repo: 585 series (S&P 500 constituents, indices, sector /
 sub-sector / industry ETFs, AI-chip single-stock baskets, macro cross-asset) stored
 as per-ticker parquet, queried in place by DuckDB, with an event-study engine and
