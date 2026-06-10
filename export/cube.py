@@ -26,6 +26,22 @@ from scipy import stats as sps
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 from analysis.events import event_study, summarize_event, MON, TUE, WED, THU, FRI
+from ingestion.baskets import BASKETS
+
+# Short display names for basket constituents (market-lab-baskets.html).
+MEMBER_NAMES = {
+    "NVDA": "Nvidia", "AMD": "AMD", "INTC": "Intel", "AVGO": "Broadcom", "MRVL": "Marvell",
+    "MU": "Micron", "WDC": "Western Digital", "STX": "Seagate",
+    "AMAT": "Applied Materials", "LRCX": "Lam Research", "KLAC": "KLA", "ASML": "ASML",
+    "ON": "onsemi", "MPWR": "Monolithic Power", "STM": "STMicroelectronics",
+    "COHR": "Coherent", "LITE": "Lumentum", "FN": "Fabrinet",
+    "SMCI": "Super Micro", "DELL": "Dell", "HPE": "HPE", "ANET": "Arista", "VRT": "Vertiv",
+    "MSFT": "Microsoft", "GOOGL": "Alphabet", "AMZN": "Amazon", "META": "Meta", "ORCL": "Oracle",
+    "CRWV": "CoreWeave", "NBIS": "Nebius", "APLD": "Applied Digital",
+    "NET": "Cloudflare", "AKAM": "Akamai", "FSLY": "Fastly",
+    "FSLR": "First Solar", "NXT": "Nextracker", "ARRY": "Array Technologies",
+    "ENPH": "Enphase", "SEDG": "SolarEdge", "RUN": "Sunrun",
+}
 
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 MIN_N = 3  # prune combos with fewer events than this
@@ -263,12 +279,32 @@ def main():
         written.add(f"{subj}.js")
     # prune shards for subjects that left the menu + the legacy monolith
     for f in cube_dir.glob("*.js"):
-        if f.name != "index.js" and f.name not in written:
+        if f.name not in written and f.name not in ("index.js", "baskets.js"):
             f.unlink()
     legacy = out_dir / "trader-profile-cube.js"
     if legacy.exists():
         legacy.unlink()
         print(f"removed legacy {legacy.name}")
+
+    # Basket composition data for market-lab-baskets.html — straight from the
+    # parquets so it stays correct after every refresh / constituent change.
+    label_of = {s["id"]: s["label"].replace(" (basket)", "") for s in SUBJECTS}
+    bdata = []
+    for bid, tickers in BASKETS.items():
+        members = []
+        for t in tickers:
+            v = t.lower().replace("-", "_")
+            r = conn.execute(f'''select min(date), last(close order by date),
+                last(close order by date) / last(lag_c order by date) - 1
+                from (select date, close, lag(close) over (order by date) lag_c from "{v}")''').fetchone()
+            members.append({"t": t, "name": MEMBER_NAMES.get(t, t), "from": str(r[0]),
+                            "last": round(float(r[1]), 2), "ret1": round(float(r[2]) * 100, 2)})
+        members.sort(key=lambda m: m["from"])
+        bdata.append({"id": bid, "label": label_of.get(bid, bid), "n": len(members),
+                      "inception": members[0]["from"], "members": members})
+    (cube_dir / "baskets.js").write_text(
+        "window.QUANT_BASKETS = " + json.dumps({"as_of": str(as_of), "baskets": bdata},
+                                               separators=(",", ":")) + ";\n")
     total_bytes = sum(f.stat().st_size for f in cube_dir.glob("*.js"))
     print(f"\nWrote {cube_dir}/index.js + {len(written)} shards "
           f"({total_bytes:,} bytes total)  kept {kept}/{total} combos")
