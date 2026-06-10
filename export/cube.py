@@ -354,7 +354,7 @@ def main():
         "window.QUANT_BASKETS = " + json.dumps({"as_of": str(as_of), "baskets": bdata},
                                                separators=(",", ":")) + ";\n")
 
-    # Drawdown-from-ATH episodes + weekly underwater series for market-lab-drawdowns.html.
+    # Drawdown-from-ATH episodes + daily underwater series for market-lab-drawdowns.html.
     # Episode = decline from the running all-time high until a NEW high; depth = max
     # close-based drawdown within it. Episodes <3% deep are omitted.
     dd_idx = []
@@ -380,13 +380,12 @@ def main():
                 i = j
             else:
                 i += 1
-        wk = pd.DataFrame({"date": dt, "dd": dd}).set_index("date").resample("W-FRI").last().dropna()
         dd_idx.append({"id": vid, "label": lbl,
                        "years": round((dt.iloc[-1] - dt.iloc[0]).days / 365.25, 1),
                        "start": str(dt.iloc[0].date()), "end": str(dt.iloc[-1].date()),
                        "episodes": eps,
-                       "weekly": {"dates": [str(x.date()) for x in wk.index],
-                                  "dd": [round(float(v) * 100, 1) for v in wk.dd]}})
+                       "daily": {"dates": [str(x.date()) for x in dt],
+                                 "dd": [round(float(v) * 100, 1) for v in dd]}})
     (cube_dir / "drawdowns.js").write_text(
         "window.QUANT_DRAWDOWNS = " + json.dumps({"as_of": str(as_of), "indexes": dd_idx},
                                                  separators=(",", ":")) + ";\n")

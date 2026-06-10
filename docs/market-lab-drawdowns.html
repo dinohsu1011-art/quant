@@ -93,7 +93,7 @@
     </div>
 
     <div class="card">
-      <h3>Timeline <span class="sub">&middot; weekly drawdown from ATH; dots mark troughs — hover a dot for its odds &amp; recurrence, <b>drag a date range to zoom</b>, double-click to reset</span><span class="ongoing" id="ongoing" style="display:none;"></span>
+      <h3>Timeline <span class="sub">&middot; daily drawdown from ATH; dots mark troughs — hover a dot for its odds &amp; recurrence, <b>drag a date range to zoom</b>, double-click to reset</span><span class="ongoing" id="ongoing" style="display:none;"></span>
         <button id="zoomreset" style="display:none; float:right; font-family:var(--font); font-size:11.5px; padding:3px 10px; cursor:pointer; background:var(--white); border:1px solid var(--platinum); border-radius:7px; color:var(--ink);">reset zoom</button>
         <span id="zoomrange" class="sub" style="float:right; margin-right:10px;"></span></h3>
       <div id="timeline"></div>
@@ -216,11 +216,11 @@
         const t0 = view ? view.t0 : f0, t1 = view ? view.t1 : f1;
         const X = (t) => L + (t - t0) / (t1 - t0) * (R - L);
 
-        const wd = ix.weekly.dates, wv = ix.weekly.dd;
+        const wd = ix.daily.dates, wv = ix.daily.dd;
         const wmsAll = wd.map(ms);
-        let a = wd.findIndex(d => ms(d) >= t0); if (a < 0) a = wd.length - 1;
+        let a = wmsAll.findIndex(t => t >= t0); if (a < 0) a = wd.length - 1;
         let b = wd.length - 1;
-        for (let i = wd.length - 1; i >= 0; i--) { if (ms(wd[i]) <= t1) { b = i; break; } }
+        for (let i = wd.length - 1; i >= 0; i--) { if (wmsAll[i] <= t1) { b = i; break; } }
         a = Math.max(0, a - 1); b = Math.min(wd.length - 1, b + 1);
         const ogEp = eps.find(o => o.rec == null);
         // completed episodes only — the in-progress pullback is drawn as the live
@@ -259,7 +259,21 @@
           }
         }
         let path = "";
-        for (let i = a; i <= b; i++) path += `${path ? "L" : "M"}${X(ms(wd[i])).toFixed(1)},${Y(-wv[i]).toFixed(1)}`;
+        const emit = (i) => { path += `${path ? "L" : "M"}${X(wmsAll[i]).toFixed(1)},${Y(-wv[i]).toFixed(1)}`; };
+        if (b - a + 1 <= 3000) {
+          for (let i = a; i <= b; i++) emit(i);
+        } else {
+          // per-pixel envelope: deepest + last point per x-column keeps trough spikes
+          let col = -1, minI = -1, lastI = -1;
+          for (let i = a; i <= b; i++) {
+            const c = Math.floor((wmsAll[i] - t0) / (t1 - t0) * 950);
+            if (c !== col) {
+              if (minI >= 0) { emit(minI); if (lastI !== minI) emit(lastI); }
+              col = c; minI = i; lastI = i;
+            } else { if (wv[i] < wv[minI]) minI = i; lastI = i; }
+          }
+          if (minI >= 0) { emit(minI); if (lastI !== minI) emit(lastI); }
+        }
         s += `<g clip-path="url(#plotclip)">` +
              `<path d="${path}L${X(ms(wd[b])).toFixed(1)},${top}L${X(ms(wd[a])).toFixed(1)},${top}Z" fill="#c1e1f7" opacity="0.45"/>` +
              `<path d="${path}" fill="none" stroke="#3ba6f1" stroke-width="1.1"/></g>`;
