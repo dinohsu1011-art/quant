@@ -58,7 +58,8 @@
     const n = raw.dd.length + 1, days = new Array(n);
     days[0] = raw.d0;
     for (let i = 1; i < n; i++) days[i] = days[i - 1] + raw.dd[i - 1];
-    return { days, close: raw.c.map(x => x / 10000) };
+    return { days, close: raw.c.map(x => x / 100000),
+             open: raw.o ? raw.o.map(x => x / 100000) : null };
   }
   const isodow = (day) => { const d = new Date(day * 86400000).getUTCDay(); return d === 0 ? 7 : d; };
   const dstr = (day) => new Date(day * 86400000).toISOString().slice(0, 10);
@@ -146,14 +147,28 @@
     if (!mask) return null;
     const H = get(M.horizons, h).h, WD = get(M.weekdays, wd), T = get(M.triggers, t);
     let idx = [];
-    for (let i = 1; i < N; i++) {
-      if (!mask[i]) continue;
-      if (WD.day != null && isodow(ser.days[i]) !== WD.day) continue;
-      if (T.threshold != null) { if (ret[i] <= T.threshold) idx.push(i); }
-      else idx.push(i);
+    if (T.streak != null) {
+      // fire on the day the run count hits exactly N (matches the SQL engine)
+      if (T.gap && !ser.open) return null;
+      let run = 0;
+      for (let i = 1; i < N; i++) {
+        const dirOK = T.dir === "dn" ? ser.close[i] < ser.close[i - 1] : ser.close[i] > ser.close[i - 1];
+        const gapOK = !T.gap ? true : (T.gap === "up" ? ser.open[i] > ser.close[i - 1]
+                                                      : ser.open[i] < ser.close[i - 1]);
+        run = (dirOK && gapOK) ? run + 1 : 0;
+        if (run === T.streak && mask[i] && (WD.day == null || isodow(ser.days[i]) === WD.day)) idx.push(i);
+      }
+      idx.sort((x, y) => y - x);
+    } else {
+      for (let i = 1; i < N; i++) {
+        if (!mask[i]) continue;
+        if (WD.day != null && isodow(ser.days[i]) !== WD.day) continue;
+        if (T.threshold != null) { if (ret[i] <= T.threshold) idx.push(i); }
+        else idx.push(i);
+      }
+      if (T.worst_n != null) { idx.sort((x, y) => ret[x] - ret[y]); idx = idx.slice(0, T.worst_n); }
+      else idx.sort((x, y) => y - x);   // trigger_date DESC, like the server
     }
-    if (T.worst_n != null) { idx.sort((x, y) => ret[x] - ret[y]); idx = idx.slice(0, T.worst_n); }
-    else idx.sort((x, y) => y - x);     // trigger_date DESC, like the server
     return idx.map(i => {
       const j = i + H, pend = j >= N;
       return { trigger_date: dstr(ser.days[i]), trigger_dow: isodow(ser.days[i]),
@@ -203,6 +218,11 @@
     const q = new URLSearchParams({ subject: s, horizon: get(M.horizons, h).h });
     if (t === "custom") q.set("threshold", (-thr / 100).toFixed(4));
     else if (T.threshold != null) q.set("threshold", T.threshold);
+    else if (T.streak != null) {
+      q.set("streak_n", T.streak);
+      q.set("streak_dir", T.dir === "dn" ? "down" : "up");
+      if (T.gap) q.set("streak_gap", T.gap);
+    }
     else q.set("worst_n", T.worst_n);
     const wdo = get(M.weekdays, wd);
     if (wdo.day != null) q.set("day", wd);
@@ -251,6 +271,9 @@
   function trigLabel() {
     if (state.t === "custom") return `falls ≥ ${state.thr.toFixed(1)}%`;
     const T = get(M.triggers, state.t);
+    if (T.streak != null)
+      return `closes ${T.dir === "dn" ? "red" : "green"} ${T.streak} days in a row` +
+             (T.gap ? `, each gapping ${T.gap}` : "");
     return T.threshold != null ? `falls ≥ ${Math.abs(T.threshold * 100)}%` : `has one of its ${T.worst_n} worst days`;
   }
   function renderSentence() {
@@ -278,10 +301,22 @@
             items.push({ group: g });
             byG[g].forEach((o) => items.push({ id: o.id, label: o.label, sel: o.id === state.s }));
           }
+        } else if (d === "t") {
+          const order = [], byG = {};
+          for (const o of M.triggers) {
+            const g = o.group || "Single-day moves";
+            if (!byG[g]) { order.push(g); byG[g] = []; }
+            byG[g].push(o);
+          }
+          items = [];
+          for (const g of order) {
+            items.push({ group: g });
+            byG[g].forEach((o) => items.push({ id: o.id, label: o.label, sel: o.id === state.t }));
+          }
+          if (SERVER !== null) items.push({ id: "custom", label: "custom threshold (slider)", sel: state.t === "custom" });
         } else {
-          const src = { t: M.triggers, wd: M.weekdays, c: M.conditions, h: M.horizons }[d];
+          const src = { wd: M.weekdays, c: M.conditions, h: M.horizons }[d];
           items = src.map((o) => ({ id: o.id, label: o.label, sel: o.id === state[d], dis: !available(d, o.id) }));
-          if (d === "t" && SERVER !== null) items.push({ id: "custom", label: "custom threshold (slider)", sel: state.t === "custom" });
         }
         openPop(el, items, (v) => {
           if (d === "t" && v === "custom") { state.t = "custom"; state.thr = state.thr || 2.5; }

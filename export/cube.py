@@ -142,6 +142,16 @@ TRIGGERS = [
     {"id": "d5", "label": "Down ≥ 5%", "threshold": -0.05},
     {"id": "w20", "label": "Worst 20 days", "worst_n": 20},
     {"id": "w50", "label": "Worst 50 days", "worst_n": 50},
+] + [
+    # streak triggers: fire on the Nth consecutive day in the direction, each day
+    # optionally also gapping (open vs prior close). NOT enumerated in the cube —
+    # the lab computes them client-side (live mode uses the API).
+    {"id": f"s{n}{d}{g or ''}",
+     "label": f"{n} {'red' if d == 'dn' else 'green'} days in a row"
+              + ("" if not g else f", each gapping {'up' if g == 'gu' else 'down'}"),
+     "streak": n, "dir": d, "gap": None if not g else ("up" if g == "gu" else "down"),
+     "group": "Streaks" if not g else ("Streaks of gap-up days" if g == "gu" else "Streaks of gap-down days")}
+    for g in ("", "gu", "gd") for d in ("dn", "up") for n in (2, 3, 4, 5)
 ]
 WEEKDAYS = [
     {"id": "any", "label": "Any day", "day": None},
@@ -221,14 +231,20 @@ def _feats(conn, view, specs):
     return pd.DataFrame(out)
 
 
-def _pack_series(dates_idx, closes):
+def _pack_series(dates_idx, closes, opens=None):
     """Compact daily series for client-side row computation: epoch-day deltas +
-    closes ×10,000 as ints. Decoded in market-lab.js (decodeSeries).
+    closes (and optionally opens, for gap-qualified streak triggers) ×100,000 as
+    ints — the parquet's native PRICE_SCALE, so client-side floats are identical
+    to what the server reads (coarser scales flip razor-thin gap comparisons).
+    Decoded in market-lab.js (decodeSeries).
     Unit-agnostic date math — DuckDB hands pandas datetime64[us], so raw asi8
     division by a nanosecond constant silently corrupts the day numbers."""
     days = ((dates_idx - pd.Timestamp("1970-01-01")) // pd.Timedelta("1D")).astype("int64").to_numpy()
-    return {"d0": int(days[0]), "dd": [int(x) for x in np.diff(days)],
-            "c": [int(round(v * 10000)) for v in closes]}
+    out = {"d0": int(days[0]), "dd": [int(x) for x in np.diff(days)],
+           "c": [int(round(v * 100000)) for v in closes]}
+    if opens is not None:
+        out["o"] = [int(round(v * 100000)) for v in opens]
+    return out
 
 
 def build(conn):
@@ -251,10 +267,11 @@ def build(conn):
 
     results, series_by, kept, total = {}, {}, 0, 0
     for s in SUBJECTS:
-        c = conn.execute(f'select date, close from "{s["id"]}" order by date').df()
+        c = conn.execute(f'select date, open, close from "{s["id"]}" order by date').df()
         c["date"] = pd.to_datetime(c["date"])
-        close = c.set_index("date")["close"]
-        series_by[s["id"]] = _pack_series(close.index, close.to_numpy())
+        c = c.set_index("date")
+        close = c["close"]
+        series_by[s["id"]] = _pack_series(close.index, close.to_numpy(), c["open"].to_numpy())
         ret = close.pct_change().to_numpy()
         retfin = np.isfinite(ret)
         isodow = np.asarray(close.index.dayofweek) + 1
@@ -274,6 +291,8 @@ def build(conn):
                 cmask[cond["id"]] = F.eval(expr).fillna(False).to_numpy(dtype=bool)
 
         for t in TRIGGERS:
+            if "streak" in t:
+                continue            # streak triggers are computed client-side / live
             thr, wn = t.get("threshold"), t.get("worst_n")
             for wd in WEEKDAYS:
                 wmask = retfin if wd["day"] is None else (retfin & (isodow == wd["day"]))

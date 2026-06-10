@@ -115,6 +115,7 @@ def _compile_condition(when):
 
 
 def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
+                streak=None, streak_dir="down", streak_gap=None,
                 horizon=1, strict_next_dow=None, since=None, price="close",
                 measure_field="ret", when=None):
     """Conditional next-session returns.
@@ -125,6 +126,12 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
     day             isodow of the trigger day (FRI=5); None = any day
     threshold       trigger when trigger_ret <= threshold (e.g. -0.0477)
     worst_n         instead of a threshold, take the N most negative trigger days
+    streak          consecutive-day trigger: fires on the day the subject completes
+                    its Nth consecutive day in `streak_dir` ('down'|'up'), each day
+                    optionally also gapping (`streak_gap`: 'up'|'down'|None — open vs
+                    prior close). E.g. streak=3, streak_dir='down', streak_gap='up'
+                    = 3 red days in a row, each opening above the prior close.
+                    Mutually exclusive with threshold/worst_n.
     horizon         sessions ahead to measure (1 = next session)
     strict_next_dow require the outcome day to equal this isodow (e.g. MON)
     since           ISO date string lower bound on the trigger day
@@ -158,6 +165,10 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
         where.append(f"r.trigger_dow = {int(day)}")
     if threshold is not None:
         where.append(f"r.trigger_ret <= {float(threshold)}")
+    if streak is not None:
+        if threshold is not None or worst_n:
+            raise ValueError("streak is mutually exclusive with threshold/worst_n")
+        where.append(f"r.scount = {int(streak)}")
     if strict_next_dow is not None:
         where.append(f"r.outcome_dow = {int(strict_next_dow)}")
     if since is not None:
@@ -182,6 +193,32 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
     order, limit = (("r.trigger_ret ASC", f"LIMIT {int(worst_n)}") if worst_n
                     else ("r.trigger_date DESC", ""))
 
+    if streak is not None:
+        # Per-day predicate = direction (close vs prior close) AND optional gap
+        # qualifier (open vs prior close); consecutive-run counter via the
+        # gaps-and-islands trick; the trigger fires where the run count == N.
+        dirt = "close < pc" if streak_dir == "down" else "close > pc"
+        gapt = {"up": " AND open > pc", "down": " AND open < pc", None: ""}[streak_gap]
+        src = f"""(
+        WITH raw AS (
+            SELECT date, open, high, low, close, adj_close,
+                   LAG(close) OVER (ORDER BY date) AS pc
+            FROM query_table('{view}')
+        ), flag AS (
+            SELECT *, CASE WHEN pc IS NOT NULL AND {dirt}{gapt} THEN 1 ELSE 0 END AS hit
+            FROM flag_src
+        ), grp AS (
+            SELECT *, ROW_NUMBER() OVER (ORDER BY date)
+                      - SUM(hit) OVER (ORDER BY date ROWS UNBOUNDED PRECEDING) AS gid
+            FROM flag
+        )
+        SELECT *, CASE WHEN hit = 1 THEN ROW_NUMBER() OVER (PARTITION BY gid, hit ORDER BY date) END AS scount
+        FROM grp)""".replace("FROM flag_src", "FROM raw")
+        scount_col = ",\n            scount"
+    else:
+        src = f"query_table('{view}')"
+        scount_col = ""
+
     cte_block = f"""WITH r AS (
         SELECT
             date                                AS trigger_date,
@@ -189,8 +226,8 @@ def event_study(conn, symbol, *, day=None, threshold=None, worst_n=None,
             {px} / LAG({px}) OVER w - 1         AS trigger_ret,
             LEAD(date,  {h}) OVER w             AS outcome_date,
             isodow(LEAD(date, {h}) OVER w)      AS outcome_dow,
-            {outcome_expr}  AS outcome_ret
-        FROM query_table('{view}')
+            {outcome_expr}  AS outcome_ret{scount_col}
+        FROM {src}
         WINDOW w AS (ORDER BY date)
     )"""
     if cond_ctes:
