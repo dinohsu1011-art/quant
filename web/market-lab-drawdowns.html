@@ -52,7 +52,7 @@
     svg { width:100%; height:auto; display:block; overflow:visible; }
     .tip { position:fixed; z-index:100; display:none; pointer-events:none; padding:7px 10px;
            border:1px solid var(--stone); border-radius:8px; background:var(--white);
-           box-shadow:var(--shadow); font-size:12px; font-weight:600; white-space:nowrap; }
+           box-shadow:var(--shadow); font-size:12px; font-weight:600; white-space:pre-line; line-height:1.55; }
     .note { font-size:12px; color:var(--ash); margin-top:18px; max-width:860px; }
     .ongoing { display:inline-block; margin-left:10px; padding:2px 9px; border:1px dashed var(--platinum);
                border-radius:999px; font-size:11.5px; color:var(--ash); }
@@ -93,7 +93,7 @@
     </div>
 
     <div class="card">
-      <h3>Timeline <span class="sub">&middot; weekly drawdown from ATH; dots mark troughs — <b>drag a date range to zoom</b>, double-click to reset</span><span class="ongoing" id="ongoing" style="display:none;"></span>
+      <h3>Timeline <span class="sub">&middot; weekly drawdown from ATH; dots mark troughs — hover a dot for its odds &amp; recurrence, <b>drag a date range to zoom</b>, double-click to reset</span><span class="ongoing" id="ongoing" style="display:none;"></span>
         <button id="zoomreset" style="display:none; float:right; font-family:var(--font); font-size:11.5px; padding:3px 10px; cursor:pointer; background:var(--white); border:1px solid var(--platinum); border-radius:7px; color:var(--ink);">reset zoom</button>
         <span id="zoomrange" class="sub" style="float:right; margin-right:10px;"></span></h3>
       <div id="timeline"></div>
@@ -240,8 +240,19 @@
         vis.forEach(e => {
           const deep = e.depth >= 20, mid = e.depth >= 10;
           const r = 2.5 + Math.min(e.depth, 60) / 9;
+          // recurrence stats for "this deep or deeper", vs the full episode set
+          const geq = eps.filter(o => o.depth >= e.depth);
+          const share = geq.length / eps.length * 100;
+          const yrPct = Math.min(100, new Set(geq.map(o => +o.trough.slice(0, 4))).size / ix.years * 100);
+          const lastT = geq.map(o => o.trough).sort().at(-1);
+          const since = Math.round((new Date(D.as_of) - new Date(lastT)) / 86400e3);
+          const sinceTxt = since.toLocaleString() + "d" + (since >= 365 ? ` (~${(since/365.25).toFixed(1)}y)` : "") +
+                           " ago" + (lastT === e.trough ? " — this one" : ` (on ${lastT})`);
           const tipTxt = `−${e.depth}% · peak ${e.peak} → trough ${e.trough} (${days(e.p2t)})` +
-                         (e.rec != null ? ` · recovered in ${days(e.rec)}` : " · ONGOING");
+                         (e.rec != null ? ` · recovered in ${days(e.rec)}` : " · ONGOING") +
+                         `&#10;≥${e.depth}% happens: ${share.toFixed(1)}% of all pullbacks` +
+                         `&#10;chance in any year: ${yrPct.toFixed(0)}%` +
+                         `&#10;last one this deep: ${sinceTxt}`;
           s += `<circle cx="${X(ms(e.trough)).toFixed(1)}" cy="${Y(e.depth).toFixed(1)}" r="${r.toFixed(1)}" ` +
                `fill="${deep ? "#0c0a09" : mid ? "#1d7fc4" : "#ffffff"}" stroke="${deep ? "#0c0a09" : "#3ba6f1"}" ` +
                `stroke-width="1.4" data-tip="${tipTxt}" style="cursor:crosshair"/>`;
