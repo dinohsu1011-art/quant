@@ -37,11 +37,12 @@
   }
 
   // ---------- data layer ----------
+  const VTAG = "?v=" + encodeURIComponent((L.meta && L.meta.as_of) || "0");
   function loadShard(subj) {
     return new Promise((res, rej) => {
       if (L.shards[subj]) return res();
       const sc = document.createElement("script");
-      sc.src = `cube/${subj}.js`;
+      sc.src = `cube/${subj}.js` + VTAG;
       sc.onload = () => res();
       sc.onerror = () => rej(new Error(`shard cube/${subj}.js not found`));
       document.body.appendChild(sc);
@@ -89,7 +90,7 @@
     return new Promise((res, rej) => {
       if (L.cond) return res();
       const sc = document.createElement("script");
-      sc.src = "cube/conditioners.js";
+      sc.src = "cube/conditioners.js" + VTAG;
       sc.onload = () => res();
       sc.onerror = () => rej(new Error("conditioners.js not found"));
       document.body.appendChild(sc);

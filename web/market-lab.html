@@ -84,7 +84,7 @@
     .pinchip .x { cursor:pointer; color:var(--steel); }
     .pop { position:fixed; z-index:50; background:var(--white); border:1px solid var(--stone);
            border-radius:10px; box-shadow:rgba(17,12,46,.12) 0px 12px 45px 0px; padding:6px;
-           max-height:330px; overflow-y:auto; min-width:230px; display:none; }
+           max-height:min(64vh, 580px); overflow-y:auto; min-width:230px; display:none; }
     .pop .g { font-size:10.5px; color:var(--steel); padding:7px 10px 3px; letter-spacing:.05em; }
     .pop .o { font-size:13px; padding:7px 10px; border-radius:7px; cursor:pointer; }
     .pop .o:hover { background:var(--fog); }
@@ -150,7 +150,7 @@
 
   <div class="pop" id="pop"></div>
   <div class="tip" id="tip"></div>
-  <script src="cube/index.js"></script>
-  <script src="market-lab.js"></script>
+  <script src="cube/index.js?v=20260609"></script>
+  <script src="market-lab.js?v=20260609"></script>
 </body>
 </html>

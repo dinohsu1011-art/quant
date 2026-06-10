@@ -56,7 +56,17 @@ SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html", "ma
 
 def sync_site():
     """Copy the market-lab pages + cube data into web/ (source backup) and docs/
-    (GitHub Pages payload). trader-profile.html is personal and is NOT copied."""
+    (GitHub Pages payload), stamping ?v=<as_of> on script/data references so
+    browsers and the Pages CDN never serve stale JS or menus after an update.
+    trader-profile.html is personal and is NOT copied."""
+    import re
+    m = re.search(r'"as_of":"([^"]+)"', (REPORTS / "cube" / "index.js").read_text())
+    stamp = (m.group(1) if m else "0").replace("-", "")
+    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns)\.js)(?:\?v=[^"]*)?"')
+    for p in SITE_PAGES:
+        if p.endswith(".html"):
+            f = REPORTS / p
+            f.write_text(pat.sub(rf'src="\1?v={stamp}"', f.read_text()))
     for dest in (ROOT / "web", ROOT / "docs"):
         dest.mkdir(exist_ok=True)
         for p in SITE_PAGES:
