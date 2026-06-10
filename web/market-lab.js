@@ -132,11 +132,16 @@
         const d = el.dataset.d;
         let items;
         if (d === "s") {
-          items = [];
-          let g = null;
+          const order = [], byG = {};
           for (const o of M.subjects) {
-            if (o.group !== g) { g = o.group; items.push({ group: g }); }
-            items.push({ id: o.id, label: o.label, sel: o.id === state.s });
+            const g = o.group || "Other";
+            if (!byG[g]) { order.push(g); byG[g] = []; }
+            byG[g].push(o);
+          }
+          items = [];
+          for (const g of order) {
+            items.push({ group: g });
+            byG[g].forEach((o) => items.push({ id: o.id, label: o.label, sel: o.id === state.s }));
           }
         } else {
           const src = { t: M.triggers, wd: M.weekdays, c: M.conditions, h: M.horizons }[d];

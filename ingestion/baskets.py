@@ -24,19 +24,44 @@ from config import DAILY_DIR, PRICE_SCALE
 from ingestion.fetch import run
 from ingestion.store import SCHEMA
 
+# Theme baskets (user's categorization, 2026-06-10). US listings only — foreign
+# exchanges (KRX 000660/005930, ASX BHP, SWX ABBN, OTC SMERY/SBGSY) are excluded
+# for trading-calendar alignment; HG excluded (Hamilton Insurance, mis-tagged).
+# Overlaps across baskets (AMD, ANET, VRT, ...) are deliberate.
 BASKETS = {
-    "gpu":        ["NVDA", "AMD"],
-    "cpuasic":    ["INTC", "AMD", "AVGO", "MRVL"],
-    "memory":     ["MU", "WDC", "STX"],
-    "semicap":    ["AMAT", "LRCX", "KLAC", "ASML"],
-    "powersemi":  ["ON", "MPWR", "STM"],
-    "photonics":  ["COHR", "LITE", "FN"],
-    "aiserver":   ["SMCI", "DELL", "HPE", "ANET", "VRT"],
-    "hyperscale": ["MSFT", "GOOGL", "AMZN", "META", "ORCL"],
-    "neocloud":   ["CRWV", "NBIS", "APLD"],
-    "cdnedge":    ["NET", "AKAM", "FSLY"],
-    "solutil":    ["FSLR", "NXT", "ARRY"],
-    "solresi":    ["ENPH", "SEDG", "RUN"],
+    # chips & AI value chain
+    "gpu":          ["NVDA", "AMD", "TSM"],
+    "cpuasic":      ["INTC", "AMD", "AVGO", "MRVL"],
+    "aiinference":  ["QCOM", "AMD", "MRVL", "ARM", "AVGO"],
+    "memory":       ["MU", "WDC", "STX", "SNDK"],
+    "semicap":      ["AMAT", "LRCX", "KLAC", "ASML", "PENG"],
+    "powersemi":    ["ON", "MPWR", "STM", "POWI", "ALGM", "WOLF", "NXPI", "DIOD", "AOSL", "VSH"],
+    "photonics":    ["COHR", "LITE", "FN", "AXTI", "AAOI", "GLW", "VIAV"],
+    "connectivity": ["CRDO", "ALAB"],
+    "networking":   ["CSCO", "ANET"],
+    # compute, cloud & software
+    "aiserver":     ["SMCI", "DELL", "HPE", "ANET", "VRT", "AAPL", "IBM"],
+    "hyperscale":   ["MSFT", "GOOGL", "AMZN", "META", "ORCL"],
+    "neocloud":     ["CRWV", "NBIS", "APLD", "IREN", "DOCN", "CIFR"],
+    "cdnedge":      ["NET", "AKAM", "FSLY"],
+    "software":     ["DDOG", "SNOW"],
+    "cyber":        ["PANW", "CRWD", "S", "OKTA", "ZS"],
+    # physical economy / electrification
+    "elecind":      ["ETN", "GEV", "VRT", "CAT", "CMI", "AME", "HUBB", "GNRC", "MOD", "ENS", "POWL"],
+    "epc":          ["PWR", "EME", "MTZ", "FIX", "STRL", "PRIM", "IESC", "MYRG", "FLR", "J", "ECG"],
+    "nuclear":      ["CCJ", "CEG", "BWXT", "OKLO", "NXE", "LEU", "SMR", "UUUU", "XE"],
+    "solutil":      ["FSLR", "NXT", "ARRY", "SHLS", "FLNC", "EOSE", "CWEN", "BE", "PLUG", "FCEL", "BEP", "SOLS"],
+    "solresi":      ["ENPH", "SEDG", "RUN"],
+    # aero, defense & frontier
+    "defense":      ["LMT", "RTX", "NOC", "GD", "LHX", "HII", "BA", "TXT", "LDOS", "TDG", "HEI",
+                     "CW", "OSK", "KTOS", "MRCY", "PLTR", "AVAV", "RCAT", "UMAC", "HWM"],
+    "space":        ["IRDM", "RKLB", "ASTS", "LUNR", "RDW", "PL", "FLY"],
+    "robotics":     ["ROK", "EMR", "PH", "APH", "ZBRA", "CGNX", "NOVT", "LSCC", "AMBA", "MBLY",
+                     "SYM", "AUR", "OUST", "AEVA", "INDI", "KLIC", "TSLA", "XPEV", "SERV", "RR",
+                     "ARBE", "KITT", "ALNT", "VPG", "ATOM", "MRAM", "BOT", "AMBQ"],
+    # resources
+    "miners":       ["FCX", "SCCO", "NEM", "TECK", "HBM"],
+    "materials":    ["MP", "ALB", "NUE", "STLD", "CLF", "FMC", "USAR"],
 }
 
 

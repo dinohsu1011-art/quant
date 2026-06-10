@@ -29,13 +29,16 @@ THEMATIC_ETFS = ["SMH", "SOXX", "XBI", "IBB", "KRE", "XOP", "OIH", "GDX", "TAN",
                  "XHB", "XRT", "ARKK", "KWEB", "JETS"]
 INDUSTRY_ETFS = ["ITA", "IGV", "CIBR", "BOTZ", "IGN", "URA", "XME", "IDRV", "UFO", "GRID",
                  "IBIT", "PAVE", "FIVG"]
+# standalone series from the watchlist (not basket members, not in tickers.csv)
+EXTRA_SERIES = ["GLD", "SLV", "CPER", "COPX", "URNM", "ETHA", "EEM", "ROBO",
+                "TLN", "CRCL", "LCID", "NEO"]
 
 
 def fetch_all():
     run(INDEX_SYMBOLS, start=INDEX_START_DATE, skip_existing=False)
     basket_members = sorted({t for ts in BASKETS.values() for t in ts})
     rest = sorted(set(load_tickers() + MACRO + SECTOR_ETFS + THEMATIC_ETFS + INDUSTRY_ETFS
-                      + basket_members + ["SPY", "QQQ"]) - set(INDEX_SYMBOLS))
+                      + EXTRA_SERIES + basket_members + ["SPY", "QQQ"]) - set(INDEX_SYMBOLS))
     run(rest, skip_existing=False)
 
 
