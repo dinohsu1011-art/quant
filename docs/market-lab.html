@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Market Lab</title>
+  <style>
+    :root {
+      --white:#ffffff; --fog:#fafaf9; --ink:#0c0a09; --ash:#78716c;
+      --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
+      --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7;
+      --font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      --shadow:rgba(0,0,0,.05) 0px 4px 16px 0px;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--fog); color:var(--ink); font-family:var(--font); line-height:1.5; }
+    .wrap { max-width:1080px; margin:0 auto; padding:28px 24px 80px; }
+    .top { display:flex; justify-content:space-between; align-items:baseline; gap:16px; margin-bottom:18px; }
+    .top h1 { font-size:22px; font-weight:600; margin:0; }
+    .top .meta { font-size:12.5px; color:var(--ash); text-align:right; }
+    .top a { color:var(--blue-deep); text-decoration:none; }
+    .mode { display:inline-block; padding:2px 9px; border:1px solid var(--stone); border-radius:999px;
+            background:var(--white); font-size:11.5px; color:var(--ash); margin-left:8px; }
+    .card { background:var(--white); border:1px solid var(--stone); border-radius:14px;
+            box-shadow:var(--shadow); padding:18px 20px; }
+    .sentence { font-size:17px; line-height:1.9; margin-bottom:12px; }
+    .sentence .quiet { color:var(--ash); }
+    .tok { color:var(--blue-deep); border-bottom:1.5px dashed var(--blue); cursor:pointer;
+           padding-bottom:1px; transition:background .15s; border-radius:3px; }
+    .tok:hover { background:var(--sky); }
+    .sliderrow { display:flex; align-items:center; gap:12px; margin:0 0 14px; min-height:30px; }
+    .sliderrow label { font-size:11.5px; color:var(--steel); white-space:nowrap; }
+    .sliderrow input[type=range] { flex:1; accent-color:var(--blue); }
+    .sliderrow .val { font-size:13.5px; font-weight:600; min-width:52px; }
+    .sliderrow .hint { font-size:11.5px; color:var(--steel); }
+    .stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+    .stat { background:var(--white); border:1px solid var(--stone); border-radius:10px; padding:12px 14px; }
+    .stat .l { font-size:11.5px; color:var(--ash); }
+    .stat .v { font-size:23px; font-weight:600; transition:opacity .25s; }
+    .stat .s { font-size:11.5px; color:var(--steel); }
+    .panels { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+    .panel h3 { font-size:13.5px; font-weight:600; margin:0 0 12px; }
+    .panel h3 .sub { font-weight:400; color:var(--steel); font-size:11.5px; }
+    .regrow { display:flex; align-items:center; gap:8px; padding:2.5px 0; cursor:pointer; border-radius:6px; }
+    .regrow:hover { background:var(--fog); }
+    .regrow .rl { width:168px; min-width:168px; font-size:11.5px; color:var(--ash); text-align:right;
+                  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .regrow.cur .rl { color:var(--ink); font-weight:600; }
+    .regrow .track { flex:1; height:13px; position:relative; }
+    .regrow .bar { position:absolute; left:0; top:0; height:100%; border-radius:4px;
+                   background:var(--steel); opacity:.45; transition:width .35s cubic-bezier(.2,.8,.2,1); }
+    .regrow.cur .bar { background:var(--blue); opacity:1; }
+    .regrow .rv { width:58px; font-size:11.5px; color:var(--ash); }
+    .regrow.cur .rv { color:var(--ink); font-weight:600; }
+    .mark50 { position:absolute; top:-2px; bottom:-2px; width:0; border-left:1px dashed var(--platinum); }
+    .hist { display:flex; align-items:flex-end; gap:4px; height:190px; padding-top:8px; }
+    .bin { flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; position:relative; cursor:crosshair; }
+    .bin .fill { border-radius:4px 4px 2px 2px; background:var(--blue);
+                 transition:height .35s cubic-bezier(.2,.8,.2,1); min-height:0; }
+    .bin.neg .fill { background:var(--ink); opacity:.78; }
+    .bin .ghost { position:absolute; left:1px; right:1px; bottom:0; border:1.5px dashed var(--steel);
+                  border-bottom:none; border-radius:4px 4px 0 0; pointer-events:none;
+                  transition:height .35s cubic-bezier(.2,.8,.2,1); }
+    .bin:hover .fill { filter:brightness(1.12); }
+    .binlabels { display:flex; gap:4px; margin-top:6px; }
+    .binlabels span { flex:1; font-size:9.5px; color:var(--steel); text-align:center; }
+    .zero { border-left:1.5px dashed var(--platinum); }
+    .occ { margin-bottom:12px; }
+    .occ table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    .occ th, .occ td { padding:6px 8px; border-bottom:1px solid var(--stone); text-align:left; }
+    .occ th { color:var(--steel); font-weight:600; font-size:11px; }
+    .occ td.r { text-align:right; }
+    .occ tr.hl { background:var(--sky); }
+    .occ .up { color:var(--blue-deep); font-weight:600; } .occ .dn { color:var(--ink); font-weight:600; }
+    .presets { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .presets span { font-size:11.5px; color:var(--steel); }
+    .presets button, .pinbtn { font-family:var(--font); font-size:12px; padding:5px 12px; cursor:pointer;
+      background:var(--white); border:1px solid var(--platinum); border-radius:8px; color:var(--ink);
+      transition:transform .12s, border-color .12s; }
+    .presets button:hover, .pinbtn:hover { border-color:var(--steel); transform:translateY(-1px); }
+    .pinchip { display:inline-flex; gap:8px; align-items:center; font-size:11.5px; color:var(--ash);
+               border:1px dashed var(--platinum); border-radius:8px; padding:4px 10px; }
+    .pinchip b { color:var(--ink); }
+    .pinchip .x { cursor:pointer; color:var(--steel); }
+    .pop { position:fixed; z-index:50; background:var(--white); border:1px solid var(--stone);
+           border-radius:10px; box-shadow:rgba(17,12,46,.12) 0px 12px 45px 0px; padding:6px;
+           max-height:330px; overflow-y:auto; min-width:230px; display:none; }
+    .pop .g { font-size:10.5px; color:var(--steel); padding:7px 10px 3px; letter-spacing:.05em; }
+    .pop .o { font-size:13px; padding:7px 10px; border-radius:7px; cursor:pointer; }
+    .pop .o:hover { background:var(--fog); }
+    .pop .o.sel { color:var(--blue-deep); font-weight:600; }
+    .pop .o.dis { color:var(--platinum); pointer-events:none; }
+    .tip { position:fixed; z-index:100; display:none; pointer-events:none; padding:7px 10px;
+           border:1px solid var(--stone); border-radius:8px; background:var(--white);
+           box-shadow:var(--shadow); font-size:12px; font-weight:600; white-space:nowrap; }
+    .note { font-size:12px; color:var(--ash); margin:8px 2px 0; }
+    @media (max-width:860px){ .panels{grid-template-columns:1fr;} .stats{grid-template-columns:repeat(2,1fr);} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Market lab</h1>
+      <div class="meta">
+        <a href="trader-profile.html">&larr; trader profile</a> &middot;
+        <a href="market-lab-baskets.html">basket components</a> &middot;
+        <a href="market-lab-drawdowns.html">drawdowns</a>
+        <span id="asof"></span><span class="mode" id="mode">loading&hellip;</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:12px;">
+      <div class="sentence" id="sentence"></div>
+      <div class="sliderrow" id="sliderrow">
+        <label>drop threshold</label>
+        <input type="range" id="thr" />
+        <span class="val" id="thrval"></span>
+        <span class="hint" id="thrhint"></span>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div class="presets" id="presets"><span>presets:</span></div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="pinchip" id="pinchip" style="display:none;"></span>
+          <button class="pinbtn" id="pin">pin to compare</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="panels">
+      <div class="card panel">
+        <h3>Up-rate by regime <span class="sub">&middot; click a row to switch condition</span></h3>
+        <div id="regimes"></div>
+      </div>
+      <div class="card panel">
+        <h3>Outcome distribution <span class="sub" id="histsub">&middot; next-session return</span></h3>
+        <div class="hist" id="hist"></div>
+        <div class="binlabels" id="binlabels"></div>
+      </div>
+    </div>
+
+    <div class="card occ" id="occcard">
+      <h3 style="font-size:13.5px; margin:0 0 8px;">Occurrences <span class="sub" id="occsub" style="font-weight:400;color:var(--steel);font-size:11.5px;"></span></h3>
+      <div id="occ"></div>
+    </div>
+
+    <p class="note" id="footnote"></p>
+  </div>
+
+  <div class="pop" id="pop"></div>
+  <div class="tip" id="tip"></div>
+  <script src="cube/index.js"></script>
+  <script src="market-lab.js"></script>
+</body>
+</html>

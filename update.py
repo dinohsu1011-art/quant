@@ -11,6 +11,7 @@ One-command refresh pipeline, in strict order:
 
     ./.venv/bin/python update.py
 """
+import shutil
 import subprocess
 import sys
 import time
@@ -49,15 +50,34 @@ def sub(target):
         raise RuntimeError(f"{target} exited {r.returncode}")
 
 
+REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
+SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html", "market-lab-drawdowns.html"]
+
+
+def sync_site():
+    """Copy the market-lab pages + cube data into web/ (source backup) and docs/
+    (GitHub Pages payload). trader-profile.html is personal and is NOT copied."""
+    for dest in (ROOT / "web", ROOT / "docs"):
+        dest.mkdir(exist_ok=True)
+        for p in SITE_PAGES:
+            shutil.copy2(REPORTS / p, dest / p)
+    cube_dst = ROOT / "docs" / "cube"
+    cube_dst.mkdir(exist_ok=True)
+    for f in (REPORTS / "cube").glob("*.js"):
+        shutil.copy2(f, cube_dst / f.name)
+    print(f"synced {len(SITE_PAGES)} pages + cube data → web/ and docs/ "
+          "(push to GitHub to refresh the Pages site)")
+
+
 def step(i, name, fn):
     t0 = time.time()
-    print(f"\n=== [{i}/5] {name} ===", flush=True)
+    print(f"\n=== [{i}/6] {name} ===", flush=True)
     try:
         fn()
     except Exception as e:
-        print(f"*** PIPELINE STOPPED at [{i}/5] {name}: {e}")
+        print(f"*** PIPELINE STOPPED at [{i}/6] {name}: {e}")
         sys.exit(1)
-    print(f"=== [{i}/5] {name} done in {time.time() - t0:.0f}s ===", flush=True)
+    print(f"=== [{i}/6] {name} done in {time.time() - t0:.0f}s ===", flush=True)
 
 
 if __name__ == "__main__":
@@ -65,5 +85,6 @@ if __name__ == "__main__":
     step(2, "rebuild baskets", lambda: sub("ingestion.baskets"))
     step(3, "regenerate cube", lambda: sub("export.cube"))
     step(4, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(5, "validate", lambda: sub("validate.py"))
+    step(5, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(6, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")

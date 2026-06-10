@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Drawdowns — Market Lab</title>
+  <style>
+    :root {
+      --white:#ffffff; --fog:#fafaf9; --ink:#0c0a09; --ash:#78716c;
+      --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
+      --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7;
+      --font:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      --shadow:rgba(0,0,0,.05) 0px 4px 16px 0px;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--fog); color:var(--ink); font-family:var(--font); line-height:1.5; }
+    .wrap { max-width:1080px; margin:0 auto; padding:28px 24px 80px; }
+    .top { display:flex; justify-content:space-between; align-items:baseline; gap:16px; margin-bottom:6px; }
+    .top h1 { font-size:22px; font-weight:600; margin:0; }
+    .top .meta { font-size:12.5px; color:var(--ash); }
+    .top a { color:var(--blue-deep); text-decoration:none; }
+    .lede { font-size:13.5px; color:var(--ash); max-width:780px; margin:0 0 16px; }
+    .tabs { display:flex; gap:8px; margin-bottom:14px; }
+    .tabs button { font-family:var(--font); font-size:13px; padding:7px 16px; cursor:pointer;
+      background:var(--white); border:1px solid var(--platinum); border-radius:9px; color:var(--ash);
+      transition:all .15s; }
+    .tabs button.on { color:var(--ink); font-weight:600; border-color:var(--blue);
+      box-shadow:0 0 0 1px var(--blue) inset; }
+    .card { background:var(--white); border:1px solid var(--stone); border-radius:14px;
+            box-shadow:var(--shadow); padding:16px 20px; margin-bottom:14px; }
+    .card h3 { font-size:14.5px; font-weight:600; margin:0 0 4px; }
+    .card .sub { font-size:11.5px; color:var(--steel); font-weight:400; }
+    .cols { display:grid; grid-template-columns:7fr 5fr; gap:14px; }
+    @media (max-width:880px){ .cols{grid-template-columns:1fr;} }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th { color:var(--steel); font-weight:600; font-size:10.5px; text-align:right; padding:4px 7px;
+         border-bottom:1px solid var(--stone); }
+    th:first-child, td:first-child { text-align:left; }
+    td { padding:4px 7px; border-bottom:1px solid var(--fog); text-align:right; white-space:nowrap; }
+    .bktbar { display:inline-block; height:11px; border-radius:3px; background:var(--blue);
+              vertical-align:middle; transition:width .4s cubic-bezier(.2,.8,.2,1); }
+    tr.deep .bktbar { background:var(--ink); opacity:.78; }
+    .bkt { font-weight:600; }
+    .dim { color:var(--steel); }
+    .big { font-size:21px; font-weight:600; }
+    .cumrow { display:flex; align-items:baseline; justify-content:space-between; gap:10px;
+              padding:7px 2px; border-bottom:1px solid var(--fog); font-size:13px; }
+    .cumrow b { font-size:15px; }
+    .cumrow .freq { color:var(--blue-deep); font-weight:600; }
+    .dec td { min-width:42px; }
+    .dec td.c { border-radius:4px; }
+    svg { width:100%; height:auto; display:block; overflow:visible; }
+    .tip { position:fixed; z-index:100; display:none; pointer-events:none; padding:7px 10px;
+           border:1px solid var(--stone); border-radius:8px; background:var(--white);
+           box-shadow:var(--shadow); font-size:12px; font-weight:600; white-space:pre-line; line-height:1.55; }
+    .note { font-size:12px; color:var(--ash); margin-top:18px; max-width:860px; }
+    .ongoing { display:inline-block; margin-left:10px; padding:2px 9px; border:1px dashed var(--platinum);
+               border-radius:999px; font-size:11.5px; color:var(--ash); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1>Pullback distribution</h1>
+      <div class="meta"><a href="market-lab.html">&larr; market lab</a> &middot;
+        <a href="market-lab-baskets.html">baskets</a> <span id="asof"></span></div>
+    </div>
+    <p class="lede">A pullback = decline from the running all-time high until a <b>new high</b> is
+      reclaimed, counted once at its maximum close-to-close depth. Dips that stay under 3% are ignored;
+      rallies-and-dips <i>inside</i> a long bear are not separate episodes.</p>
+    <div class="tabs" id="tabs"></div>
+
+    <div class="cols">
+      <div class="card">
+        <h3>Distribution by max depth <span class="sub" id="dist-sub"></span></h3>
+        <div id="dist"></div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>How often — at least X% <span class="sub">annualized</span></h3>
+          <div id="cum"></div>
+        </div>
+        <div class="card">
+          <h3>Worst episodes <span class="sub">&ge;20% from high</span></h3>
+          <div id="worst"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Same distribution, by decade <span class="sub" id="dec-sub">&middot; episodes assigned to the decade of their peak</span></h3>
+      <div id="decade"></div>
+    </div>
+
+    <div class="card">
+      <h3>Timeline <span class="sub">&middot; weekly drawdown from ATH; dots mark troughs — hover a dot for its odds &amp; recurrence, <b>drag a date range to zoom</b>, double-click to reset</span><span class="ongoing" id="ongoing" style="display:none;"></span>
+        <button id="zoomreset" style="display:none; float:right; font-family:var(--font); font-size:11.5px; padding:3px 10px; cursor:pointer; background:var(--white); border:1px solid var(--platinum); border-radius:7px; color:var(--ink);">reset zoom</button>
+        <span id="zoomrange" class="sub" style="float:right; margin-right:10px;"></span></h3>
+      <div id="timeline"></div>
+    </div>
+
+    <p class="note">Depths are close-based (intraday lows run ~1–2pp deeper). Decades have unequal data
+      coverage — the first and last columns are partial. NDX history starts 1985, so it never saw 1973–74.
+      Rows with one or two events are events, not rates. Regenerated automatically by update.py.</p>
+  </div>
+  <div class="tip" id="tip"></div>
+  <script src="cube/drawdowns.js"></script>
+  <script>
+    (() => {
+      const D = window.QUANT_DRAWDOWNS;
+      const $ = (id) => document.getElementById(id);
+      if (!D) { $("dist").textContent = "cube/drawdowns.js missing — run: python -m export.cube"; return; }
+      const EDGES = [[3,4],[4,5],[5,6],[6,7],[7,8],[8,9],[9,10],
+                     [10,12],[12,14],[14,16],[16,18],[18,20],
+                     [20,23],[23,26],[26,29],[29,32],[32,35],[35,38],[38,41],[41,1e9]];
+      const LBL = EDGES.map(([a,b]) => b > 100 ? "41%+" : `${a}–${b}%`);
+      const med = (a) => { if (!a.length) return null; const s=[...a].sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
+      const days = (v) => v == null ? "—" : (v >= 365 ? (v/365.25).toFixed(1)+"y" : v+"d");
+      $("asof").textContent = "· as of " + D.as_of;
+
+      let cur = 0, view = null;   // view = {t0,t1} ms — null = full range
+      const tabs = $("tabs");
+      D.indexes.forEach((ix, i) => {
+        const b = document.createElement("button");
+        b.textContent = `${ix.label} (${ix.years.toFixed(0)}y)`;
+        b.onclick = () => { cur = i; view = null; render(); };
+        tabs.appendChild(b);
+      });
+
+      function render() {
+        [...tabs.children].forEach((b, i) => b.classList.toggle("on", i === cur));
+        const ix = D.indexes[cur], eps = ix.episodes, yrs = ix.years;
+        $("dist-sub").textContent = `· ${eps.length} pullbacks ≥3% in ${yrs.toFixed(0)} years`;
+
+        // 1. bucket distribution
+        const buckets = EDGES.map(([a,b]) => eps.filter(e => e.depth >= a && e.depth < b));
+        const maxN = Math.max(...buckets.map(s => s.length), 1);
+        $("dist").innerHTML = `<table><tr><th>max depth</th><th style="text-align:left"></th><th>n</th><th>once every</th><th>pk→trough</th><th>recovery</th></tr>` +
+          buckets.map((s, i) => {
+            const n = s.length;
+            const oe = n ? (yrs/n >= 1 ? (yrs/n).toFixed(1)+" yrs" : "<1 yr") : "—";
+            const p2t = med(s.map(e => e.p2t)), rec = med(s.filter(e => e.rec != null).map(e => e.rec));
+            return `<tr class="${EDGES[i][0] >= 20 ? "deep" : ""}"><td class="bkt">${LBL[i]}</td>` +
+              `<td style="text-align:left;width:34%"><span class="bktbar" style="width:${n ? Math.max(3, n/maxN*100) : 0}%"></span></td>` +
+              `<td>${n || '<span class="dim">0</span>'}</td><td>${oe}</td>` +
+              `<td class="dim">${days(p2t)}</td><td class="dim">${days(rec)}</td></tr>`;
+          }).join("") + `</table>`;
+
+        // 2. cumulative
+        $("cum").innerHTML = [3,5,10,15,20,30,41].map(t => {
+          const n = eps.filter(e => e.depth >= t).length;
+          const f = n/yrs;
+          const txt = f >= 0.95 ? `${f.toFixed(1)}× per year` : `every ${(yrs/n).toFixed(1)} yrs`;
+          return `<div class="cumrow"><span>≥ <b>${t}%</b></span><span class="dim">${n}×</span><span class="freq">${n ? txt : "never"}</span></div>`;
+        }).join("");
+
+        // 3. worst episodes
+        const worst = eps.filter(e => e.depth >= 20).sort((a,b) => b.depth - a.depth);
+        $("worst").innerHTML = worst.map(e =>
+          `<div class="cumrow"><span><b>−${Math.round(e.depth)}%</b> <span class="dim">${e.peak.slice(0,7)}</span></span>` +
+          `<span class="dim">${days(e.p2t)} down</span><span>${e.rec != null ? days(e.rec) + " to recover" : "ongoing"}</span></div>`).join("") || `<div class="dim">none</div>`;
+
+        // 4. by decade
+        const decs = [];
+        for (let d = Math.floor(+ix.start.slice(0,4)/10)*10; d <= +ix.end.slice(0,4); d += 10) decs.push(d);
+        const grid = EDGES.map(([a,b]) => decs.map(d =>
+          eps.filter(e => e.depth >= a && e.depth < b && Math.floor(+e.peak.slice(0,4)/10)*10 === d).length));
+        const maxC = Math.max(...grid.flat(), 1);
+        const decYears = decs.map(d => {
+          const s = Math.max(d, +ix.start.slice(0,4)), e = Math.min(d+9, +ix.end.slice(0,4));
+          return e - s + 1;
+        });
+        $("decade").innerHTML = `<table class="dec"><tr><th>max depth</th>` +
+          decs.map((d,i) => `<th>${d}s<br><span style="font-weight:400">${decYears[i]}y</span></th>`).join("") + `</tr>` +
+          grid.map((row, bi) => `<tr><td class="bkt">${LBL[bi]}</td>` + row.map(c =>
+            `<td class="c" style="background:rgba(59,166,241,${c ? (0.10 + 0.5*c/maxC).toFixed(2) : 0})">${c || '<span class="dim">·</span>'}</td>`).join("") + `</tr>`).join("") +
+          `<tr style="border-top:2px solid var(--stone)"><td class="bkt">all ≥3%</td>` +
+          decs.map(d => `<td><b>${eps.filter(e => Math.floor(+e.peak.slice(0,4)/10)*10 === d).length}</b></td>`).join("") + `</tr>` +
+          `<tr><td class="bkt dim">of which ≥10%</td>` +
+          decs.map(d => `<td class="dim">${eps.filter(e => e.depth >= 10 && Math.floor(+e.peak.slice(0,4)/10)*10 === d).length}</td>`).join("") + `</tr></table>`;
+
+        // 5. timeline (zoomable — see drawTimeline)
+        drawTimeline(ix);
+
+        const og = eps.find(e => e.rec == null);
+        $("ongoing").style.display = og ? "inline-block" : "none";
+        if (og) $("ongoing").textContent = `current: −${og.depth}% from the ${og.peak} high (ongoing)`;
+      }
+
+      function drawTimeline(ix) {
+        const eps = ix.episodes;
+        const W = 1000, H = 300, L = 46, R = 990, top = 18, bot = 262;
+        const ms = (ds) => new Date(ds).getTime();
+        const f0 = ms(ix.start), f1 = ms(ix.end);
+        const t0 = view ? view.t0 : f0, t1 = view ? view.t1 : f1;
+        const X = (t) => L + (t - t0) / (t1 - t0) * (R - L);
+
+        const wd = ix.weekly.dates, wv = ix.weekly.dd;
+        let a = wd.findIndex(d => ms(d) >= t0); if (a < 0) a = wd.length - 1;
+        let b = wd.length - 1;
+        for (let i = wd.length - 1; i >= 0; i--) { if (ms(wd[i]) <= t1) { b = i; break; } }
+        a = Math.max(0, a - 1); b = Math.min(wd.length - 1, b + 1);
+        const vis = eps.filter(e => ms(e.trough) >= t0 && ms(e.trough) <= t1);
+        const maxD = Math.max(8, ...wv.slice(a, b + 1).map(v => -v), ...vis.map(e => e.depth)) * 1.08;
+        const Y = (d) => top + d / maxD * (bot - top);
+
+        let s = `<defs><clipPath id="plotclip"><rect x="${L}" y="${top - 2}" width="${R - L}" height="${bot - top + 4}"/></clipPath></defs>`;
+        s += `<line x1="${L}" y1="${top}" x2="${R}" y2="${top}" stroke="#d6d3d1" stroke-width="1"/>`;
+        for (const g of [3, 5, 10, 20, 30, 50, 80]) {
+          if (g < maxD && g / maxD > 0.08)
+            s += `<line x1="${L}" y1="${Y(g)}" x2="${R}" y2="${Y(g)}" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="3 5"/>` +
+                 `<text x="${L-6}" y="${Y(g)+4}" text-anchor="end" font-size="10" fill="#a8a29e">−${g}%</text>`;
+        }
+        const spanY = (t1 - t0) / 31557600000;
+        if (spanY >= 2.5) {
+          const step = spanY >= 25 ? 10 : spanY >= 12 ? 5 : spanY >= 5 ? 2 : 1;
+          const yA = new Date(t0).getUTCFullYear(), yB = new Date(t1).getUTCFullYear();
+          for (let yr = Math.ceil(yA / step) * step; yr <= yB; yr += step) {
+            const x = X(Date.UTC(yr, 0, 1));
+            if (x >= L && x <= R) s += `<text x="${x.toFixed(1)}" y="${bot + 18}" text-anchor="middle" font-size="10" fill="#a8a29e">${yr}</text>`;
+          }
+        } else {
+          const stepM = spanY >= 0.7 ? 3 : 1;
+          const d0 = new Date(t0);
+          let yy = d0.getUTCFullYear(), mm = Math.ceil((d0.getUTCMonth() + 1) / stepM) * stepM;
+          for (;;) {
+            while (mm >= 12) { yy++; mm -= 12; }
+            const t = Date.UTC(yy, mm, 1);
+            if (t > t1) break;
+            const x = X(t);
+            if (x >= L && x <= R) s += `<text x="${x.toFixed(1)}" y="${bot + 18}" text-anchor="middle" font-size="10" fill="#a8a29e">${new Date(t).toISOString().slice(0, 7)}</text>`;
+            mm += stepM;
+          }
+        }
+        let path = "";
+        for (let i = a; i <= b; i++) path += `${path ? "L" : "M"}${X(ms(wd[i])).toFixed(1)},${Y(-wv[i]).toFixed(1)}`;
+        s += `<g clip-path="url(#plotclip)">` +
+             `<path d="${path}L${X(ms(wd[b])).toFixed(1)},${top}L${X(ms(wd[a])).toFixed(1)},${top}Z" fill="#c1e1f7" opacity="0.45"/>` +
+             `<path d="${path}" fill="none" stroke="#3ba6f1" stroke-width="1.1"/></g>`;
+        vis.forEach(e => {
+          const deep = e.depth >= 20, mid = e.depth >= 10;
+          const r = 2.5 + Math.min(e.depth, 60) / 9;
+          // recurrence stats for "this deep or deeper", vs the full episode set
+          const geq = eps.filter(o => o.depth >= e.depth);
+          const share = geq.length / eps.length * 100;
+          const yrPct = Math.min(100, new Set(geq.map(o => +o.trough.slice(0, 4))).size / ix.years * 100);
+          const lastT = geq.map(o => o.trough).sort().at(-1);
+          const since = Math.round((new Date(D.as_of) - new Date(lastT)) / 86400e3);
+          const sinceTxt = since.toLocaleString() + "d" + (since >= 365 ? ` (~${(since/365.25).toFixed(1)}y)` : "") +
+                           " ago" + (lastT === e.trough ? " — this one" : ` (on ${lastT})`);
+          const tipTxt = `−${e.depth}% · peak ${e.peak} → trough ${e.trough} (${days(e.p2t)})` +
+                         (e.rec != null ? ` · recovered in ${days(e.rec)}` : " · ONGOING") +
+                         `&#10;≥${e.depth}% happens: ${share.toFixed(1)}% of all pullbacks` +
+                         `&#10;chance in any year: ${yrPct.toFixed(0)}%` +
+                         `&#10;last one this deep: ${sinceTxt}`;
+          s += `<circle cx="${X(ms(e.trough)).toFixed(1)}" cy="${Y(e.depth).toFixed(1)}" r="${r.toFixed(1)}" ` +
+               `fill="${deep ? "#0c0a09" : mid ? "#1d7fc4" : "#ffffff"}" stroke="${deep ? "#0c0a09" : "#3ba6f1"}" ` +
+               `stroke-width="1.4" data-tip="${tipTxt}" style="cursor:crosshair"/>`;
+          if (e.depth >= 30) s += `<text x="${X(ms(e.trough)).toFixed(1)}" y="${(Y(e.depth)+r+12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="600" fill="#0c0a09">−${Math.round(e.depth)}%</text>`;
+        });
+        $("timeline").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="drawdown timeline" style="touch-action:none; user-select:none; cursor:crosshair;">${s}</svg>`;
+
+        $("zoomreset").style.display = view ? "inline-block" : "none";
+        $("zoomrange").textContent = view
+          ? `${new Date(t0).toISOString().slice(0,10)} → ${new Date(t1).toISOString().slice(0,10)} · ${vis.length} episodes` : "";
+
+        // brush-to-zoom
+        const svg = $("timeline").querySelector("svg");
+        const toVB = (e) => { const r = svg.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; };
+        let brush = null;
+        svg.onpointerdown = (e) => {
+          brush = { x0: Math.max(L, Math.min(R, toVB(e))), x1: null };
+          const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          el.setAttribute("y", top); el.setAttribute("height", bot - top);
+          el.setAttribute("fill", "#3ba6f1"); el.setAttribute("opacity", "0.16");
+          svg.appendChild(el); brush.el = el;
+          svg.setPointerCapture(e.pointerId); e.preventDefault();
+        };
+        svg.onpointermove = (e) => {
+          if (!brush) return;
+          brush.x1 = Math.max(L, Math.min(R, toVB(e)));
+          brush.el.setAttribute("x", Math.min(brush.x0, brush.x1));
+          brush.el.setAttribute("width", Math.abs(brush.x1 - brush.x0));
+        };
+        svg.onpointerup = () => {
+          if (!brush) return;
+          const { x0, x1, el } = brush; el.remove(); brush = null;
+          if (x1 == null || Math.abs(x1 - x0) < 8) return;
+          const lo = Math.min(x0, x1), hi = Math.max(x0, x1);
+          const nt0 = t0 + (lo - L) / (R - L) * (t1 - t0);
+          const nt1 = t0 + (hi - L) / (R - L) * (t1 - t0);
+          if (nt1 - nt0 < 30 * 86400e3) return;          // ignore sub-30-day selections
+          view = { t0: nt0, t1: nt1 };
+          drawTimeline(ix);
+        };
+        svg.ondblclick = () => { view = null; drawTimeline(ix); };
+      }
+      $("zoomreset").onclick = () => { view = null; drawTimeline(D.indexes[cur]); };
+      window.__ddZoom = (d0, d1) => {                       // programmatic hook (tests/console)
+        view = d0 ? { t0: new Date(d0).getTime(), t1: new Date(d1).getTime() } : null;
+        drawTimeline(D.indexes[cur]);
+      };
+
+      const tip = $("tip");
+      document.addEventListener("pointermove", (e) => {
+        const t = e.target.closest && e.target.closest("[data-tip]");
+        if (t) {
+          tip.textContent = t.dataset.tip; tip.style.display = "block";
+          tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 10) + "px";
+          tip.style.top = (e.clientY + 14) + "px";
+        } else tip.style.display = "none";
+      });
+      render();
+    })();
+  </script>
+</body>
+</html>
