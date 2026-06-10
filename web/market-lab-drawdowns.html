@@ -93,7 +93,9 @@
     </div>
 
     <div class="card">
-      <h3>Timeline <span class="sub">&middot; weekly drawdown from ATH; dots mark each episode's trough — hover for detail</span><span class="ongoing" id="ongoing" style="display:none;"></span></h3>
+      <h3>Timeline <span class="sub">&middot; weekly drawdown from ATH; dots mark troughs — <b>drag a date range to zoom</b>, double-click to reset</span><span class="ongoing" id="ongoing" style="display:none;"></span>
+        <button id="zoomreset" style="display:none; float:right; font-family:var(--font); font-size:11.5px; padding:3px 10px; cursor:pointer; background:var(--white); border:1px solid var(--platinum); border-radius:7px; color:var(--ink);">reset zoom</button>
+        <span id="zoomrange" class="sub" style="float:right; margin-right:10px;"></span></h3>
       <div id="timeline"></div>
     </div>
 
@@ -116,12 +118,12 @@
       const days = (v) => v == null ? "—" : (v >= 365 ? (v/365.25).toFixed(1)+"y" : v+"d");
       $("asof").textContent = "· as of " + D.as_of;
 
-      let cur = 0;
+      let cur = 0, view = null;   // view = {t0,t1} ms — null = full range
       const tabs = $("tabs");
       D.indexes.forEach((ix, i) => {
         const b = document.createElement("button");
         b.textContent = `${ix.label} (${ix.years.toFixed(0)}y)`;
-        b.onclick = () => { cur = i; render(); };
+        b.onclick = () => { cur = i; view = null; render(); };
         tabs.appendChild(b);
       });
 
@@ -177,42 +179,116 @@
           `<tr><td class="bkt dim">of which ≥10%</td>` +
           decs.map(d => `<td class="dim">${eps.filter(e => e.depth >= 10 && Math.floor(+e.peak.slice(0,4)/10)*10 === d).length}</td>`).join("") + `</tr></table>`;
 
-        // 5. timeline (underwater curve + trough markers)
-        const W = 1000, H = 300, L = 46, R = 990, top = 18, bot = 262;
-        const t0 = new Date(ix.start).getTime(), t1 = new Date(ix.end).getTime();
-        const X = (ds) => L + (new Date(ds).getTime() - t0)/(t1 - t0) * (R - L);
-        const maxD = Math.max(...ix.weekly.dd.map(v => -v), ...eps.map(e => e.depth)) * 1.06;
-        const Y = (depthPct) => top + depthPct/maxD * (bot - top);
-        let s = `<line x1="${L}" y1="${top}" x2="${R}" y2="${top}" stroke="#d6d3d1" stroke-width="1"/>`;
-        for (const g of [10,20,30,50,80]) {
-          if (g < maxD) s += `<line x1="${L}" y1="${Y(g)}" x2="${R}" y2="${Y(g)}" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="3 5"/>` +
-            `<text x="${L-6}" y="${Y(g)+4}" text-anchor="end" font-size="10" fill="#a8a29e">−${g}%</text>`;
-        }
-        const y0 = Math.ceil(+ix.start.slice(0,4)/10)*10;
-        for (let yr = y0; yr <= +ix.end.slice(0,4); yr += 10)
-          s += `<text x="${X(yr + "-01-01")}" y="${bot + 18}" text-anchor="middle" font-size="10" fill="#a8a29e">${yr}</text>`;
-        let path = "";
-        ix.weekly.dates.forEach((ds, i) => {
-          path += `${i ? "L" : "M"}${X(ds).toFixed(1)},${Y(-ix.weekly.dd[i]).toFixed(1)}`;
-        });
-        s += `<path d="${path}L${R},${top}L${L},${top}Z" fill="#c1e1f7" opacity="0.45"/>`;
-        s += `<path d="${path}" fill="none" stroke="#3ba6f1" stroke-width="1.1"/>`;
-        eps.forEach(e => {
-          const deep = e.depth >= 20, mid = e.depth >= 10;
-          const r = 2.5 + Math.min(e.depth, 60)/9;
-          const tipTxt = `−${e.depth}% · peak ${e.peak} → trough ${e.trough} (${days(e.p2t)})` +
-                         (e.rec != null ? ` · recovered in ${days(e.rec)}` : " · ONGOING");
-          s += `<circle cx="${X(e.trough).toFixed(1)}" cy="${Y(e.depth).toFixed(1)}" r="${r.toFixed(1)}" ` +
-               `fill="${deep ? "#0c0a09" : mid ? "#1d7fc4" : "#ffffff"}" stroke="${deep ? "#0c0a09" : "#3ba6f1"}" ` +
-               `stroke-width="1.4" data-tip="${tipTxt}" style="cursor:crosshair"/>`;
-          if (e.depth >= 30) s += `<text x="${X(e.trough).toFixed(1)}" y="${(Y(e.depth)+r+12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="600" fill="#0c0a09">−${Math.round(e.depth)}%</text>`;
-        });
-        $("timeline").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="drawdown timeline">${s}</svg>`;
+        // 5. timeline (zoomable — see drawTimeline)
+        drawTimeline(ix);
 
         const og = eps.find(e => e.rec == null);
         $("ongoing").style.display = og ? "inline-block" : "none";
         if (og) $("ongoing").textContent = `current: −${og.depth}% from the ${og.peak} high (ongoing)`;
       }
+
+      function drawTimeline(ix) {
+        const eps = ix.episodes;
+        const W = 1000, H = 300, L = 46, R = 990, top = 18, bot = 262;
+        const ms = (ds) => new Date(ds).getTime();
+        const f0 = ms(ix.start), f1 = ms(ix.end);
+        const t0 = view ? view.t0 : f0, t1 = view ? view.t1 : f1;
+        const X = (t) => L + (t - t0) / (t1 - t0) * (R - L);
+
+        const wd = ix.weekly.dates, wv = ix.weekly.dd;
+        let a = wd.findIndex(d => ms(d) >= t0); if (a < 0) a = wd.length - 1;
+        let b = wd.length - 1;
+        for (let i = wd.length - 1; i >= 0; i--) { if (ms(wd[i]) <= t1) { b = i; break; } }
+        a = Math.max(0, a - 1); b = Math.min(wd.length - 1, b + 1);
+        const vis = eps.filter(e => ms(e.trough) >= t0 && ms(e.trough) <= t1);
+        const maxD = Math.max(8, ...wv.slice(a, b + 1).map(v => -v), ...vis.map(e => e.depth)) * 1.08;
+        const Y = (d) => top + d / maxD * (bot - top);
+
+        let s = `<defs><clipPath id="plotclip"><rect x="${L}" y="${top - 2}" width="${R - L}" height="${bot - top + 4}"/></clipPath></defs>`;
+        s += `<line x1="${L}" y1="${top}" x2="${R}" y2="${top}" stroke="#d6d3d1" stroke-width="1"/>`;
+        for (const g of [3, 5, 10, 20, 30, 50, 80]) {
+          if (g < maxD && g / maxD > 0.08)
+            s += `<line x1="${L}" y1="${Y(g)}" x2="${R}" y2="${Y(g)}" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="3 5"/>` +
+                 `<text x="${L-6}" y="${Y(g)+4}" text-anchor="end" font-size="10" fill="#a8a29e">−${g}%</text>`;
+        }
+        const spanY = (t1 - t0) / 31557600000;
+        if (spanY >= 2.5) {
+          const step = spanY >= 25 ? 10 : spanY >= 12 ? 5 : spanY >= 5 ? 2 : 1;
+          const yA = new Date(t0).getUTCFullYear(), yB = new Date(t1).getUTCFullYear();
+          for (let yr = Math.ceil(yA / step) * step; yr <= yB; yr += step) {
+            const x = X(Date.UTC(yr, 0, 1));
+            if (x >= L && x <= R) s += `<text x="${x.toFixed(1)}" y="${bot + 18}" text-anchor="middle" font-size="10" fill="#a8a29e">${yr}</text>`;
+          }
+        } else {
+          const stepM = spanY >= 0.7 ? 3 : 1;
+          const d0 = new Date(t0);
+          let yy = d0.getUTCFullYear(), mm = Math.ceil((d0.getUTCMonth() + 1) / stepM) * stepM;
+          for (;;) {
+            while (mm >= 12) { yy++; mm -= 12; }
+            const t = Date.UTC(yy, mm, 1);
+            if (t > t1) break;
+            const x = X(t);
+            if (x >= L && x <= R) s += `<text x="${x.toFixed(1)}" y="${bot + 18}" text-anchor="middle" font-size="10" fill="#a8a29e">${new Date(t).toISOString().slice(0, 7)}</text>`;
+            mm += stepM;
+          }
+        }
+        let path = "";
+        for (let i = a; i <= b; i++) path += `${path ? "L" : "M"}${X(ms(wd[i])).toFixed(1)},${Y(-wv[i]).toFixed(1)}`;
+        s += `<g clip-path="url(#plotclip)">` +
+             `<path d="${path}L${X(ms(wd[b])).toFixed(1)},${top}L${X(ms(wd[a])).toFixed(1)},${top}Z" fill="#c1e1f7" opacity="0.45"/>` +
+             `<path d="${path}" fill="none" stroke="#3ba6f1" stroke-width="1.1"/></g>`;
+        vis.forEach(e => {
+          const deep = e.depth >= 20, mid = e.depth >= 10;
+          const r = 2.5 + Math.min(e.depth, 60) / 9;
+          const tipTxt = `−${e.depth}% · peak ${e.peak} → trough ${e.trough} (${days(e.p2t)})` +
+                         (e.rec != null ? ` · recovered in ${days(e.rec)}` : " · ONGOING");
+          s += `<circle cx="${X(ms(e.trough)).toFixed(1)}" cy="${Y(e.depth).toFixed(1)}" r="${r.toFixed(1)}" ` +
+               `fill="${deep ? "#0c0a09" : mid ? "#1d7fc4" : "#ffffff"}" stroke="${deep ? "#0c0a09" : "#3ba6f1"}" ` +
+               `stroke-width="1.4" data-tip="${tipTxt}" style="cursor:crosshair"/>`;
+          if (e.depth >= 30) s += `<text x="${X(ms(e.trough)).toFixed(1)}" y="${(Y(e.depth)+r+12).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="600" fill="#0c0a09">−${Math.round(e.depth)}%</text>`;
+        });
+        $("timeline").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="drawdown timeline" style="touch-action:none; user-select:none; cursor:crosshair;">${s}</svg>`;
+
+        $("zoomreset").style.display = view ? "inline-block" : "none";
+        $("zoomrange").textContent = view
+          ? `${new Date(t0).toISOString().slice(0,10)} → ${new Date(t1).toISOString().slice(0,10)} · ${vis.length} episodes` : "";
+
+        // brush-to-zoom
+        const svg = $("timeline").querySelector("svg");
+        const toVB = (e) => { const r = svg.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; };
+        let brush = null;
+        svg.onpointerdown = (e) => {
+          brush = { x0: Math.max(L, Math.min(R, toVB(e))), x1: null };
+          const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          el.setAttribute("y", top); el.setAttribute("height", bot - top);
+          el.setAttribute("fill", "#3ba6f1"); el.setAttribute("opacity", "0.16");
+          svg.appendChild(el); brush.el = el;
+          svg.setPointerCapture(e.pointerId); e.preventDefault();
+        };
+        svg.onpointermove = (e) => {
+          if (!brush) return;
+          brush.x1 = Math.max(L, Math.min(R, toVB(e)));
+          brush.el.setAttribute("x", Math.min(brush.x0, brush.x1));
+          brush.el.setAttribute("width", Math.abs(brush.x1 - brush.x0));
+        };
+        svg.onpointerup = () => {
+          if (!brush) return;
+          const { x0, x1, el } = brush; el.remove(); brush = null;
+          if (x1 == null || Math.abs(x1 - x0) < 8) return;
+          const lo = Math.min(x0, x1), hi = Math.max(x0, x1);
+          const nt0 = t0 + (lo - L) / (R - L) * (t1 - t0);
+          const nt1 = t0 + (hi - L) / (R - L) * (t1 - t0);
+          if (nt1 - nt0 < 30 * 86400e3) return;          // ignore sub-30-day selections
+          view = { t0: nt0, t1: nt1 };
+          drawTimeline(ix);
+        };
+        svg.ondblclick = () => { view = null; drawTimeline(ix); };
+      }
+      $("zoomreset").onclick = () => { view = null; drawTimeline(D.indexes[cur]); };
+      window.__ddZoom = (d0, d1) => {                       // programmatic hook (tests/console)
+        view = d0 ? { t0: new Date(d0).getTime(), t1: new Date(d1).getTime() } : null;
+        drawTimeline(D.indexes[cur]);
+      };
 
       const tip = $("tip");
       document.addEventListener("pointermove", (e) => {
