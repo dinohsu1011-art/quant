@@ -19,7 +19,9 @@ an interactive panel embedded in the Obsidian trader profile.
 | `db.py` | `connect()` → DuckDB with every parquet as a de-scaled view + `returns('tkr')` macro |
 | `ingestion/` | `fetch.py` (yfinance bulk), `store.py` (normalize: int64 scale, bar repair, partial-bar drop), `tickers.py` (Wikipedia S&P list), `baskets.py` (equal-weight theme baskets) |
 | `analysis/events.py` | `event_study()` (trigger/weekday/horizon/`when=` regime gate/`measure_field`), `sequence()` (multi-day chains), `compare_regimes()` |
+| `analysis/betas.py` | Builds `data/betas/stock_betas.parquet` / `.csv`: SPX beta, correlation, R², vol, and returns by window |
 | `export/cube.py` | Pre-computes ~90k event-study combos → `trader-profile-cube.js` (offline panel data) |
+| `export/themes.py` | Daily rebased index levels for all 78 themes/sectors/ETFs → `cube/themes.js` (powers `market-lab-themes.html`) |
 | `export/trader_profile.py` | Static regime charts → `trader-profile-data.js` |
 | `serve.py` | Optional localhost backend: serves the reports dir + live `/api/event` (all 585 series, arbitrary params) |
 | `validate.py` | Integrity scan (staleness, dup dates, bad bars, gaps, collisions, as_of drift). Exit 1 on failure |
@@ -33,6 +35,7 @@ Outputs land in `~/Desktop/Obsidian/trading-brain/reports/` next to `trader-prof
 ./.venv/bin/python update.py                 # refresh data + all artifacts + validate
 ./.venv/bin/python validate.py               # integrity scan only
 ./.venv/bin/python -m analysis.events        # canonical NDX "terrible Fridays" table
+./.venv/bin/python -m analysis.betas         # rebuild SPX beta database
 ./.venv/bin/python serve.py                  # live backend → http://localhost:8765/trader-profile.html
 ```
 

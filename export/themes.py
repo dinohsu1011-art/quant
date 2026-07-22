@@ -1,0 +1,178 @@
+"""Ship daily index levels for every theme, sector, ETF and macro series as a
+static JS file, so `market-lab-themes.html` can chart and compare returns over
+any window with no backend.
+
+The cube ships *event-study statistics*; this ships the underlying *time series*.
+Each series is rebased to 100 at its own first observation and stored with an
+offset (`i0`) into a shared trading-day calendar, so nothing but real history is
+transmitted. The page rebases again to whatever window the user picks.
+
+Baskets broaden as their members list (see ingestion/baskets.py), so each basket
+also carries the date its membership first went complete — the page flags any
+window that starts before that.
+
+    python -m export.themes [/some/dir]
+"""
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import db
+from ingestion.baskets import BASKETS
+
+DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
+START = "2000-01-01"  # calendar floor; individual series start when they start
+
+# id -> (label, group). Order within a group drives the rail order.
+GROUPS = [
+    ("AI & semis — baskets", [
+        ("gpu", "GPU"), ("cpuasic", "CPU + ASIC"), ("aiinference", "AI Inference"),
+        ("memory", "Memory"), ("semicap", "Semicap"), ("powersemi", "Power Semis"),
+        ("photonics", "Photonics"), ("connectivity", "Connectivity"),
+        ("networking", "Networking"), ("aiserver", "AI Servers"),
+        ("hyperscale", "Hyperscalers"), ("neocloud", "Neocloud"),
+        ("cdnedge", "CDN / Edge"), ("software", "Software"), ("cyber", "Cybersecurity"),
+    ]),
+    ("Power & industrial — baskets", [
+        ("elecind", "Electric Industrial"), ("epc", "EPC"), ("nuclear", "Nuclear"),
+        ("solutil", "Industrial Solar"), ("solresi", "Residential Solar"),
+        ("materials", "Materials"), ("miners", "Metals — Miners"),
+    ]),
+    ("Defense & frontier — baskets", [
+        ("defense", "Defense & Aero"), ("space", "Space"), ("robotics", "Robotics"),
+    ]),
+    ("Thematic ETFs", [
+        ("smh", "Semis · SMH"), ("igv", "Software · IGV"), ("cibr", "Cybersecurity · CIBR"),
+        ("botz", "Robotics · BOTZ"), ("ign", "Networking · IGN"), ("ura", "Uranium · URA"),
+        ("grid", "Electrification · GRID"), ("pave", "Infrastructure · PAVE"),
+        ("fivg", "5G · FIVG"), ("ita", "Defense & Aero · ITA"), ("ufo", "Space · UFO"),
+        ("idrv", "EV / Auto · IDRV"), ("tan", "Solar · TAN"), ("icln", "Clean Energy · ICLN"),
+        ("arkk", "Innovation · ARKK"), ("ibit", "Bitcoin · IBIT"), ("kweb", "China Internet · KWEB"),
+        ("xbi", "Biotech · XBI"), ("kre", "Regional Banks · KRE"), ("gdx", "Gold Miners · GDX"),
+        ("xme", "Metals & Mining · XME"), ("xop", "Oil E&P · XOP"), ("oih", "Oil Services · OIH"),
+        ("xhb", "Homebuilders · XHB"), ("xrt", "Retail · XRT"), ("jets", "Airlines · JETS"),
+    ]),
+    ("Sectors", [
+        ("xlk", "Technology · XLK"), ("xlc", "Comm. Svcs · XLC"), ("xly", "Cons. Disc. · XLY"),
+        ("xli", "Industrials · XLI"), ("xlf", "Financials · XLF"), ("xlv", "Health Care · XLV"),
+        ("xle", "Energy · XLE"), ("xlb", "Materials · XLB"), ("xlu", "Utilities · XLU"),
+        ("xlp", "Cons. Staples · XLP"), ("xlre", "Real Estate · XLRE"),
+    ]),
+    ("Indices", [
+        ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
+        ("ndx", "Nasdaq-100 · NDX"), ("ixic", "Nasdaq Composite"),
+    ]),
+    ("Macro & cross-asset", [
+        ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),
+        ("tlt", "20Y Treasuries · TLT"), ("ief", "7-10Y Treasuries · IEF"),
+        ("hyg", "High Yield · HYG"), ("lqd", "IG Credit · LQD"),
+        ("uup", "US Dollar · UUP"), ("tnx", "10Y Yield · TNX"),
+        ("vix", "VIX"), ("vix3m", "VIX 3-Month"),
+    ]),
+]
+
+# series whose *level* is not a total-return-like price (charting % change on
+# these is still meaningful, but they are not investable — flag for the page).
+NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
+
+
+def close_series(conn, view):
+    df = conn.execute(
+        f"SELECT date, close FROM {view} WHERE date >= '{START}' ORDER BY date"
+    ).fetchdf()
+    if df.empty:
+        return None
+    s = pd.Series(df["close"].values, index=pd.to_datetime(df["date"]))
+    return s[s > 0].dropna()
+
+
+def member_full_date(conn, tickers):
+    """Date on which the last member of a basket started trading."""
+    firsts = []
+    for t in tickers:
+        view = t.lower().replace("-", "_").replace(".", "_")
+        try:
+            r = conn.execute(f"SELECT min(date) FROM {view}").fetchone()
+        except Exception:
+            continue
+        if r and r[0]:
+            firsts.append(pd.Timestamp(r[0]))
+    return max(firsts) if firsts else None
+
+
+def build():
+    conn = db.connect()
+    raw, missing = {}, []
+    for _, items in GROUPS:
+        for sid, _ in items:
+            s = close_series(conn, sid)
+            if s is None or len(s) < 30:
+                missing.append(sid)
+                continue
+            raw[sid] = s
+
+    # shared calendar: every trading day any series traded on (SPY-anchored)
+    cal = sorted(set().union(*[set(s.index) for s in raw.values()]))
+    cal = pd.DatetimeIndex(cal)
+    pos = {d: i for i, d in enumerate(cal)}
+
+    series = []
+    for group, items in GROUPS:
+        for sid, label in items:
+            if sid not in raw:
+                continue
+            s = raw[sid].reindex(cal).ffill()
+            s = s[s.first_valid_index():]
+            lv = (s / s.iloc[0] * 100).round(3)
+            rec = {
+                "id": sid, "label": label, "group": group,
+                "i0": pos[s.index[0]],
+                "lv": [None if pd.isna(v) else float(v) for v in lv.values],
+            }
+            if sid in BASKETS:
+                rec["kind"] = "basket"
+                rec["members"] = list(BASKETS[sid])
+                full = member_full_date(conn, BASKETS[sid])
+                if full is not None:
+                    rec["full"] = full.strftime("%Y-%m-%d")
+            elif sid in NOT_INVESTABLE:
+                rec["kind"] = "level"
+            else:
+                rec["kind"] = "etf"
+            series.append(rec)
+
+    payload = {
+        "meta": {
+            "as_of": cal[-1].strftime("%Y-%m-%d"),
+            "start": cal[0].strftime("%Y-%m-%d"),
+            "n_dates": len(cal),
+            "n_series": len(series),
+            "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "missing": missing,
+        },
+        "dates": [d.strftime("%Y-%m-%d") for d in cal],
+        "series": series,
+    }
+    return payload
+
+
+def main():
+    out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_OUT
+    (out_dir / "cube").mkdir(parents=True, exist_ok=True)
+    p = build()
+    js = "window.QUANT_THEMES = " + json.dumps(p, separators=(",", ":")) + ";\n"
+    out = out_dir / "cube" / "themes.js"
+    out.write_text(js)
+    m = p["meta"]
+    print(f"wrote {out}  ({len(js)/1e6:.2f} MB)")
+    print(f"  {m['n_series']} series, {m['n_dates']} sessions, {m['start']} -> {m['as_of']}")
+    if m["missing"]:
+        print(f"  missing views: {', '.join(m['missing'])}")
+
+
+if __name__ == "__main__":
+    main()

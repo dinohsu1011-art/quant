@@ -6,8 +6,10 @@ One-command refresh pipeline, in strict order:
      the entire back-history)
   2. rebuild baskets (levels compound full history, so they MUST follow a fetch)
   3. regenerate the offline cube
-  4. regenerate the trader-profile data bundle
-  5. validate (exits non-zero on any integrity failure)
+  4. regenerate the theme return series (market-lab-themes.html)
+  5. regenerate the trader-profile data bundle
+  6. sync the site copies into web/ and docs/
+  7. validate (exits non-zero on any integrity failure)
 
     ./.venv/bin/python update.py
 """
@@ -51,7 +53,8 @@ def sub(target):
 
 
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
-SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html", "market-lab-drawdowns.html"]
+SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html",
+              "market-lab-drawdowns.html", "market-lab-themes.html"]
 
 
 def sync_site():
@@ -62,7 +65,7 @@ def sync_site():
     import re
     m = re.search(r'"as_of":"([^"]+)"', (REPORTS / "cube" / "index.js").read_text())
     stamp = (m.group(1) if m else "0").replace("-", "")
-    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns)\.js)(?:\?v=[^"]*)?"')
+    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes)\.js)(?:\?v=[^"]*)?"')
     for p in SITE_PAGES:
         if p.endswith(".html"):
             f = REPORTS / p
@@ -81,20 +84,21 @@ def sync_site():
 
 def step(i, name, fn):
     t0 = time.time()
-    print(f"\n=== [{i}/6] {name} ===", flush=True)
+    print(f"\n=== [{i}/7] {name} ===", flush=True)
     try:
         fn()
     except Exception as e:
-        print(f"*** PIPELINE STOPPED at [{i}/6] {name}: {e}")
+        print(f"*** PIPELINE STOPPED at [{i}/7] {name}: {e}")
         sys.exit(1)
-    print(f"=== [{i}/6] {name} done in {time.time() - t0:.0f}s ===", flush=True)
+    print(f"=== [{i}/7] {name} done in {time.time() - t0:.0f}s ===", flush=True)
 
 
 if __name__ == "__main__":
     step(1, "full re-fetch (all tracked symbols)", fetch_all)
     step(2, "rebuild baskets", lambda: sub("ingestion.baskets"))
     step(3, "regenerate cube", lambda: sub("export.cube"))
-    step(4, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(5, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(6, "validate", lambda: sub("validate.py"))
+    step(4, "regenerate theme return series", lambda: sub("export.themes"))
+    step(5, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(6, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(7, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")
