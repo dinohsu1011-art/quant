@@ -24,44 +24,46 @@ from config import DAILY_DIR, PRICE_SCALE
 from ingestion.fetch import run
 from ingestion.store import SCHEMA
 
-# Theme baskets (user's categorization, 2026-06-10). US listings only — foreign
-# exchanges (KRX 000660/005930, ASX BHP, SWX ABBN, OTC SMERY/SBGSY) are excluded
-# for trading-calendar alignment; HG excluded (Hamilton Insurance, mis-tagged).
-# Overlaps across baskets (AMD, ANET, VRT, ...) are deliberate.
+# Theme baskets (user's categorization; reorganized 2026-07-23). US listings only
+# — foreign exchanges (KRX 000660/005930, ASX BHP, SWX ABBN, OTC SMERY/SBGSY) are
+# excluded for trading-calendar alignment; HG excluded (Hamilton Insurance,
+# mis-tagged). Each ticker lives in exactly ONE basket — no repeats — so a name's
+# single home is its highest-signal theme (AMD→gpu, AVGO/MRVL→cpuasic, ANET→
+# networking, VRT→aiserver, PLTR→software).
 BASKETS = {
     # chips & AI value chain
     "gpu":          ["NVDA", "AMD", "TSM"],
-    "cpuasic":      ["INTC", "AMD", "AVGO", "MRVL"],
-    "aiinference":  ["QCOM", "AMD", "MRVL", "ARM", "AVGO"],
-    "memory":       ["MU", "WDC", "STX", "SNDK"],
-    "semicap":      ["AMAT", "LRCX", "KLAC", "ASML", "PENG"],
+    "cpuasic":      ["INTC", "AVGO", "MRVL", "QCOM", "ARM"],
+    "memory":       ["MU", "WDC", "STX", "SNDK", "PENG", "MRAM"],
+    "semicap":      ["AMAT", "LRCX", "KLAC", "ASML", "KLIC"],
     "powersemi":    ["ON", "MPWR", "STM", "POWI", "ALGM", "WOLF", "NXPI", "DIOD", "AOSL", "VSH"],
     "photonics":    ["COHR", "LITE", "FN", "AXTI", "AAOI", "GLW", "VIAV"],
     "connectivity": ["CRDO", "ALAB"],
     "networking":   ["CSCO", "ANET"],
     # compute, cloud & software
-    "aiserver":     ["SMCI", "DELL", "HPE", "ANET", "VRT", "AAPL", "IBM"],
+    "aiserver":     ["SMCI", "DELL", "HPE", "VRT", "AAPL", "IBM"],
     "hyperscale":   ["MSFT", "GOOGL", "AMZN", "META", "ORCL"],
     "neocloud":     ["CRWV", "NBIS", "APLD", "IREN", "DOCN", "CIFR"],
     "cdnedge":      ["NET", "AKAM", "FSLY"],
-    "software":     ["DDOG", "SNOW"],
+    "software":     ["CRM", "NOW", "ADBE", "INTU", "WDAY", "SNOW", "DDOG", "MDB",
+                     "TEAM", "SHOP", "HUBS", "TWLO", "GTLB", "PATH", "RDDT", "PLTR"],
     "cyber":        ["PANW", "CRWD", "S", "OKTA", "ZS"],
     # physical economy / electrification
-    "elecind":      ["ETN", "GEV", "VRT", "CAT", "CMI", "AME", "HUBB", "GNRC", "MOD", "ENS", "POWL"],
+    "elecind":      ["ETN", "GEV", "CAT", "CMI", "AME", "HUBB", "GNRC", "MOD", "ENS", "POWL"],
     "epc":          ["PWR", "EME", "MTZ", "FIX", "STRL", "PRIM", "IESC", "MYRG", "FLR", "J", "ECG"],
     "nuclear":      ["CCJ", "CEG", "BWXT", "OKLO", "NXE", "LEU", "SMR", "UUUU", "XE"],
-    "solutil":      ["FSLR", "NXT", "ARRY", "SHLS", "FLNC", "EOSE", "CWEN", "BE", "PLUG", "FCEL", "BEP", "SOLS"],
+    "solutil":      ["FSLR", "NXT", "ARRY", "SHLS", "FLNC", "EOSE", "CWEN", "BE", "PLUG", "FCEL", "BEP"],
     "solresi":      ["ENPH", "SEDG", "RUN"],
     # aero, defense & frontier
     "defense":      ["LMT", "RTX", "NOC", "GD", "LHX", "HII", "BA", "TXT", "LDOS", "TDG", "HEI",
-                     "CW", "OSK", "KTOS", "MRCY", "PLTR", "AVAV", "RCAT", "UMAC", "HWM"],
-    "space":        ["IRDM", "RKLB", "ASTS", "LUNR", "RDW", "PL", "FLY"],
+                     "CW", "OSK", "KTOS", "MRCY", "AVAV", "RCAT", "UMAC", "HWM"],
+    "space":        ["IRDM", "RKLB", "ASTS", "LUNR", "RDW", "PL", "FLY", "SPCX"],
     "robotics":     ["ROK", "EMR", "PH", "APH", "ZBRA", "CGNX", "NOVT", "LSCC", "AMBA", "MBLY",
-                     "SYM", "AUR", "OUST", "AEVA", "INDI", "KLIC", "TSLA", "XPEV", "SERV", "RR",
-                     "ARBE", "KITT", "ALNT", "VPG", "ATOM", "MRAM", "BOT", "AMBQ"],
+                     "SYM", "AUR", "OUST", "AEVA", "INDI", "TSLA", "XPEV", "SERV", "RR",
+                     "ARBE", "KITT", "ALNT", "VPG", "AMBQ"],
     # resources
     "miners":       ["FCX", "SCCO", "NEM", "TECK", "HBM"],
-    "materials":    ["MP", "ALB", "NUE", "STLD", "CLF", "FMC", "USAR"],
+    "materials":    ["MP", "ALB", "NUE", "STLD", "CLF", "USAR", "SOLS"],
 }
 
 

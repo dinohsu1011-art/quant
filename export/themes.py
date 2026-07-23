@@ -27,23 +27,26 @@ from ingestion.baskets import BASKETS
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 START = "2000-01-01"  # calendar floor; individual series start when they start
 
-# id -> (label, group). Order within a group drives the rail order.
+# id -> (label, group). Order within a group drives the rail order, and the
+# order of the groups here drives the rail top-to-bottom: broad market context
+# first (Indices -> Macro -> Sectors -> Thematic ETFs), then the pure-play baskets.
 GROUPS = [
-    ("AI & semis — baskets", [
-        ("gpu", "GPU"), ("cpuasic", "CPU + ASIC"), ("aiinference", "AI Inference"),
-        ("memory", "Memory"), ("semicap", "Semicap"), ("powersemi", "Power Semis"),
-        ("photonics", "Photonics"), ("connectivity", "Connectivity"),
-        ("networking", "Networking"), ("aiserver", "AI Servers"),
-        ("hyperscale", "Hyperscalers"), ("neocloud", "Neocloud"),
-        ("cdnedge", "CDN / Edge"), ("software", "Software"), ("cyber", "Cybersecurity"),
+    ("Indices", [
+        ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
+        ("ndx", "Nasdaq-100 · NDX"), ("ixic", "Nasdaq Composite"),
     ]),
-    ("Power & industrial — baskets", [
-        ("elecind", "Electric Industrial"), ("epc", "EPC"), ("nuclear", "Nuclear"),
-        ("solutil", "Industrial Solar"), ("solresi", "Residential Solar"),
-        ("materials", "Materials"), ("miners", "Metals — Miners"),
+    ("Macro & cross-asset", [
+        ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),
+        ("tlt", "20Y Treasuries · TLT"), ("ief", "7-10Y Treasuries · IEF"),
+        ("hyg", "High Yield · HYG"), ("lqd", "IG Credit · LQD"),
+        ("uup", "US Dollar · UUP"), ("tnx", "10Y Yield · TNX"),
+        ("vix", "VIX"), ("vix3m", "VIX 3-Month"),
     ]),
-    ("Defense & frontier — baskets", [
-        ("defense", "Defense & Aero"), ("space", "Space"), ("robotics", "Robotics"),
+    ("Sectors", [
+        ("xlk", "Technology · XLK"), ("xlc", "Comm. Svcs · XLC"), ("xly", "Cons. Disc. · XLY"),
+        ("xli", "Industrials · XLI"), ("xlf", "Financials · XLF"), ("xlv", "Health Care · XLV"),
+        ("xle", "Energy · XLE"), ("xlb", "Materials · XLB"), ("xlu", "Utilities · XLU"),
+        ("xlp", "Cons. Staples · XLP"), ("xlre", "Real Estate · XLRE"),
     ]),
     ("Thematic ETFs", [
         ("smh", "Semis · SMH"), ("igv", "Software · IGV"), ("cibr", "Cybersecurity · CIBR"),
@@ -56,22 +59,24 @@ GROUPS = [
         ("xme", "Metals & Mining · XME"), ("xop", "Oil E&P · XOP"), ("oih", "Oil Services · OIH"),
         ("xhb", "Homebuilders · XHB"), ("xrt", "Retail · XRT"), ("jets", "Airlines · JETS"),
     ]),
-    ("Sectors", [
-        ("xlk", "Technology · XLK"), ("xlc", "Comm. Svcs · XLC"), ("xly", "Cons. Disc. · XLY"),
-        ("xli", "Industrials · XLI"), ("xlf", "Financials · XLF"), ("xlv", "Health Care · XLV"),
-        ("xle", "Energy · XLE"), ("xlb", "Materials · XLB"), ("xlu", "Utilities · XLU"),
-        ("xlp", "Cons. Staples · XLP"), ("xlre", "Real Estate · XLRE"),
+    ("AI & semis — baskets", [
+        ("gpu", "GPU"), ("cpuasic", "CPU + ASIC"),
+        ("memory", "Memory"), ("semicap", "Semicap"), ("powersemi", "Power Semis"),
+        ("photonics", "Photonics"), ("connectivity", "Connectivity"),
+        ("networking", "Networking"), ("aiserver", "AI Servers"),
+        ("hyperscale", "Hyperscalers"), ("neocloud", "Neocloud"),
+        ("cdnedge", "CDN / Edge"),
     ]),
-    ("Indices", [
-        ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
-        ("ndx", "Nasdaq-100 · NDX"), ("ixic", "Nasdaq Composite"),
+    ("Software — baskets", [
+        ("software", "Software"), ("cyber", "Cybersecurity"),
     ]),
-    ("Macro & cross-asset", [
-        ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),
-        ("tlt", "20Y Treasuries · TLT"), ("ief", "7-10Y Treasuries · IEF"),
-        ("hyg", "High Yield · HYG"), ("lqd", "IG Credit · LQD"),
-        ("uup", "US Dollar · UUP"), ("tnx", "10Y Yield · TNX"),
-        ("vix", "VIX"), ("vix3m", "VIX 3-Month"),
+    ("Power & industrial — baskets", [
+        ("elecind", "Electric Industrial"), ("epc", "EPC"), ("nuclear", "Nuclear"),
+        ("solutil", "Industrial Solar"), ("solresi", "Residential Solar"),
+        ("materials", "Materials"), ("miners", "Metals — Miners"),
+    ]),
+    ("Defense & frontier — baskets", [
+        ("defense", "Defense & Aero"), ("space", "Space"), ("robotics", "Robotics"),
     ]),
 ]
 
@@ -80,9 +85,13 @@ GROUPS = [
 NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
 
 
+def _view(t):
+    return t.lower().replace("-", "_").replace(".", "_")
+
+
 def close_series(conn, view):
     df = conn.execute(
-        f"SELECT date, close FROM {view} WHERE date >= '{START}' ORDER BY date"
+        f'SELECT date, close FROM "{view}" WHERE date >= \'{START}\' ORDER BY date'
     ).fetchdf()
     if df.empty:
         return None
@@ -94,14 +103,22 @@ def member_full_date(conn, tickers):
     """Date on which the last member of a basket started trading."""
     firsts = []
     for t in tickers:
-        view = t.lower().replace("-", "_").replace(".", "_")
         try:
-            r = conn.execute(f"SELECT min(date) FROM {view}").fetchone()
+            r = conn.execute(f'SELECT min(date) FROM "{_view(t)}"').fetchone()
         except Exception:
             continue
         if r and r[0]:
             firsts.append(pd.Timestamp(r[0]))
     return max(firsts) if firsts else None
+
+
+def rebase(s, cal, pos):
+    """Reindex onto the shared calendar, forward-fill, trim to first real bar,
+    and rebase to 100 there. Returns (i0, lv-list)."""
+    s = s.reindex(cal).ffill()
+    s = s[s.first_valid_index():]
+    lv = (s / s.iloc[0] * 100).round(3)
+    return pos[s.index[0]], [None if pd.isna(v) else float(v) for v in lv.values]
 
 
 def build():
@@ -115,8 +132,20 @@ def build():
                 continue
             raw[sid] = s
 
-    # shared calendar: every trading day any series traded on (SPY-anchored)
-    cal = sorted(set().union(*[set(s.index) for s in raw.values()]))
+    # every basket constituent as its own series, so the page can drill a basket
+    # down into the individual stocks that make it up. Keyed by uppercase ticker
+    # (all series ids above are lowercase, so no collision). Thin/too-new names
+    # that fail the length floor simply don't get a line.
+    members = sorted({t for ts in BASKETS.values() for t in ts})
+    stock_raw = {}
+    for t in members:
+        s = close_series(conn, _view(t))
+        if s is not None and len(s) >= 30:
+            stock_raw[t] = s
+
+    # shared calendar: every trading day anything traded on (SPY-anchored)
+    cal = sorted(set().union(*[set(s.index) for s in
+                               list(raw.values()) + list(stock_raw.values())]))
     cal = pd.DatetimeIndex(cal)
     pos = {d: i for i, d in enumerate(cal)}
 
@@ -125,17 +154,13 @@ def build():
         for sid, label in items:
             if sid not in raw:
                 continue
-            s = raw[sid].reindex(cal).ffill()
-            s = s[s.first_valid_index():]
-            lv = (s / s.iloc[0] * 100).round(3)
-            rec = {
-                "id": sid, "label": label, "group": group,
-                "i0": pos[s.index[0]],
-                "lv": [None if pd.isna(v) else float(v) for v in lv.values],
-            }
+            i0, lv = rebase(raw[sid], cal, pos)
+            rec = {"id": sid, "label": label, "group": group, "i0": i0, "lv": lv}
             if sid in BASKETS:
                 rec["kind"] = "basket"
                 rec["members"] = list(BASKETS[sid])
+                # only the members that actually have a drawable series
+                rec["memberIds"] = [t for t in BASKETS[sid] if t in stock_raw]
                 full = member_full_date(conn, BASKETS[sid])
                 if full is not None:
                     rec["full"] = full.strftime("%Y-%m-%d")
@@ -145,12 +170,22 @@ def build():
                 rec["kind"] = "etf"
             series.append(rec)
 
+    n_rail = len(series)
+    # constituent stock lines — hidden from the rail, revealed per basket on demand
+    for t in members:
+        if t not in stock_raw:
+            continue
+        i0, lv = rebase(stock_raw[t], cal, pos)
+        series.append({"id": t, "label": t, "group": "", "kind": "stock",
+                       "i0": i0, "lv": lv})
+
     payload = {
         "meta": {
             "as_of": cal[-1].strftime("%Y-%m-%d"),
             "start": cal[0].strftime("%Y-%m-%d"),
             "n_dates": len(cal),
-            "n_series": len(series),
+            "n_series": n_rail,
+            "n_members": len(series) - n_rail,
             "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "missing": missing,
         },
@@ -169,7 +204,8 @@ def main():
     out.write_text(js)
     m = p["meta"]
     print(f"wrote {out}  ({len(js)/1e6:.2f} MB)")
-    print(f"  {m['n_series']} series, {m['n_dates']} sessions, {m['start']} -> {m['as_of']}")
+    print(f"  {m['n_series']} rail series + {m['n_members']} constituents, "
+          f"{m['n_dates']} sessions, {m['start']} -> {m['as_of']}")
     if m["missing"]:
         print(f"  missing views: {', '.join(m['missing'])}")
 

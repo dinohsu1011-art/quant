@@ -52,6 +52,23 @@
     .row .lb { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .row .rr { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--steel);
                font-variant-numeric:tabular-nums; }
+    .row .caret { margin-left:auto; background:none; border:none; padding:0 2px; cursor:pointer;
+                  color:var(--steel); font-size:9px; line-height:1; transition:transform .12s;
+                  transform:rotate(0deg); }
+    .row .caret:hover { color:var(--blue-deep); }
+    .row .caret.open { transform:rotate(90deg); }
+    .row .caret + .rr { margin-left:8px; }
+    .members[hidden] { display:none; }
+    .members { background:var(--fog); border-bottom:1px solid var(--stone); }
+    .memhd { display:flex; justify-content:space-between; align-items:center;
+             padding:4px 18px 4px 34px; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+             color:var(--steel); }
+    .memhd button { background:none; border:none; padding:0; cursor:pointer; font-family:var(--sans);
+                    font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--ash);
+                    border-bottom:1px solid transparent; }
+    .memhd button:hover { color:var(--ink); border-bottom-color:var(--platinum); }
+    .row.sub { padding-left:34px; font-size:12px; }
+    .row.sub .lb { font-family:var(--mono); font-size:11.5px; letter-spacing:-.01em; }
 
     /* ---------- main ---------- */
     .main { padding:26px 34px 70px; max-width:1320px; }
@@ -177,7 +194,7 @@
   </main>
 </div>
 
-<script src="cube/themes.js?v=20260720"></script>
+<script src="cube/themes.js"></script>
 <script>
 (() => {
   const D = window.QUANT_THEMES;
@@ -330,6 +347,7 @@
   }
 
   function render(){
+    writeHash();   // keep the URL in sync with the current selection, not just control changes
     const data = transform();
     const W = svg.parentNode.clientWidth, H = Math.max(380, Math.min(560, window.innerHeight - 430));
     const L = 8, R = 176, T = 22, B = 30;
@@ -455,6 +473,15 @@
       g += `<circle cx="${cx.toFixed(1)}" cy="${geom.Y(v).toFixed(1)}" r="3" fill="${d.color}"
              opacity="${st.focus && st.focus!==d.id ? .15 : 1}"/>`;
     });
+    // date tag pinned to the crosshair on the x-axis, clamped to stay in-frame
+    const dd = DATES[i];
+    const dlbl = `${MONTHS[+dd.slice(5,7)-1]} ${+dd.slice(8,10)}, ${dd.slice(0,4)}`;
+    const pillW = dlbl.length * 6.1 + 14, pillH = 16;
+    const pillX = Math.max(px.x0, Math.min(cx - pillW/2, px.x1 - pillW));
+    g += `<rect x="${pillX.toFixed(1)}" y="${(px.y1+3).toFixed(1)}" width="${pillW.toFixed(1)}"
+           height="${pillH}" rx="3" fill="#0c0a09"/>`;
+    g += `<text class="m" x="${(pillX+pillW/2).toFixed(1)}" y="${(px.y1+14).toFixed(1)}"
+           text-anchor="middle" fill="#ffffff" font-size="10.5">${dlbl}</text>`;
     document.getElementById('cross').innerHTML = g;
     readout.textContent = `${DATES[i]}  ·  from ${DATES[st.i1]}`;
     drawTable(geom.data, i);
@@ -525,9 +552,23 @@
   });
 
   // ---------- rail ----------
+  function railRow(s, sub){
+    const mem = s.kind === 'basket' && s.memberIds && s.memberIds.length;
+    return `<div class="row${sub ? ' sub' : ''}" data-id="${s.id}" title="${esc(memberTip(s))}">
+        <span class="dot"></span><span class="lb">${esc(s.label)}</span>
+        ${mem ? `<button class="caret" data-exp="${s.id}" title="show constituents">&#9654;</button>` : ''}
+        <span class="rr"></span>
+      </div>${mem ? `
+      <div class="members" data-for="${s.id}" hidden>
+        <div class="memhd"><span>${s.memberIds.length} constituents</span>
+          <button data-all="${s.id}">all</button></div>
+        ${s.memberIds.map(mid => railRow(SER[mid], true)).join('')}
+      </div>` : ''}`;
+  }
   function buildRail(){
     const groups = [];
     D.series.forEach(s => {
+      if (s.kind === 'stock') return;   // constituents live under their basket, not the rail
       let g = groups.find(x => x.name === s.group);
       if (!g){ g = { name:s.group, items:[] }; groups.push(g); }
       g.items.push(s);
@@ -535,14 +576,35 @@
     document.getElementById('list').innerHTML = groups.map(g => `
       <div class="gsec" data-g="${esc(g.name)}">
         <div class="gh">${esc(g.name)}<span class="n">${g.items.length}</span></div>
-        ${g.items.map(s => `<div class="row" data-id="${s.id}" title="${esc(memberTip(s))}">
-            <span class="dot"></span><span class="lb">${esc(s.label)}</span><span class="rr"></span>
-          </div>`).join('')}
+        ${g.items.map(s => railRow(s, false)).join('')}
       </div>`).join('');
     document.querySelectorAll('.row').forEach(r => r.onclick = () => toggle(r.dataset.id));
+    document.querySelectorAll('.caret').forEach(c => c.onclick = e => {
+      e.stopPropagation();
+      const box = document.querySelector(`.members[data-for="${c.dataset.exp}"]`);
+      const open = box.hidden;
+      box.hidden = !open; if (open) box.dataset.open = '1'; else delete box.dataset.open;
+      c.classList.toggle('open', open);
+    });
+    document.querySelectorAll('.memhd button[data-all]').forEach(btn => btn.onclick = e => {
+      e.stopPropagation();
+      const ids = SER[btn.dataset.all].memberIds;
+      const allOn = ids.every(i => st.sel.includes(i));
+      st.sel = allOn ? st.sel.filter(i => !ids.includes(i))
+                     : st.sel.concat(ids.filter(i => !st.sel.includes(i)));
+      if (st.focus && !st.sel.includes(st.focus)) st.focus = null;
+      st.sel.forEach(assign); syncRail(); render();
+    });
+    // reveal any basket whose constituent is already selected (e.g. from the URL)
+    st.sel.forEach(id => {
+      if (!SER[id] || SER[id].kind !== 'stock') return;
+      const box = document.querySelector(`.members .row[data-id="${id}"]`)?.closest('.members');
+      if (box){ box.hidden = false; box.dataset.open = '1';
+        document.querySelector(`.caret[data-exp="${box.dataset.for}"]`)?.classList.add('open'); }
+    });
     document.querySelectorAll('.gh').forEach(h => h.onclick = () => {
       const sec = h.parentNode;
-      const ids = [...sec.querySelectorAll('.row')].filter(r => r.style.display !== 'none')
+      const ids = [...sec.querySelectorAll('.row:not(.sub)')].filter(r => r.style.display !== 'none')
                     .map(r => r.dataset.id);
       const allOn = ids.every(i => st.sel.includes(i));
       st.sel = allOn ? st.sel.filter(i => !ids.includes(i))
@@ -577,9 +639,17 @@
         const s = SER[r.dataset.id];
         const hay = (s.label + ' ' + s.id + ' ' + s.group + ' ' + (s.members||[]).join(' ')).toLowerCase();
         const ok = !q || hay.includes(q);
-        r.style.display = ok ? '' : 'none'; if (ok) vis++;
+        r.style.display = ok ? '' : 'none'; if (ok && !r.classList.contains('sub')) vis++;
       });
       sec.style.display = vis ? '' : 'none';
+    });
+    // a query that hits a constituent opens its basket; clearing restores manual state
+    document.querySelectorAll('.members').forEach(box => {
+      if (!q){ box.hidden = !box.dataset.open; return; }
+      const anyVis = [...box.querySelectorAll('.row')].some(r => r.style.display !== 'none');
+      box.hidden = !anyVis;
+      const c = document.querySelector(`.caret[data-exp="${box.dataset.for}"]`);
+      if (c) c.classList.toggle('open', anyVis);
     });
   });
   document.querySelectorAll('.quick button').forEach(b => b.onclick = () => {
@@ -661,7 +731,7 @@
   readHash();
   buildRail();
   document.getElementById('asof').innerHTML =
-    `as of ${D.meta.as_of}<br>${D.meta.n_series} series · ${D.meta.n_dates} sessions`;
+    `as of ${D.meta.as_of}<br>${D.meta.n_series} series · ${D.meta.n_members||0} constituents · ${D.meta.n_dates} sessions`;
   document.getElementById('foot').innerHTML =
     "<b>How to read.</b> Every line is rebased to 100 at the first session of the window, so the "
     + "vertical distance between two lines is their return spread over exactly that window — not a "
@@ -669,6 +739,8 @@
     + "means outperformance regardless of market direction. <b>Baskets</b> are equal-weight, "
     + "daily-rebalanced synthetic indices of pure-play names and <b>broaden as members list</b>; a "
     + "&ldquo;partial members&rdquo; flag means the basket was still filling in at the window start. "
+    + "<b>Expand a basket</b> (the &#9654; on its rail row) to chart the individual stocks that "
+    + "comprise it and compare them against the basket line or each other. "
     + "VIX, VIX3M and TNX are levels, not investable returns. Data through " + D.meta.as_of
     + "; regenerate with <code>python -m export.themes</code> in the quant repo. "
     + '<a href="market-lab-baskets.html" style="color:#1d7fc4;text-decoration:none">basket components &rarr;</a>';

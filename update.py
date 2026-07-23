@@ -66,14 +66,22 @@ def sync_site():
     m = re.search(r'"as_of":"([^"]+)"', (REPORTS / "cube" / "index.js").read_text())
     stamp = (m.group(1) if m else "0").replace("-", "")
     pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes)\.js)(?:\?v=[^"]*)?"')
+    web, docs = ROOT / "web", ROOT / "docs"
+    for d in (web, docs):
+        d.mkdir(exist_ok=True)
     for p in SITE_PAGES:
-        if p.endswith(".html"):
-            f = REPORTS / p
-            f.write_text(pat.sub(rf'src="\1?v={stamp}"', f.read_text()))
-    for dest in (ROOT / "web", ROOT / "docs"):
-        dest.mkdir(exist_ok=True)
-        for p in SITE_PAGES:
-            shutil.copy2(REPORTS / p, dest / p)
+        if not p.endswith(".html"):
+            shutil.copy2(REPORTS / p, web / p)
+            shutil.copy2(REPORTS / p, docs / p)
+            continue
+        f = REPORTS / p
+        # web/ keeps the canonical unstamped page, so the tracked backup only
+        # changes when the page itself changes — not on every daily refresh
+        raw = pat.sub(r'src="\1"', f.read_text())
+        stamped = pat.sub(rf'src="\1?v={stamp}"', raw)
+        (web / p).write_text(raw)
+        (docs / p).write_text(stamped)
+        f.write_text(stamped)
     cube_dst = ROOT / "docs" / "cube"
     cube_dst.mkdir(exist_ok=True)
     for f in (REPORTS / "cube").glob("*.js"):

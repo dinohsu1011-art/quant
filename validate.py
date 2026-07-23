@@ -22,6 +22,16 @@ DATA = Path(__file__).parent / "data" / "daily"
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 DELISTED: set = set()  # stems exempt from the staleness check
 
+# Staleness is graded, because Yahoo routinely stalls the history endpoint for a
+# handful of thin symbols while still quoting them live (seen 2026-07: VIX3M,
+# SATS, FIVG, IGN froze at 07-17 with working quotes). Halting an unattended
+# daily job over 4 files in 703 would mean the site stops updating for weeks over
+# nothing. So a few stale series warn; the spine going stale, or staleness
+# spreading, still fails hard.
+CORE = {"SPY", "QQQ", "GSPC", "NDX", "IXIC", "VIX",
+        "XLK", "XLF", "XLV", "XLE", "XLI", "XLY", "XLC", "XLP", "XLU", "XLRE", "XLB"}
+STALE_TOLERANCE = 0.02  # fraction of all series allowed stale before it's a failure
+
 
 def main():
     con = duckdb.connect()
@@ -38,18 +48,28 @@ def main():
         group by 1
     """).df()
     fails = []
+    warns = []
 
-    def check(name, bad, detail=""):
+    def check(name, bad, detail="", fatal=True):
         ok = len(bad) == 0
+        tag = "PASS" if ok else ("FAIL" if fatal else "WARN")
         extra = "" if ok else f" — {len(bad)}: {', '.join(map(str, bad[:8]))}{detail}"
-        print(f"  [{'PASS' if ok else 'FAIL'}] {name}{extra}")
+        print(f"  [{tag}] {name}{extra}")
         if not ok:
-            fails.append(name)
+            (fails if fatal else warns).append(name)
 
     ref = q.hi.max()
     thresh = ref - timedelta(days=3)
     print(f"files: {len(q)} · freshest date: {ref} · staleness threshold: {thresh}")
-    check("staleness", q[(q.hi < thresh) & (~q.tkr.isin(DELISTED))].tkr.tolist())
+    stale = q[(q.hi < thresh) & (~q.tkr.isin(DELISTED))].tkr.tolist()
+    core_stale = sorted(set(stale) & CORE)
+    if core_stale:
+        check("staleness (core series)", core_stale)
+    else:
+        widespread = len(stale) > STALE_TOLERANCE * len(q)
+        check("staleness", stale,
+              detail=f" (limit {int(STALE_TOLERANCE * len(q))})" if widespread else "",
+              fatal=widespread)
     check("duplicate dates", q[q.dup_dates > 0].tkr.tolist())
     check("non-positive prices", q[q.bad_px > 0].tkr.tolist())
     check("inverted high/low", q[q.hl_inv > 0].tkr.tolist())
@@ -76,6 +96,8 @@ def main():
     check("artifact as_of consistency",
           [] if cube == djs == spy_max else [f"spy={spy_max}", f"cube={cube}", f"data.js={djs}"])
 
+    if warns:
+        print(f"WARNINGS: {warns}")
     print("ALL CHECKS PASSED" if not fails else f"FAILED: {fails}")
     sys.exit(1 if fails else 0)
 

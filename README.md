@@ -1,8 +1,9 @@
 # quant
 
 **Live site:** https://dinohsu1011-art.github.io/quant/ — Market Lab (event-study explorer),
-basket components, and pullback/drawdown distributions, served from `docs/` (offline-cube
-mode; refreshed by `update.py` + push).
+basket components, theme returns, and pullback/drawdown distributions. Refreshed by
+running [`ops/daily.sh`](ops/README.md). Published from the `gh-pages` branch, which is
+force-replaced each deploy; `docs/` is gitignored build output, not source.
 
 Daily-prices research repo: 585 series (S&P 500 constituents, indices, sector /
 sub-sector / industry ETFs, AI-chip single-stock baskets, macro cross-asset) stored
@@ -25,7 +26,8 @@ an interactive panel embedded in the Obsidian trader profile.
 | `export/trader_profile.py` | Static regime charts → `trader-profile-data.js` |
 | `serve.py` | Optional localhost backend: serves the reports dir + live `/api/event` (all 585 series, arbitrary params) |
 | `validate.py` | Integrity scan (staleness, dup dates, bad bars, gaps, collisions, as_of drift). Exit 1 on failure |
-| `update.py` | **The one command to refresh everything** (fetch → baskets → cube → bundle → validate) |
+| `update.py` | **The one command to refresh everything** (fetch → baskets → cube → themes → bundle → sync → validate) |
+| `ops/` | Guarded refresh + `gh-pages` publish. See [`ops/README.md`](ops/README.md) |
 
 Outputs land in `~/Desktop/Obsidian/trading-brain/reports/` next to `trader-profile.html`.
 
@@ -33,6 +35,8 @@ Outputs land in `~/Desktop/Obsidian/trading-brain/reports/` next to `trader-prof
 
 ```bash
 ./.venv/bin/python update.py                 # refresh data + all artifacts + validate
+rm -f ops/.last-run && ./ops/daily.sh        # refresh + publish, guarded (the usual command)
+./ops/deploy.sh                              # republish the site without refetching
 ./.venv/bin/python validate.py               # integrity scan only
 ./.venv/bin/python -m analysis.events        # canonical NDX "terrible Fridays" table
 ./.venv/bin/python -m analysis.betas         # rebuild SPX beta database

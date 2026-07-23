@@ -4,3 +4,8 @@ __pycache__/
 .DS_Store
 data/daily/*.parquet
 data/betas/
+docs/
+dashboard/
+ops/logs/
+ops/.last-run
+ops/.last-deploy
