@@ -109,6 +109,11 @@
                      font-variant-numeric:tabular-nums; }
     #heat { display:block; width:100%; font-family:var(--sans); }
     #heat text { font-variant-numeric:tabular-nums; }
+    #heat rect[data-t] { cursor:crosshair; }
+    .heattip { position:fixed; z-index:60; display:none; pointer-events:none;
+               background:#0c0a09; color:#fff; font-family:var(--mono); font-size:11px;
+               font-variant-numeric:tabular-nums; padding:3px 8px; border-radius:4px;
+               white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.25); }
 
     /* ---------- table ---------- */
     table { width:100%; border-collapse:collapse; margin-top:26px; }
@@ -348,6 +353,20 @@
   // ---------- period-return heatmap ----------
   const heat = document.getElementById('heat');
   const heatnote = document.getElementById('heatnote');
+  // instant cell tooltip — a positioned div beats the native <title> hover delay
+  const heatTip = document.createElement('div');
+  heatTip.className = 'heattip';
+  document.body.appendChild(heatTip);
+  heat.addEventListener('mousemove', e => {
+    const t = e.target && e.target.getAttribute && e.target.getAttribute('data-t');
+    if (!t){ heatTip.style.display = 'none'; return; }
+    heatTip.textContent = t;
+    heatTip.style.display = 'block';
+    const w = heatTip.offsetWidth;
+    heatTip.style.left = Math.min(e.clientX + 12, window.innerWidth - w - 8) + 'px';
+    heatTip.style.top = (e.clientY + 14) + 'px';
+  });
+  heat.addEventListener('mouseleave', () => { heatTip.style.display = 'none'; });
   function hexLerp(a, b, t){
     const pa = [1,3,5].map(i => parseInt(a.slice(i,i+2),16));
     const pb = [1,3,5].map(i => parseInt(b.slice(i,i+2),16));
@@ -415,8 +434,8 @@
       g += `<text x="${(LBL-11).toFixed(1)}" y="${(y+cellH/2+3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${dim?'#c9c6c2':'#57534e'}">${esc(nm)}</text>`;
       buckets.forEach((b, ci) => {
         const r = cells[ri][ci], x = LBL + ci*cw;
-        g += `<rect x="${x.toFixed(2)}" y="${y.toFixed(1)}" width="${(cw-gap).toFixed(2)}" height="${cellH-gap}" fill="${col(r)}">`
-           + `<title>${esc(d.label)} · ${heatLbl(b.label)} · ${r==null?'—':fmtPct(r)}</title></rect>`;
+        const tip = `${d.label} · ${heatLbl(b.label)} · ${r==null?'—':fmtPct(r)}`;
+        g += `<rect x="${x.toFixed(2)}" y="${y.toFixed(1)}" width="${(cw-gap).toFixed(2)}" height="${cellH-gap}" fill="${col(r)}" data-t="${esc(tip)}"/>`;
       });
     });
     // sparse x labels
