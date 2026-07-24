@@ -163,8 +163,6 @@
     <div class="mast">
       <div>
         <h1>Theme returns</h1>
-        <div class="sub">Every basket, sector and thematic ETF on one rebased axis. Pick the
-          window, pick the names, and read what actually led.</div>
       </div>
       <div class="asof" id="asof"></div>
     </div>
@@ -1051,8 +1049,7 @@
   // ---------- boot ----------
   readHash();
   buildRail();
-  document.getElementById('asof').innerHTML =
-    `as of ${D.meta.as_of}<br>${D.meta.n_series} series · ${D.meta.n_members||0} constituents · ${D.meta.n_dates} sessions`;
+  document.getElementById('asof').innerHTML = `as of ${D.meta.as_of}`;
   const footEl = document.getElementById('foot');
   if (footEl) footEl.remove();
   syncCtl();

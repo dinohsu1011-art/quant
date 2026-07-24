@@ -21,7 +21,10 @@ START_DATE = "1990-01-01"
 # Index / ETF symbols tracked alongside the S&P 500 constituents. yfinance
 # prefixes indices with '^'. They need deeper history than equities to capture
 # old events (e.g. the 1987 crash), so they ingest from INDEX_START_DATE.
-INDEX_SYMBOLS = ["^IXIC", "^GSPC", "^NDX", "QQQ"]
+INDEX_SYMBOLS = ["^IXIC", "^GSPC", "^NDX", "QQQ",
+                 # international headline indices (own local calendars; standalone
+                 # rebased lines, not US-aligned baskets — like the '.T' names)
+                 "^N225", "^KS11", "^TWII", "000001.SS", "^HSI", "^FTSE"]
 INDEX_START_DATE = "1971-01-01"
 
 # Ingestion batch size (yfinance rate limiting)
@@ -40,6 +43,7 @@ SYMBOL_ALIASES = {
     "SI=F": "SILVER",
     "HG=F": "COPPER",
     "CL=F": "WTI",   # WTI crude futures
+    "000001.SS": "SSEC",   # Shanghai Composite (dot + leading digit -> SQL-safe stem)
     # Tokyo Stock Exchange listings. yfinance uses a '.T' suffix; alias to a
     # SQL-safe stem (a bare '6674.T' view name has a dot and a leading digit).
     # These trade on the TSE calendar, so they align only loosely with the

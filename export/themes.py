@@ -42,7 +42,10 @@ GROUPS = [
     ]),
     ("Indices", [
         ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
-        ("ndx", "Nasdaq-100 · NDX"), ("ixic", "Nasdaq Composite"),
+        ("ixic", "Nasdaq Composite"),
+        ("n225", "Nikkei 225 · Japan"), ("ks11", "KOSPI · Korea"),
+        ("twii", "TAIEX · Taiwan"), ("ssec", "Shanghai Composite"),
+        ("hsi", "Hang Seng · China"), ("ftse", "FTSE 100 · London"),
     ]),
     ("Macro & cross-asset", [
         ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),

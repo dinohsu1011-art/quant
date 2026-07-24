@@ -78,7 +78,14 @@ def main():
     # TSE names (JP* stems) and the japan basket legitimately close for Japan's
     # Golden Week — up to ~10 consecutive sessions (~11 calendar days, e.g. the
     # 2019 imperial-transition closure), so they get a wider gap tolerance.
-    gap_limit = lambda t: 12 if (str(t).startswith("JP") or t == "japan") else 10
+    # International headline indices close for long local holidays (Shanghai's
+    # ~3-week 1999 Spring Festival, Taiwan/Korea Lunar New Year + Chuseok), so
+    # they get a generous 22-day allowance — verified genuine market closures.
+    FOREIGN_IDX = {"N225", "KS11", "TWII", "SSEC", "HSI", "FTSE"}
+    def gap_limit(t):
+        if str(t) in FOREIGN_IDX: return 22
+        if str(t).startswith("JP") or t == "japan": return 12
+        return 10
     gap_bad = [t for t, g in zip(q.tkr, q.max_gap) if pd.notna(g) and g > gap_limit(t)]
     check("calendar gap > 10 days", gap_bad)
 
