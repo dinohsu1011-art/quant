@@ -32,6 +32,9 @@ START = "2000-01-01"  # calendar floor; individual series start when they start
 # order of the groups here drives the rail top-to-bottom: broad market context
 # first (Indices -> Macro -> Sectors -> Thematic ETFs), then the pure-play baskets.
 GROUPS = [
+    ("My Coverage", [
+        ("mycoverage", "My Coverage"),
+    ]),
     ("Indices", [
         ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
         ("ndx", "Nasdaq-100 · NDX"), ("ixic", "Nasdaq Composite"),

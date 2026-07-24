@@ -30,10 +30,11 @@ from ingestion.store import SCHEMA
 # mis-tagged). The AI/semis taxonomy stays STRICT — each chip/software name lives
 # in exactly ONE basket, so its single home is its highest-signal theme (AMD→gpu,
 # AVGO/MRVL→cpuasic, ANET→networking, VRT→aiserver, PLTR→software). The broad
-# sector/theme cuts (utilities, japan, gas) are allowed to OVERLAP that taxonomy
-# and each other — a name can appear in its home basket AND in a cross-cutting
-# theme (e.g. GEV/CAT/CMI in elecind AND gas, 7011 in japan AND gas). Overlap is
-# only a curation choice; the build handles repeats fine.
+# sector/theme cuts (utilities, japan, gas, mycoverage) are allowed to OVERLAP
+# that taxonomy and each other — a name can appear in its home basket AND in a
+# cross-cutting theme (e.g. GEV/CAT/CMI in elecind AND gas, 7011 in japan AND gas).
+# `mycoverage` is the user's personal watchlist and overlaps nearly everything by
+# design. Overlap is only a curation choice; the build handles repeats fine.
 BASKETS = {
     # chips & AI value chain
     "gpu":          ["NVDA", "AMD", "TSM"],
@@ -84,7 +85,17 @@ BASKETS = {
     # solutil home, 7011 its japan home. Two European OEMs (Siemens Energy ENR.DE,
     # Wärtsilä WRT1V.HE) trade on XETRA/Helsinki calendars, aliased to SQL-safe
     # stems; they align only loosely with the US-session names when charted.
-    "gas":          ["GEV", "CAT", "CMI", "BE", "GNRC", "7011.T", "ENR.DE", "WRT1V.HE"],
+    # INIO (Innio, Jenbacher/Waukesha gas engines) and FPS (Forgent Power) are
+    # 2026 IPOs, so their lines only start mid-2026.
+    "gas":          ["GEV", "CAT", "CMI", "BE", "GNRC", "7011.T", "ENR.DE", "WRT1V.HE",
+                     "INIO", "FPS"],
+    # Personal coverage watchlist (user-curated, from the image list + SPCX). Mixes
+    # US and TSE (6674/5802/5803) names, so the level is built from their mutual
+    # sessions and only loosely aligns across calendars — it's a tracker, not an
+    # investable index. Overlaps every other basket by design.
+    "mycoverage":   ["DELL", "HWM", "CEG", "TSLA", "VST", "CNP", "ETN", "VRT", "CMI",
+                     "GEV", "PWR", "HUBB", "FIX", "EME", "CAT", "6674.T", "5802.T",
+                     "5803.T", "BE", "GLW", "SPCX"],
 }
 
 
