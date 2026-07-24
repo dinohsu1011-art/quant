@@ -93,8 +93,8 @@ BASKETS = {
     # US and TSE (6674/5802/5803) names, so the level is built from their mutual
     # sessions and only loosely aligns across calendars — it's a tracker, not an
     # investable index. Overlaps every other basket by design.
-    "mycoverage":   ["DELL", "HWM", "CEG", "TSLA", "VST", "CNP", "ETN", "VRT", "CMI",
-                     "GEV", "PWR", "HUBB", "FIX", "EME", "CAT", "6674.T", "5802.T",
+    "mycoverage":   ["DELL", "HWM", "TSLA", "CNP", "ETN", "VRT", "CMI", "GEV", "PWR",
+                     "HUBB", "FIX", "EME", "CAT", "6674.T", "7011.T", "5802.T",
                      "5803.T", "BE", "GLW", "SPCX", "FLEX"],
 }
 

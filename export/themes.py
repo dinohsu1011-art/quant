@@ -145,11 +145,14 @@ def build():
     # down into the individual stocks that make it up. Keyed by uppercase ticker
     # (all series ids above are lowercase, so no collision). Thin/too-new names
     # that fail the length floor simply don't get a line.
+    # constituent lines use a lower floor than the 30-session rail floor so a
+    # fresh IPO (e.g. SPCX, listed weeks ago) draws its drill-down line as soon
+    # as it has ~3 weeks of history instead of waiting out a full 30 sessions.
     members = sorted({t for ts in BASKETS.values() for t in ts})
     stock_raw = {}
     for t in members:
         s = close_series(conn, _view(t))
-        if s is not None and len(s) >= 30:
+        if s is not None and len(s) >= 15:
             stock_raw[t] = s
 
     # shared calendar: every trading day anything traded on (SPY-anchored)
