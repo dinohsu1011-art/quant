@@ -71,7 +71,8 @@ GROUPS = [
         ("software", "Software"), ("cyber", "Cybersecurity"),
     ]),
     ("Power & industrial — baskets", [
-        ("elecind", "Electric Industrial"), ("epc", "EPC"), ("nuclear", "Nuclear"),
+        ("utilities", "Utilities & IPPs"), ("elecind", "Electric Industrial"),
+        ("epc", "EPC"), ("nuclear", "Nuclear"),
         ("solutil", "Industrial Solar"), ("solresi", "Residential Solar"),
         ("materials", "Materials"), ("miners", "Metals — Miners"),
     ]),

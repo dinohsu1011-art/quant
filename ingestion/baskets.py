@@ -54,6 +54,11 @@ BASKETS = {
     "nuclear":      ["CCJ", "CEG", "BWXT", "OKLO", "NXE", "LEU", "SMR", "UUUU", "XE"],
     "solutil":      ["FSLR", "NXT", "ARRY", "SHLS", "FLNC", "EOSE", "CWEN", "BE", "PLUG", "FCEL", "BEP"],
     "solresi":      ["ENPH", "SEDG", "RUN"],
+    # regulated utilities + merchant power / IPPs (CEG lives in `nuclear`, its
+    # highest-signal home, so it's intentionally not repeated here).
+    "utilities":    ["NEE", "SO", "DUK", "D", "AEP", "VST", "EXC", "PEG", "XEL", "ED",
+                     "SRE", "PCG", "EIX", "WEC", "ETR", "DTE", "PPL", "AEE", "FE", "ES",
+                     "CMS", "LNT", "AES", "NI", "EVRG", "ATO", "PNW", "CNP", "NRG"],
     # aero, defense & frontier
     "defense":      ["LMT", "RTX", "NOC", "GD", "LHX", "HII", "BA", "TXT", "LDOS", "TDG", "HEI",
                      "CW", "OSK", "KTOS", "MRCY", "AVAV", "RCAT", "UMAC", "HWM"],

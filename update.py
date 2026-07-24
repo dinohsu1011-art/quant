@@ -34,7 +34,10 @@ INDUSTRY_ETFS = ["ITA", "IGV", "CIBR", "BOTZ", "IGN", "URA", "XME", "IDRV", "UFO
                  "IBIT", "PAVE", "FIVG"]
 # standalone series from the watchlist (not basket members, not in tickers.csv)
 EXTRA_SERIES = ["GLD", "SLV", "CPER", "COPX", "URNM", "ETHA", "EEM", "ROBO",
-                "TLN", "CRCL", "LCID", "NEO"]
+                "TLN", "CRCL", "LCID", "NEO",
+                # Tokyo Stock Exchange listings (JPY; TSE calendar). Aliased to
+                # SQL-safe stems JP6674/JP7011/JP5802/JP5803 via SYMBOL_ALIASES.
+                "6674.T", "7011.T", "5802.T", "5803.T"]
 
 
 def fetch_all():
