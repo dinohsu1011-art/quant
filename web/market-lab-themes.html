@@ -270,6 +270,8 @@
     sortK: 'ret', sortDir: -1, focus: null, cursor: null
   };
   st.sel.forEach(assign);
+  // swap events for the currently-selected reco book (set in transform, drawn in render)
+  let RECO_EVENTS = null;
 
   // ---------- helpers ----------
   const lvAt = (s,i) => { const j = i - s.i0; return (j < 0 || j >= s.lv.length) ? null : s.lv[j]; };
@@ -325,12 +327,75 @@
              lateFull: s.full && s.full > DATES[a] };
   }
 
+  // ---------- reco-book maths ----------
+  // A reco book charts each recommended name rebased to *its own* recommendation
+  // close (not the window start), so every line reads "% since we called it".
+  // The name stays live the whole time (ghost when out of the book, bold when
+  // held); the strategy line is the headline sum-of-returns/5 index off inception.
+  const entryIdxOf = d => (DIDX[d] != null ? DIDX[d] : idxOnOrAfter(d));
+  function baseAt(s, idx){
+    // value at idx, or the last real value before it (calendar-gap safe)
+    for (let i = Math.min(idx, s.i0 + s.lv.length - 1); i >= s.i0; i--){
+      const v = lvAt(s, i); if (v != null) return v;
+    }
+    return null;
+  }
+  function recoStats(id, entryIdx){
+    // like windowStats but rebased to the close on entryIdx, drawn from entry on
+    const s = SER[id]; if (!s) return null;
+    const seriesEnd = s.i0 + s.lv.length - 1;
+    const base = baseAt(s, entryIdx); if (base == null || base === 0) return null;
+    const a = Math.max(st.i1, entryIdx), b = Math.min(st.i2, seriesEnd);
+    if (b < a) return null;
+    const g = new Array(st.i2 - st.i1 + 1).fill(null);
+    let peak = -Infinity, mdd = 0, prev = null, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
+    for (let i = a; i <= b; i++){
+      const v = lvAt(s, i); if (v == null) continue;
+      const gr = v / base; g[i - st.i1] = gr;
+      if (gr > peak) peak = gr;
+      const dd = gr/peak - 1; if (dd < mdd) mdd = dd;
+      if (prev != null && prev !== 0){ const r = gr/prev - 1; sum += r; sq += r*r; n++;
+                                       if (r > best) best = r; if (r < worst) worst = r; }
+      prev = gr;
+    }
+    const mean = n ? sum/n : 0;
+    const vol = n > 1 ? Math.sqrt((sq/n - mean*mean) * 252) : null;
+    let last = null; for (let k = g.length-1; k >= 0; k--) if (g[k] != null){ last = g[k]; break; }
+    return { g, a, b, ret: last != null ? last-1 : null, vol, mdd, best, worst, disp: last };
+  }
+  function expandReco(s, out){
+    const R = s.reco;
+    RECO_EVENTS = R.events;   // markers for render()
+    // the headline strategy line — rebased to book inception, so it always reads
+    // cumulative book P&L (sum of every call's return / 5) regardless of window.
+    const strat = recoStats(s.id, s.i0);
+    if (strat){
+      let g = strat.g;
+      if (st.mode === 'dd'){ let pk = -Infinity;
+        g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
+      out.push({ ...strat, g, id: s.id, color: assign(s.id), label: s.label, isStrategy: true });
+    }
+    // one live line per ever-recommended name, rebased to its first entry
+    R.names.forEach(nm => {
+      if (!SER[nm.t]) return;
+      const wins = nm.windows.map(([e,x]) => [entryIdxOf(e), x ? entryIdxOf(x) : null]);
+      const w = recoStats(nm.t, wins[0][0]); if (!w) return;
+      let g = w.g;
+      if (st.mode === 'dd'){ let pk = -Infinity;
+        g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
+      out.push({ ...w, g, id: 'reco:'+nm.t, color: assign('reco:'+nm.t), label: nm.t,
+                 reco: true, windows: wins, current: R.current.includes(nm.t) });
+    });
+  }
+
   function transform(){
     // returns array of drawable {id,color,label,y[] (growth ratio), stats}
     const out = [];
+    RECO_EVENTS = null;
     const bench = st.mode === 'rel' ? windowStats(st.bench) : null;
     st.sel.forEach(id => {
       if (!SER[id]) return;
+      if (SER[id].kind === 'reco'){ expandReco(SER[id], out); return; }
       const w = windowStats(id); if (!w) return;
       let g = w.g.slice();
       if (st.mode === 'dd'){
@@ -547,7 +612,33 @@
     // paths — stride down to ~1400 points per series
     const stride = Math.max(1, Math.ceil((st.i2 - st.i1) / 1400));
     const ends = [];
+    const inHeld = (i, wins) => wins.some(([e,x]) => i >= e && (x == null || i <= x));
     data.forEach(d => {
+      const dim0 = st.focus && st.focus !== d.id;
+      if (d.reco){
+        // a single live line, split bold (held) / ghost (idle) at swap boundaries
+        let bold = '', ghost = '', prev = null, pxv = null, pyv = null;
+        for (let k = 0; k < d.g.length; k += stride){
+          const v = d.g[k]; if (v == null){ prev = null; pxv = null; continue; }
+          const i = st.i1 + k, x = X(i), y = Y(v), held = inHeld(i, d.windows), seg = held ? 'B' : 'G';
+          if (seg !== prev){
+            if (pxv != null){ const br = `M${pxv} ${pyv} L${x.toFixed(1)} ${y.toFixed(1)} `;
+                              if (held) bold += br; else ghost += br; }
+            else { const mv = `M${x.toFixed(1)} ${y.toFixed(1)} `; if (held) bold += mv; else ghost += mv; }
+          } else { const ln = `L${x.toFixed(1)} ${y.toFixed(1)} `; if (held) bold += ln; else ghost += ln; }
+          prev = seg; pxv = x.toFixed(1); pyv = y.toFixed(1);
+        }
+        g += `<path d="${ghost}" fill="none" stroke="${d.color}" stroke-width="1.3"
+               stroke-dasharray="2 3" stroke-linejoin="round" stroke-linecap="round"
+               opacity="${dim0?0.06:0.32}"/>`;
+        g += `<path d="${bold}" fill="none" stroke="${d.color}"
+               stroke-width="${st.focus===d.id?2.6:1.9}" stroke-linejoin="round" stroke-linecap="round"
+               opacity="${dim0?0.12:0.95}"/>`;
+        const tail = d.g[d.b - st.i1];
+        if (tail != null) ends.push({ id:d.id, y:Y(tail), color:d.color, label:d.label,
+                                      val:label(tail), dim:dim0 });
+        return;
+      }
       let path = '', pen = false, lastI = -1;
       for (let k = 0; k < d.g.length; k += stride){
         const v = d.g[k]; if (v == null){ pen = false; continue; }
@@ -583,14 +674,42 @@
              opacity="${e.dim?0.2:1}" text-anchor="end">${e.val}</text>`;
     });
 
+    // swap markers — a dated diamond + guide per event, sitting above the hit
+    // layer so they catch their own hover (tooltip shows what changed that day)
+    let marks = '';
+    (RECO_EVENTS || []).forEach(ev => {
+      const idx = DIDX[ev.d]; if (idx == null || idx < st.i1 || idx > st.i2) return;
+      const x = X(idx), tip = ev.d + '  ·  ' + ev.lines.join('   •   ');
+      marks += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
+                 stroke="#0c0a09" stroke-width="1" stroke-dasharray="1 3" opacity="0.16" pointer-events="none"/>`;
+      marks += `<path d="M${x.toFixed(1)} ${(px.y0-7).toFixed(1)} l4.5 4.5 l-4.5 4.5 l-4.5 -4.5 z"
+                 fill="#0c0a09" opacity="0.72" pointer-events="none"/>`;
+      marks += `<rect x="${(x-6).toFixed(1)}" y="${(px.y0-10).toFixed(1)}" width="12"
+                 height="${(px.y1-px.y0+12).toFixed(1)}" fill="transparent" data-ev="${esc(tip)}" style="cursor:help"/>`;
+    });
     svg.innerHTML = `<g id="plot">${g}</g><g id="cross"></g>
       <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
-            fill="transparent" id="hit"/>`;
+            fill="transparent" id="hit"/><g id="recomarks">${marks}</g>`;
     geom = { px, X, Y, data, label, W, H };
     readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions`;
     drawTable(data, null);
     renderHeat(data);
   }
+
+  // ---------- swap-marker tooltip ----------
+  const recoTip = document.createElement('div');
+  recoTip.className = 'heattip';
+  document.body.appendChild(recoTip);
+  svg.addEventListener('mousemove', e => {
+    const t = e.target && e.target.getAttribute && e.target.getAttribute('data-ev');
+    if (!t){ recoTip.style.display = 'none'; return; }
+    recoTip.textContent = t;
+    recoTip.style.display = 'block';
+    const w = recoTip.offsetWidth;
+    recoTip.style.left = Math.min(e.clientX + 12, window.innerWidth - w - 8) + 'px';
+    recoTip.style.top = (e.clientY + 14) + 'px';
+  });
+  svg.addEventListener('mouseleave', () => { recoTip.style.display = 'none'; });
 
   // ---------- crosshair ----------
   svg.addEventListener('mousemove', ev => {
@@ -634,7 +753,8 @@
   // ---------- table ----------
   function drawTable(data, cur){
     const rows = data.map(d => ({
-      id:d.id, color:d.color, label:d.label, group:SER[d.id].group,
+      id:d.id, color:d.color, label:d.label,
+      group: SER[d.id] ? SER[d.id].group : (d.current ? 'reco · held' : 'reco · closed'),
       ret: d.disp != null ? d.disp - 1 : null,
       cursor: cur != null && d.g[cur-st.i1] != null ? d.g[cur-st.i1] - 1 : null,
       vol: d.vol, dd: d.mdd, rv: d.vol ? (d.ret/d.vol) : null,

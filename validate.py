@@ -14,9 +14,11 @@ from datetime import timedelta
 from pathlib import Path
 
 import duckdb
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 from ingestion.baskets import BASKETS
+from ingestion.recos import LEDGER
 
 DATA = Path(__file__).parent / "data" / "daily"
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
@@ -73,15 +75,23 @@ def main():
     check("duplicate dates", q[q.dup_dates > 0].tkr.tolist())
     check("non-positive prices", q[q.bad_px > 0].tkr.tolist())
     check("inverted high/low", q[q.hl_inv > 0].tkr.tolist())
-    check("calendar gap > 10 days", q[q.max_gap > 10].tkr.tolist())
+    # TSE names (JP* stems) and the japan basket legitimately close for Japan's
+    # Golden Week — up to ~10 consecutive sessions (~11 calendar days, e.g. the
+    # 2019 imperial-transition closure), so they get a wider gap tolerance.
+    gap_limit = lambda t: 12 if (str(t).startswith("JP") or t == "japan") else 10
+    gap_bad = [t for t, g in zip(q.tkr, q.max_gap) if pd.notna(g) and g > gap_limit(t)]
+    check("calendar gap > 10 days", gap_bad)
 
     stems = [p.stem for p in DATA.glob("*.parquet")]
     views = [s.lower().replace("-", "_").replace("^", "") for s in stems]
     check("view-name uniqueness", sorted({v for v in views if views.count(v) > 1}))
 
+    # synthetic index parquets that are flat-OHLC by construction: the equal-weight
+    # baskets, plus each reco book's index level ('{book}_reco').
+    flat_ok = set(BASKETS) | {f"{b}_reco" for b in LEDGER}
     frac = (q.set_index("tkr").flat_rows / q.set_index("tkr").n)
     non_flat_baskets = [b for b in BASKETS if b in frac.index and frac[b] < 1.0]
-    unexpected_flat = [t for t, v in frac.items() if t not in BASKETS and v > 0.99]
+    unexpected_flat = [t for t, v in frac.items() if t not in flat_ok and v > 0.99]
     check("basket flat-OHLC whitelist", non_flat_baskets + unexpected_flat)
 
     spy_max = str(con.execute(f"select max(date) from read_parquet('{DATA}/SPY.parquet')").fetchone()[0])

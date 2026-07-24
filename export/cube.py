@@ -26,6 +26,7 @@ from scipy import stats as sps
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 from analysis.events import event_study, summarize_event, MON, TUE, WED, THU, FRI
+from config import file_stem
 from ingestion.baskets import BASKETS
 
 # Short display names for basket constituents (market-lab-baskets.html).
@@ -409,7 +410,9 @@ def main():
     for bid, tickers in BASKETS.items():
         members = []
         for t in tickers:
-            v = t.lower().replace("-", "_")
+            # file_stem first, so aliased symbols ('6674.T' -> 'JP6674') hit their
+            # real view instead of a nonexistent '6674.t'.
+            v = file_stem(t).lower().replace("-", "_")
             r = conn.execute(f'''select min(date), last(close order by date),
                 last(close order by date) / last(lag_c order by date) - 1
                 from (select date, close, lag(close) over (order by date) lag_c from "{v}")''').fetchone()

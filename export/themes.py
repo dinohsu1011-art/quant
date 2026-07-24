@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 from config import file_stem
 from ingestion.baskets import BASKETS
+from ingestion.recos import LEDGER, walk, held_windows
 
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 START = "2000-01-01"  # calendar floor; individual series start when they start
@@ -34,6 +35,7 @@ START = "2000-01-01"  # calendar floor; individual series start when they start
 GROUPS = [
     ("My Coverage", [
         ("mycoverage", "My Coverage"),
+        ("mycoverage_reco", "Recommended"),
     ]),
     ("Fred Coverage", [
         ("fredcoverage", "Fred Coverage"),
@@ -133,13 +135,36 @@ def rebase(s, cal, pos):
     return pos[s.index[0]], [None if pd.isna(v) else float(v) for v in lv.values]
 
 
+def reco_meta():
+    """Per-book recommendation metadata for the page: each name's held windows
+    (bold vs ghost), the dated swap events (hover markers), and the current 5."""
+    out = {}
+    for lst, book in LEDGER.items():
+        instances, events, current = walk(book)
+        hw = held_windows(instances)
+        out[lst] = {
+            "names": [{"t": t, "windows": [[e, x] for (e, x) in ws]}
+                      for t, ws in hw.items()],
+            "events": [{"d": d, "lines": ls} for d, ls in sorted(events.items())],
+            "current": current,
+        }
+    return out
+
+
 def build():
     conn = db.connect()
+    RECO = reco_meta()
+    # tickers named anywhere in a reco book must ship a price line even if they
+    # sit in no basket (a call can reach outside current coverage).
+    reco_tickers = {n["t"] for r in RECO.values() for n in r["names"]}
+
     raw, missing = {}, []
     for _, items in GROUPS:
         for sid, _ in items:
             s = close_series(conn, sid)
-            if s is None or len(s) < 30:
+            # reco strategy lines are short by construction — exempt from the floor
+            floor = 0 if sid.endswith("_reco") else 30
+            if s is None or len(s) < floor:
                 missing.append(sid)
                 continue
             raw[sid] = s
@@ -151,7 +176,7 @@ def build():
     # constituent lines use a lower floor than the 30-session rail floor so a
     # fresh IPO (e.g. SPCX, listed weeks ago) draws its drill-down line as soon
     # as it has ~3 weeks of history instead of waiting out a full 30 sessions.
-    members = sorted({t for ts in BASKETS.values() for t in ts})
+    members = sorted({t for ts in BASKETS.values() for t in ts} | reco_tickers)
     stock_raw = {}
     for t in members:
         s = close_series(conn, _view(t))
@@ -171,7 +196,13 @@ def build():
                 continue
             i0, lv = rebase(raw[sid], cal, pos)
             rec = {"id": sid, "label": label, "group": group, "i0": i0, "lv": lv}
-            if sid in BASKETS:
+            if sid.endswith("_reco") and sid[:-5] in RECO:
+                rec["kind"] = "reco"
+                r = RECO[sid[:-5]]
+                rec["reco"] = r
+                # the names with a drawable price line, so the page can chart them
+                rec["memberIds"] = [n["t"] for n in r["names"] if n["t"] in stock_raw]
+            elif sid in BASKETS:
                 rec["kind"] = "basket"
                 rec["members"] = list(BASKETS[sid])
                 # only the members that actually have a drawable series
