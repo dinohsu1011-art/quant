@@ -375,17 +375,8 @@
         g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
       out.push({ ...strat, g, id: s.id, color: assign(s.id), label: s.label, isStrategy: true });
     }
-    // one live line per ever-recommended name, rebased to its first entry
-    R.names.forEach(nm => {
-      if (!SER[nm.t]) return;
-      const wins = nm.windows.map(([e,x]) => [entryIdxOf(e), x ? entryIdxOf(x) : null]);
-      const w = recoStats(nm.t, wins[0][0]); if (!w) return;
-      let g = w.g;
-      if (st.mode === 'dd'){ let pk = -Infinity;
-        g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
-      out.push({ ...w, g, id: 'reco:'+nm.t, color: assign('reco:'+nm.t), label: nm.t,
-                 reco: true, windows: wins, current: R.current.includes(nm.t) });
-    });
+    // individual names are NOT drawn with the book — they toggle on demand from
+    // the drill-down (as plain constituent lines, like a basket's members).
   }
 
   function transform(){
