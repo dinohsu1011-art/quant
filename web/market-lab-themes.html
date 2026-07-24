@@ -437,6 +437,46 @@
                    reco: true, windows: wins, current: S.current });
         return;
       }
+      if (SER[id].handoff && SER[id].handoff.role){
+        // a coverage book in a handoff pair. The prior book ("Coverage 1") is
+        // measured from the anchor and split bold (up to the switch) / ghost
+        // (after it); the live book ("Active Coverage") is level-matched to the
+        // prior book at the switch and drawn bold from there — one continuous
+        // track. While the switch date is still in the future (beyond the data),
+        // Coverage 1 runs all-bold and the active book falls through to a normal
+        // basket line. Drill-down is untouched — this only reshapes the aggregate.
+        const S = SER[id], H = S.handoff;
+        const aIdx = entryIdxOf(H.anchor);
+        const sIdx = (DIDX[H.switch] != null) ? DIDX[H.switch]
+                   : (H.switch > DATES[N-1] ? N : idxOnOrAfter(H.switch));
+        if (H.role === 'prev'){
+          const w = recoStats(id, aIdx); if (!w) return;
+          let g = w.g;
+          if (st.mode === 'dd'){ let pk = -Infinity;
+            g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
+          const exit = sIdx >= N ? null : sIdx;   // no ghost until the switch lands
+          out.push({ ...w, g, id, color: assign(id), label: S.label,
+                     reco: true, windows: [[aIdx, exit]], current: exit == null });
+          return;
+        }
+        if (H.role === 'next' && sIdx < N){        // handoff engaged (switch reached)
+          const w = recoStats(id, sIdx); if (!w) return;   // g = 1.0 at the switch
+          const prev = SER[H.prevId];
+          let mult = 1;
+          if (prev){
+            const pa = baseAt(prev, aIdx),
+                  ps = baseAt(prev, Math.min(sIdx, prev.i0 + prev.lv.length - 1));
+            if (pa && ps) mult = ps / pa;          // prior book's growth at the switch
+          }
+          let g = w.g.map(v => v == null ? null : v * mult);   // level-match the handoff
+          if (st.mode === 'dd'){ let pk = -Infinity;
+            g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
+          out.push({ ...w, g, id, color: assign(id), label: S.label,
+                     reco: true, windows: [[sIdx, null]], current: true });
+          return;
+        }
+        // role 'next' pre-switch: fall through to the normal basket line
+      }
       const w = windowStats(id); if (!w) return;
       let g = w.g.slice();
       if (st.mode === 'dd'){

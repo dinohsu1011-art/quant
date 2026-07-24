@@ -96,6 +96,13 @@ BASKETS = {
     "mycoverage":   ["DELL", "HWM", "TSLA", "ETN", "VRT", "CMI", "GEV", "PWR",
                      "HUBB", "FIX", "EME", "CAT", "6674.T", "7011.T", "5802.T",
                      "5803.T", "BE", "GLW", "SPCX", "FLEX"],
+    # The prior personal coverage book (20 names), kept as a fixed reference vs
+    # the live `mycoverage` ("Active Coverage"). The themes page anchors it to
+    # 2026-04-30 and hands off to the active book on the switch date — see
+    # COVERAGE_HANDOFF in export/themes.py. Equal-weight, same tracker semantics.
+    "coverage1":    ["AME", "EMR", "ETN", "FSLR", "GEV", "HUBB", "HWM", "PWR",
+                     "TSLA", "5802.T", "7011.T", "ED", "CEG", "CNP", "DUK",
+                     "NRG", "VST", "FCX", "NEM", "STLD"],
     # A second personal watchlist (semis / memory / semicap value chain), same
     # cross-calendar tracker semantics as `mycoverage`. The four .T names
     # (6857 Advantest, 6981 Murata, 8035 Tokyo Electron, 4062 Ibiden) trade on

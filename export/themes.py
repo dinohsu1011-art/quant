@@ -34,7 +34,8 @@ START = "2000-01-01"  # calendar floor; individual series start when they start
 # first (Indices -> Macro -> Sectors -> Thematic ETFs), then the pure-play baskets.
 GROUPS = [
     ("My Coverage", [
-        ("mycoverage", "My Coverage"),
+        ("coverage1", "Coverage 1"),
+        ("mycoverage", "Active Coverage"),
         ("mycoverage_reco", "Recommended"),
     ]),
     ("Fred Coverage", [
@@ -99,6 +100,21 @@ GROUPS = [
 # series whose *level* is not a total-return-like price (charting % change on
 # these is still meaningful, but they are not investable — flag for the page).
 NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
+
+# Coverage-book handoff. The prior book ("Coverage 1") is measured from `anchor`
+# and drawn bold up to `switch`, then ghosts forward (the "if I'd kept it"
+# counterfactual); the live book ("Active Coverage") is level-matched to the
+# prior book at `switch` and drawn bold from there — one continuous coverage
+# track. The page reads these dates off each series' shipped `handoff` block.
+# `switch` is a forward placeholder until the swap is official; while it is still
+# in the future (beyond the data), Coverage 1 simply runs bold to the present and
+# the active book renders as a normal basket. Update this one date on switch day.
+COVERAGE_HANDOFF = {
+    "prev": "coverage1",
+    "next": "mycoverage",
+    "anchor": "2026-04-30",
+    "switch": "2026-07-31",
+}
 
 
 def _view(t):
@@ -217,6 +233,15 @@ def build():
                 rec["kind"] = "level"
             else:
                 rec["kind"] = "etf"
+            # coverage-book handoff metadata (leaves the basket kind + drill-down
+            # intact; only tells the page how to rebase/split this aggregate line)
+            if sid == COVERAGE_HANDOFF["prev"]:
+                rec["handoff"] = {"role": "prev", "anchor": COVERAGE_HANDOFF["anchor"],
+                                  "switch": COVERAGE_HANDOFF["switch"]}
+            elif sid == COVERAGE_HANDOFF["next"]:
+                rec["handoff"] = {"role": "next", "anchor": COVERAGE_HANDOFF["anchor"],
+                                  "switch": COVERAGE_HANDOFF["switch"],
+                                  "prevId": COVERAGE_HANDOFF["prev"]}
             series.append(rec)
 
     n_rail = len(series)
