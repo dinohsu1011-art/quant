@@ -230,6 +230,26 @@
   D.series.forEach(s => { SER[s.id] = s; IDS.push(s.id); });
   const DIDX = {}; DATES.forEach((d,i) => DIDX[d] = i);
 
+  // Recommended names get their own selectable identity, distinct from the plain
+  // stock line a basket would use. 'reco:HUBB' shares HUBB's price history but is
+  // rendered under reco rules (rebased to each recommendation close, bold while
+  // held / ghost when out), so the two never overlap. The book's memberIds point
+  // at these reco identities, so the drill-down toggles the reco version.
+  D.series.forEach(s => {
+    if (s.kind !== 'reco' || !s.reco) return;
+    const cur = s.reco.current || [];
+    const ids = [];
+    s.reco.names.forEach(nm => {
+      const src = SER[nm.t]; if (!src) return;         // no drawable price line
+      const rid = 'reco:' + nm.t;
+      SER[rid] = { id: rid, label: nm.t, kind: 'reconame', src: nm.t, book: s.id,
+                   windows: nm.windows, current: cur.includes(nm.t),
+                   group: cur.includes(nm.t) ? 'reco · held' : 'reco · closed' };
+      ids.push(rid);
+    });
+    s.memberIds = ids;
+  });
+
   // ---------- palette: 20 hues that stay legible at 1.6px on white ----------
   const PALETTE = ['#1d7fc4','#e2703a','#3f9d6a','#b8484f','#7a5bbd','#8a6b4a','#c25da8',
                    '#5f7183','#9a9a2c','#3aa9b8','#2f5fa8','#d1902b','#4f7f3a','#a1445f',
@@ -387,6 +407,20 @@
     st.sel.forEach(id => {
       if (!SER[id]) return;
       if (SER[id].kind === 'reco'){ expandReco(SER[id], out); return; }
+      if (SER[id].kind === 'reconame'){
+        // a recommended name, rebased to its recommendation close and split
+        // bold (held) / ghost (out) at the swap boundaries — its own identity,
+        // never touching the plain stock line of the same ticker.
+        const S = SER[id];
+        const wins = S.windows.map(([e,x]) => [entryIdxOf(e), x ? entryIdxOf(x) : null]);
+        const w = recoStats(S.src, wins[0][0]); if (!w) return;
+        let g = w.g;
+        if (st.mode === 'dd'){ let pk = -Infinity;
+          g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
+        out.push({ ...w, g, id, color: assign(id), label: S.label,
+                   reco: true, windows: wins, current: S.current });
+        return;
+      }
       const w = windowStats(id); if (!w) return;
       let g = w.g.slice();
       if (st.mode === 'dd'){
@@ -846,9 +880,9 @@
       if (st.focus && !st.sel.includes(st.focus)) st.focus = null;
       st.sel.forEach(assign); syncRail(); render();
     });
-    // reveal any basket whose constituent is already selected (e.g. from the URL)
+    // reveal any basket/book whose constituent or reco name is already selected
     st.sel.forEach(id => {
-      if (!SER[id] || SER[id].kind !== 'stock') return;
+      if (!SER[id] || (SER[id].kind !== 'stock' && SER[id].kind !== 'reconame')) return;
       const box = document.querySelector(`.members .row[data-id="${id}"]`)?.closest('.members');
       if (box){ box.hidden = false; box.dataset.open = '1';
         document.querySelector(`.caret[data-exp="${box.dataset.for}"]`)?.classList.add('open'); }
