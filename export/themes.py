@@ -22,6 +22,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
+from config import file_stem
 from ingestion.baskets import BASKETS
 
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
@@ -79,6 +80,9 @@ GROUPS = [
     ("Defense & frontier — baskets", [
         ("defense", "Defense & Aero"), ("space", "Space"), ("robotics", "Robotics"),
     ]),
+    ("Japan — baskets", [
+        ("japan", "Japan · elec & grid"),
+    ]),
 ]
 
 # series whose *level* is not a total-return-like price (charting % change on
@@ -87,7 +91,8 @@ NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
 
 
 def _view(t):
-    return t.lower().replace("-", "_").replace(".", "_")
+    # file_stem first, so aliased symbols ('6674.T' -> 'JP6674') hit their real view.
+    return file_stem(t).lower().replace("-", "_").replace(".", "_")
 
 
 def close_series(conn, view):

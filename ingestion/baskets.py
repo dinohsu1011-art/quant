@@ -20,7 +20,7 @@ import pyarrow.parquet as pq
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
-from config import DAILY_DIR, PRICE_SCALE
+from config import DAILY_DIR, PRICE_SCALE, file_stem
 from ingestion.fetch import run
 from ingestion.store import SCHEMA
 
@@ -69,11 +69,18 @@ BASKETS = {
     # resources
     "miners":       ["FCX", "SCCO", "NEM", "TECK", "HBM"],
     "materials":    ["MP", "ALB", "NUE", "STLD", "CLF", "USAR", "SOLS"],
+    # Japan — the one deliberate exception to the US-listings rule. These trade on
+    # the Tokyo calendar; the basket level is built from the members' mutual TSE
+    # returns (they share a calendar), and only aligns loosely with US series when
+    # charted together. Members carry '.T' (yfinance) and alias to jpNNNN views.
+    "japan":        ["6674.T", "7011.T", "5802.T", "5803.T"],
 }
 
 
 def _view(t):
-    return t.lower().replace("-", "_")
+    # file_stem first, so aliased symbols ('6674.T' -> 'JP6674') resolve to their
+    # real view name instead of an unmatched '6674.t'.
+    return file_stem(t).lower().replace("-", "_")
 
 
 def _views(conn):

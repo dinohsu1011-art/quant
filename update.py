@@ -65,9 +65,16 @@ def sync_site():
     (GitHub Pages payload), stamping ?v=<as_of> on script/data references so
     browsers and the Pages CDN never serve stale JS or menus after an update.
     trader-profile.html is personal and is NOT copied."""
+    import hashlib
     import re
     m = re.search(r'"as_of":"([^"]+)"', (REPORTS / "cube" / "index.js").read_text())
-    stamp = (m.group(1) if m else "0").replace("-", "")
+    # as_of alone doesn't change when the cube is rebuilt without new market data
+    # (e.g. adding a basket), so append a short content hash of the cube payload —
+    # otherwise browsers keep serving the stale ?v=<as_of> copy after such a deploy.
+    h = hashlib.md5()
+    for cf in sorted((REPORTS / "cube").glob("*.js")):
+        h.update(cf.read_bytes())
+    stamp = (m.group(1) if m else "0").replace("-", "") + "-" + h.hexdigest()[:8]
     pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes)\.js)(?:\?v=[^"]*)?"')
     web, docs = ROOT / "web", ROOT / "docs"
     for d in (web, docs):
