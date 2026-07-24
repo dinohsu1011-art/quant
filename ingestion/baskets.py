@@ -95,7 +95,7 @@ BASKETS = {
     # investable index. Overlaps every other basket by design.
     "mycoverage":   ["DELL", "HWM", "CEG", "TSLA", "VST", "CNP", "ETN", "VRT", "CMI",
                      "GEV", "PWR", "HUBB", "FIX", "EME", "CAT", "6674.T", "5802.T",
-                     "5803.T", "BE", "GLW", "SPCX"],
+                     "5803.T", "BE", "GLW", "SPCX", "FLEX"],
 }
 
 
