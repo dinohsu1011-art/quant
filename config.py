@@ -48,6 +48,10 @@ SYMBOL_ALIASES = {
     "7011.T": "JP7011",  # Mitsubishi Heavy Industries
     "5802.T": "JP5802",  # Sumitomo Electric
     "5803.T": "JP5803",  # Fujikura
+    "6857.T": "JP6857",  # Advantest
+    "6981.T": "JP6981",  # Murata Manufacturing
+    "8035.T": "JP8035",  # Tokyo Electron
+    "4062.T": "JP4062",  # Ibiden
     # European turbine / power-equipment OEMs (XETRA / Helsinki calendars).
     "ENR.DE": "SIEMENS_ENERGY",   # Siemens Energy AG
     "WRT1V.HE": "WARTSILA",       # Wärtsilä

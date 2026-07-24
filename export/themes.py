@@ -35,6 +35,9 @@ GROUPS = [
     ("My Coverage", [
         ("mycoverage", "My Coverage"),
     ]),
+    ("Fred Coverage", [
+        ("fredcoverage", "Fred Coverage"),
+    ]),
     ("Indices", [
         ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
         ("ndx", "Nasdaq-100 · NDX"), ("ixic", "Nasdaq Composite"),

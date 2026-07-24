@@ -96,6 +96,13 @@ BASKETS = {
     "mycoverage":   ["DELL", "HWM", "TSLA", "ETN", "VRT", "CMI", "GEV", "PWR",
                      "HUBB", "FIX", "EME", "CAT", "6674.T", "7011.T", "5802.T",
                      "5803.T", "BE", "GLW", "SPCX", "FLEX"],
+    # A second personal watchlist (semis / memory / semicap value chain), same
+    # cross-calendar tracker semantics as `mycoverage`. The four .T names
+    # (6857 Advantest, 6981 Murata, 8035 Tokyo Electron, 4062 Ibiden) trade on
+    # the TSE and align only loosely with the US names when charted.
+    "fredcoverage": ["MU", "WDC", "SNDK", "STX", "ANET", "CSCO", "MRVL", "NVDA",
+                     "AMD", "AVGO", "INTC", "AMAT", "ASML", "TER", "LITE", "COHR",
+                     "6857.T", "6981.T", "8035.T", "4062.T"],
 }
 
 
