@@ -48,6 +48,9 @@ SYMBOL_ALIASES = {
     "7011.T": "JP7011",  # Mitsubishi Heavy Industries
     "5802.T": "JP5802",  # Sumitomo Electric
     "5803.T": "JP5803",  # Fujikura
+    # European turbine / power-equipment OEMs (XETRA / Helsinki calendars).
+    "ENR.DE": "SIEMENS_ENERGY",   # Siemens Energy AG
+    "WRT1V.HE": "WARTSILA",       # Wärtsilä
 }
 
 

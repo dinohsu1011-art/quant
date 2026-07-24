@@ -73,7 +73,7 @@ GROUPS = [
     ]),
     ("Power & industrial — baskets", [
         ("utilities", "Utilities & IPPs"), ("elecind", "Electric Industrial"),
-        ("epc", "EPC"), ("nuclear", "Nuclear"),
+        ("gas", "Gas Power"), ("epc", "EPC"), ("nuclear", "Nuclear"),
         ("solutil", "Industrial Solar"), ("solresi", "Residential Solar"),
         ("materials", "Materials"), ("miners", "Metals — Miners"),
     ]),

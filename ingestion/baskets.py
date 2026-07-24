@@ -27,9 +27,13 @@ from ingestion.store import SCHEMA
 # Theme baskets (user's categorization; reorganized 2026-07-23). US listings only
 # — foreign exchanges (KRX 000660/005930, ASX BHP, SWX ABBN, OTC SMERY/SBGSY) are
 # excluded for trading-calendar alignment; HG excluded (Hamilton Insurance,
-# mis-tagged). Each ticker lives in exactly ONE basket — no repeats — so a name's
-# single home is its highest-signal theme (AMD→gpu, AVGO/MRVL→cpuasic, ANET→
-# networking, VRT→aiserver, PLTR→software).
+# mis-tagged). The AI/semis taxonomy stays STRICT — each chip/software name lives
+# in exactly ONE basket, so its single home is its highest-signal theme (AMD→gpu,
+# AVGO/MRVL→cpuasic, ANET→networking, VRT→aiserver, PLTR→software). The broad
+# sector/theme cuts (utilities, japan, gas) are allowed to OVERLAP that taxonomy
+# and each other — a name can appear in its home basket AND in a cross-cutting
+# theme (e.g. GEV/CAT/CMI in elecind AND gas, 7011 in japan AND gas). Overlap is
+# only a curation choice; the build handles repeats fine.
 BASKETS = {
     # chips & AI value chain
     "gpu":          ["NVDA", "AMD", "TSM"],
@@ -74,6 +78,13 @@ BASKETS = {
     # returns (they share a calendar), and only aligns loosely with US series when
     # charted together. Members carry '.T' (yfinance) and alias to jpNNNN views.
     "japan":        ["6674.T", "7011.T", "5802.T", "5803.T"],
+    # Gas-power equipment: heavy-duty turbine / genset / fuel-cell OEMs that sell
+    # the kit gas-fired generation is built from. A cross-cutting theme, so it
+    # overlaps by design — GEV/CAT/CMI/GNRC keep their elecind home, BE its
+    # solutil home, 7011 its japan home. Two European OEMs (Siemens Energy ENR.DE,
+    # Wärtsilä WRT1V.HE) trade on XETRA/Helsinki calendars, aliased to SQL-safe
+    # stems; they align only loosely with the US-session names when charted.
+    "gas":          ["GEV", "CAT", "CMI", "BE", "GNRC", "7011.T", "ENR.DE", "WRT1V.HE"],
 }
 
 
