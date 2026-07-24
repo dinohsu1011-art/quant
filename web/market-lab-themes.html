@@ -1053,23 +1053,8 @@
   buildRail();
   document.getElementById('asof').innerHTML =
     `as of ${D.meta.as_of}<br>${D.meta.n_series} series · ${D.meta.n_members||0} constituents · ${D.meta.n_dates} sessions`;
-  document.getElementById('foot').innerHTML =
-    "<b>How to read.</b> Every line is rebased to 100 at the first session of the window, so the "
-    + "vertical distance between two lines is their return spread over exactly that window — not a "
-    + "price. <b>Relative</b> divides each theme by the benchmark's own growth, so a rising line "
-    + "means outperformance regardless of market direction. <b>Baskets</b> are equal-weight, "
-    + "daily-rebalanced synthetic indices of pure-play names and <b>broaden as members list</b>; a "
-    + "&ldquo;partial members&rdquo; flag means the basket was still filling in at the window start. "
-    + "<b>Expand a basket</b> (the &#9654; on its rail row) to chart the individual stocks that "
-    + "comprise it and compare them against the basket line or each other. "
-    + "The <b>period-returns heatmap</b> below the chart breaks each selected line into close-to-close "
-    + "returns per sub-period (daily &rarr; yearly as the window widens), blue up / red down, so you can "
-    + "see <i>when</i> the moves happened, not just the cumulative path. <b>Avg daily</b> in the table is "
-    + "the mean absolute daily move over the window &mdash; a plain-English volatility read that runs up "
-    + "to the cursor while you hover the chart. "
-    + "VIX, VIX3M and TNX are levels, not investable returns. Data through " + D.meta.as_of
-    + "; regenerate with <code>python -m export.themes</code> in the quant repo. "
-    + '<a href="market-lab-baskets.html" style="color:#1d7fc4;text-decoration:none">basket components &rarr;</a>';
+  const footEl = document.getElementById('foot');
+  if (footEl) footEl.remove();
   syncCtl();
   render();
   let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 120); });
