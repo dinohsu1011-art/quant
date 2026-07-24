@@ -812,14 +812,15 @@
 
   // ---------- rail ----------
   function railRow(s, sub){
-    const mem = s.kind === 'basket' && s.memberIds && s.memberIds.length;
+    const mem = (s.kind === 'basket' || s.kind === 'reco') && s.memberIds && s.memberIds.length;
+    const noun = s.kind === 'reco' ? 'names' : 'constituents';
     return `<div class="row${sub ? ' sub' : ''}" data-id="${s.id}" title="${esc(memberTip(s))}">
         <span class="dot"></span><span class="lb">${esc(s.label)}</span>
-        ${mem ? `<button class="caret" data-exp="${s.id}" title="show constituents">&#9654;</button>` : ''}
+        ${mem ? `<button class="caret" data-exp="${s.id}" title="show ${noun}">&#9654;</button>` : ''}
         <span class="rr"></span>
       </div>${mem ? `
       <div class="members" data-for="${s.id}" hidden>
-        <div class="memhd"><span>${s.memberIds.length} constituents</span>
+        <div class="memhd"><span>${s.memberIds.length} ${noun}</span>
           <button data-all="${s.id}">all</button></div>
         ${s.memberIds.map(mid => railRow(SER[mid], true)).join('')}
       </div>` : ''}`;
@@ -873,6 +874,10 @@
     syncRail();
   }
   function memberTip(s){
+    if (s.kind === 'reco'){
+      const cur = (s.reco && s.reco.current) || [];
+      return cur.length ? `currently held: ${cur.join(', ')}` : s.label;
+    }
     if (s.kind !== 'basket') return s.label;
     return s.members.join(', ') + (s.full ? `  ·  full membership from ${s.full}` : '');
   }
