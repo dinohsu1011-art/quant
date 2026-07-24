@@ -663,8 +663,15 @@
           const v = d.g[k]; if (v == null){ prev = null; pxv = null; continue; }
           const i = st.i1 + k, x = X(i), y = Y(v), held = inHeld(i, d.windows), seg = held ? 'B' : 'G';
           if (seg !== prev){
-            if (pxv != null){ const br = `M${pxv} ${pyv} L${x.toFixed(1)} ${y.toFixed(1)} `;
-                              if (held) bold += br; else ghost += br; }
+            if (pxv != null){
+              // the regime-crossing segment (prior close -> this close) always
+              // reads as ghost: a position isn't "held" for the day it's swapped
+              // in on until that day's close, so bold must begin ON the entry day,
+              // never bleed back to the session before it. Ghost keeps the line
+              // visually continuous across the boundary either way.
+              ghost += `M${pxv} ${pyv} L${x.toFixed(1)} ${y.toFixed(1)} `;
+              if (held) bold += `M${x.toFixed(1)} ${y.toFixed(1)} `;
+            }
             else { const mv = `M${x.toFixed(1)} ${y.toFixed(1)} `; if (held) bold += mv; else ghost += mv; }
           } else { const ln = `L${x.toFixed(1)} ${y.toFixed(1)} `; if (held) bold += ln; else ghost += ln; }
           prev = seg; pxv = x.toFixed(1); pyv = y.toFixed(1);
