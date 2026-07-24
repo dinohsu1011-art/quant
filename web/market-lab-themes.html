@@ -291,7 +291,9 @@
   };
   st.sel.forEach(assign);
   // swap events for the currently-selected reco book (set in transform, drawn in render)
-  let RECO_EVENTS = null;
+  let RECO_EVENTS = null;   // swap markers for the selected book
+  let RECO_EXITS = {};      // `${exitDate}|${ticker}` -> realized return at exit
+  const CUR_TIPS = {};      // exitDate -> prebuilt swap-marker tooltip HTML
 
   // ---------- helpers ----------
   const lvAt = (s,i) => { const j = i - s.i0; return (j < 0 || j >= s.lv.length) ? null : s.lv[j]; };
@@ -383,9 +385,25 @@
     let last = null; for (let k = g.length-1; k >= 0; k--) if (g[k] != null){ last = g[k]; break; }
     return { g, a, b, ret: last != null ? last-1 : null, vol, mdd, best, worst, disp: last };
   }
+  function buildExits(R){
+    // realized return of every closed call: exit close / entry close - 1, frozen
+    // at the swap. Keyed by exit date + ticker so a swap marker can show the P&L
+    // of each leg it retired that day.
+    const m = {};
+    R.names.forEach(nm => {
+      const src = SER[nm.t]; if (!src) return;
+      nm.windows.forEach(([e, x]) => {
+        if (!x) return;                                   // open leg, nothing realized yet
+        const p0 = baseAt(src, entryIdxOf(e)), p1 = baseAt(src, entryIdxOf(x));
+        if (p0 && p1) m[`${x}|${nm.t}`] = p1 / p0 - 1;
+      });
+    });
+    return m;
+  }
   function expandReco(s, out){
     const R = s.reco;
     RECO_EVENTS = R.events;   // markers for render()
+    RECO_EXITS = s._exits || (s._exits = buildExits(R));
     // the headline strategy line — rebased to book inception, so it always reads
     // cumulative book P&L (sum of every call's return / 5) regardless of window.
     const strat = recoStats(s.id, s.i0);
@@ -402,7 +420,7 @@
   function transform(){
     // returns array of drawable {id,color,label,y[] (growth ratio), stats}
     const out = [];
-    RECO_EVENTS = null;
+    RECO_EVENTS = null; RECO_EXITS = {};
     const bench = st.mode === 'rel' ? windowStats(st.bench) : null;
     st.sel.forEach(id => {
       if (!SER[id]) return;
@@ -704,13 +722,27 @@
     let marks = '';
     (RECO_EVENTS || []).forEach(ev => {
       const idx = DIDX[ev.d]; if (idx == null || idx < st.i1 || idx > st.i2) return;
-      const x = X(idx), tip = ev.d + '  ·  ' + ev.lines.join('   •   ');
+      const x = X(idx);
+      // tooltip: date + each swap line, with the exited leg's realized gain/loss
+      let hasExit = false;
+      const rows = ev.lines.map(ln => {
+        const j = ln.indexOf('→');                   // "OUT → IN"
+        if (j < 0) return `<div style="opacity:.75">${esc(ln)}</div>`;
+        const o = ln.slice(0, j).trim(), inn = ln.slice(j + 1).trim();
+        const r = RECO_EXITS[`${ev.d}|${o}`];
+        let tag = '';
+        if (r != null){ hasExit = true;
+          tag = `<b style="color:${r >= 0 ? '#3f9d6a' : '#b8484f'}"> ${fmtPct(r)}</b>`; }
+        return `<div><b>${esc(o)}</b>${tag} <span style="opacity:.45">→</span> ${esc(inn)}</div>`;
+      }).join('');
+      CUR_TIPS[ev.d] = `<div style="font-weight:600;margin-bottom:3px">${ev.d}`
+        + `${hasExit ? ' <span style="opacity:.5;font-weight:400">· realized at exit</span>' : ''}</div>${rows}`;
       marks += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
                  stroke="#0c0a09" stroke-width="1" stroke-dasharray="1 3" opacity="0.16" pointer-events="none"/>`;
       marks += `<path d="M${x.toFixed(1)} ${(px.y0-7).toFixed(1)} l4.5 4.5 l-4.5 4.5 l-4.5 -4.5 z"
                  fill="#0c0a09" opacity="0.72" pointer-events="none"/>`;
       marks += `<rect x="${(x-6).toFixed(1)}" y="${(px.y0-10).toFixed(1)}" width="12"
-                 height="${(px.y1-px.y0+12).toFixed(1)}" fill="transparent" data-ev="${esc(tip)}" style="cursor:help"/>`;
+                 height="${(px.y1-px.y0+12).toFixed(1)}" fill="transparent" data-ev="${esc(ev.d)}" style="cursor:help"/>`;
     });
     svg.innerHTML = `<g id="plot">${g}</g><g id="cross"></g>
       <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
@@ -728,7 +760,7 @@
   svg.addEventListener('mousemove', e => {
     const t = e.target && e.target.getAttribute && e.target.getAttribute('data-ev');
     if (!t){ recoTip.style.display = 'none'; return; }
-    recoTip.textContent = t;
+    recoTip.innerHTML = CUR_TIPS[t] || esc(t);
     recoTip.style.display = 'block';
     const w = recoTip.offsetWidth;
     recoTip.style.left = Math.min(e.clientX + 12, window.innerWidth - w - 8) + 'px';
