@@ -7,9 +7,10 @@ One-command refresh pipeline, in strict order:
   2. rebuild baskets (levels compound full history, so they MUST follow a fetch)
   3. regenerate the offline cube
   4. regenerate the theme return series (market-lab-themes.html)
-  5. regenerate the trader-profile data bundle
-  6. sync the site copies into web/ and docs/
-  7. validate (exits non-zero on any integrity failure)
+  5. regenerate the macro regime masks (market-lab-heatmaps.html)
+  6. regenerate the trader-profile data bundle
+  7. sync the site copies into web/ and docs/
+  8. validate (exits non-zero on any integrity failure)
 
     ./.venv/bin/python update.py
 """
@@ -70,7 +71,8 @@ def sub(target):
 
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html",
-              "market-lab-drawdowns.html", "market-lab-themes.html"]
+              "market-lab-drawdowns.html", "market-lab-themes.html",
+              "market-lab-heatmaps.html"]
 
 
 def sync_site():
@@ -88,7 +90,7 @@ def sync_site():
     for cf in sorted((REPORTS / "cube").glob("*.js")):
         h.update(cf.read_bytes())
     stamp = (m.group(1) if m else "0").replace("-", "") + "-" + h.hexdigest()[:8]
-    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes)\.js)(?:\?v=[^"]*)?"')
+    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes|regimes)\.js)(?:\?v=[^"]*)?"')
     web, docs = ROOT / "web", ROOT / "docs"
     for d in (web, docs):
         d.mkdir(exist_ok=True)
@@ -115,13 +117,13 @@ def sync_site():
 
 def step(i, name, fn):
     t0 = time.time()
-    print(f"\n=== [{i}/8] {name} ===", flush=True)
+    print(f"\n=== [{i}/9] {name} ===", flush=True)
     try:
         fn()
     except Exception as e:
-        print(f"*** PIPELINE STOPPED at [{i}/8] {name}: {e}")
+        print(f"*** PIPELINE STOPPED at [{i}/9] {name}: {e}")
         sys.exit(1)
-    print(f"=== [{i}/8] {name} done in {time.time() - t0:.0f}s ===", flush=True)
+    print(f"=== [{i}/9] {name} done in {time.time() - t0:.0f}s ===", flush=True)
 
 
 if __name__ == "__main__":
@@ -130,7 +132,8 @@ if __name__ == "__main__":
     step(3, "rebuild reco books (mark open calls to latest close)", build_recos)
     step(4, "regenerate cube", lambda: sub("export.cube"))
     step(5, "regenerate theme return series", lambda: sub("export.themes"))
-    step(6, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(7, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(8, "validate", lambda: sub("validate.py"))
+    step(6, "regenerate macro regime masks", lambda: sub("export.regimes"))
+    step(7, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(8, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(9, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")
