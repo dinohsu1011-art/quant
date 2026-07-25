@@ -34,9 +34,9 @@ START = "2000-01-01"  # calendar floor; individual series start when they start
 # first (Indices -> Macro -> Sectors -> Thematic ETFs), then the pure-play baskets.
 GROUPS = [
     ("My Coverage", [
-        ("coverage1", "Coverage 1"),
-        ("mycoverage", "Active Coverage"),
         ("mycoverage_reco", "Recommended"),
+        ("mycoverage", "Active Coverage"),
+        ("coverage1", "Original Coverage"),
     ]),
     ("Fred Coverage", [
         ("fredcoverage", "Fred Coverage"),
