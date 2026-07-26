@@ -383,20 +383,6 @@
     let last = null; for (let k = g.length-1; k >= 0; k--) if (g[k] != null){ last = g[k]; break; }
     return { g, a, b, ret: last != null ? last-1 : null, vol, mdd, best, worst, disp: last };
   }
-  function backfill(id, entryIdx, g){
-    // Extend a rebased series BACKWARDS from its entry to the window start, on the
-    // same base — so a book still draws (ghosted) over the stretch before it went
-    // live. recoStats deliberately starts at the entry, because the stats it
-    // returns must measure the held span only; this only touches the drawn path,
-    // never the numbers in the table.
-    const s = SER[id]; if (!s) return g;
-    const base = baseAt(s, entryIdx); if (base == null || base === 0) return g;
-    const hi = Math.min(entryIdx, st.i2 + 1);
-    for (let i = Math.max(st.i1, s.i0); i < hi; i++){
-      const v = lvAt(s, i); if (v != null) g[i - st.i1] = v / base;
-    }
-    return g;
-  }
   function buildExits(R){
     // realized return of every closed call: exit close / entry close - 1, frozen
     // at the swap. Keyed by exit date + ticker so a swap marker can show the P&L
@@ -458,46 +444,59 @@
         //   Original Coverage   ghost .. | anchor  BOLD  switch | .. ghost
         //   Active Coverage     ghost ............... switch | BOLD .. today
         //
-        // Both are rebased so the two read as one continuous track: the prior book
-        // off the anchor, the live book off the switch and scaled by the prior
-        // book's growth to that day, so it starts exactly where the other left off.
-        // Before the switch lands the active book has no bold span at all — it
-        // ghosts off the shared anchor, showing what the new book would have done
-        // over the same stretch. Drill-down is untouched; this only reshapes the
-        // aggregate line.
+        // BOTH books are rebased to the WINDOW START, exactly like every other
+        // series, so "Cumulative %" always means "since the left edge of the
+        // chart" and the YTD number in the table is a real YTD number. The
+        // anchor and switch dates only decide where each line is bold — they
+        // must never move its level, or the book reads as −40% on Jan 2 because
+        // it was silently rebased to an April anchor.
+        // Continuity is restored by splicing, not by rebasing: once the switch
+        // lands, the active book's drawn path runs along the prior book up to
+        // the switch and then continues on its own, scaled to meet it there.
         const S = SER[id], H = S.handoff;
         const aIdx = entryIdxOf(H.anchor);
         const sIdx = (DIDX[H.switch] != null) ? DIDX[H.switch]
                    : (H.switch > DATES[N-1] ? N : idxOnOrAfter(H.switch));
         const dd = arr => { let pk = -Infinity;
           return arr.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); };
+        const tail = arr => { for (let k = arr.length-1; k >= 0; k--)
+                                if (arr[k] != null) return arr[k]; return null; };
+        // the measure transforms, applied exactly as the generic branch does —
+        // and the displayed value is read AFTER them, so Drawdown reports the
+        // drawdown and Relative reports the ratio to the benchmark.
+        const measure = arr => st.mode === 'dd' ? dd(arr)
+          : (st.mode === 'rel' && bench)
+            ? arr.map((v,i) => (v == null || bench.g[i] == null) ? null : v / bench.g[i])
+            : arr;
         if (H.role === 'prev'){
-          const w = recoStats(id, aIdx); if (!w) return;
-          let g = backfill(id, aIdx, w.g);
-          if (st.mode === 'dd') g = dd(g);
+          const w = windowStats(id); if (!w) return;
+          const g = measure(w.g);
           const exit = sIdx >= N ? null : sIdx;   // no trailing ghost until the switch lands
-          out.push({ ...w, g, id, color: assign(id), label: S.label,
+          out.push({ ...w, g, id, color: assign(id), label: S.label, disp: tail(g),
                      reco: true, windows: [[aIdx, exit]], current: exit == null });
           return;
         }
-        // role 'next'. Pre-switch it rebases off the shared anchor and is drawn
-        // entirely ghost (an empty bold window); once the switch lands it rebases
-        // off the switch and is level-matched to the prior book.
+        // role 'next'. Before the switch it is drawn entirely ghost (empty bold
+        // window) — what the new book would have done over the same stretch.
         const live = sIdx < N;
-        const w = recoStats(id, live ? sIdx : aIdx); if (!w) return;
-        let mult = 1;
-        if (live){
-          const prev = SER[H.prevId];
-          if (prev){
-            const pa = baseAt(prev, aIdx),
-                  ps = baseAt(prev, Math.min(sIdx, prev.i0 + prev.lv.length - 1));
-            if (pa && ps) mult = ps / pa;          // prior book's growth at the switch
+        const w = windowStats(id); if (!w) return;
+        let g = w.g.slice();
+        if (live && sIdx > st.i1){
+          // splice onto the prior book's track so the two read as one line
+          const pw = windowStats(H.prevId);
+          if (pw){
+            const nAtS = g[sIdx - st.i1], pAtS = pw.g[sIdx - st.i1];
+            if (nAtS && pAtS){
+              const k = pAtS / nAtS;
+              g = g.map(v => v == null ? null : v * k);
+            }
+            for (let i = 0; i < sIdx - st.i1 && i < g.length; i++) g[i] = pw.g[i];
           }
         }
-        let g = backfill(id, live ? sIdx : aIdx, w.g);
-        if (mult !== 1) g = g.map(v => v == null ? null : v * mult);
-        if (st.mode === 'dd') g = dd(g);
+        const spliced = tail(g);
+        g = measure(g);
         out.push({ ...w, g, id, color: assign(id), label: S.label,
+                   ret: spliced != null ? spliced - 1 : w.ret, disp: tail(g),
                    reco: true, windows: live ? [[sIdx, null]] : [], current: live });
         return;
       }
