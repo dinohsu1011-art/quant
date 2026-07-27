@@ -267,7 +267,28 @@ risk-on/risk-off answer), then indexes, then the theme leaderboard, then the thr
 watchlists. Focus-list candidates — the names that appear in more than one scan —
 pinned at the top of the watchlist section.
 
-Design direction to be chosen at build time; it must diverge from the themes page.
+### Shipped 2026-07-27
+
+Built as a single-column editorial report rather than a dashboard — it is read top to
+bottom once a week, so it is laid out as a document. It shares the Market Lab type and
+colour tokens on purpose: this is a sibling page in the same product, not a new one.
+
+What is on it:
+
+* A **verdict line** — Risk-on / Mixed / Risk-off, decided by how many of the six gauges
+  sit above their own five-year median, with the supporting numbers spelled out beneath.
+* The **six gauges**, each with its value and a rail showing where that value sits in its
+  own history. The percentile is the point; the raw number alone says little.
+* **Indexes** — the five-row table, plus the four ratios with sparklines.
+* **Themes** — a rotating-in / rotating-out callout off Δrank, then the full 38-row table.
+* **High volume edge** and **High tight flags**, both sortable. Where a name appears in
+  both scans it is called out as the focus list; when the overlap is empty the page says
+  so rather than showing an empty block.
+* The **flag count against % above the 50-day**, on one chart, with 1y/3y/5y/max spans and
+  a hover readout. The two series answer different questions and the chart exists to show
+  that they come apart.
+
+Wired into `update.py` as step 6, so `cube/weekend.js` regenerates on every daily run.
 
 ---
 

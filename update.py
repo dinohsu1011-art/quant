@@ -80,7 +80,7 @@ def sub(target):
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html",
               "market-lab-drawdowns.html", "market-lab-themes.html",
-              "market-lab-heatmaps.html"]
+              "market-lab-heatmaps.html", "market-lab-weekend.html"]
 
 
 def sync_site():
@@ -98,7 +98,7 @@ def sync_site():
     for cf in sorted((REPORTS / "cube").glob("*.js")):
         h.update(cf.read_bytes())
     stamp = (m.group(1) if m else "0").replace("-", "") + "-" + h.hexdigest()[:8]
-    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes|regimes)\.js)(?:\?v=[^"]*)?"')
+    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes|regimes|weekend)\.js)(?:\?v=[^"]*)?"')
     web, docs = ROOT / "web", ROOT / "docs"
     for d in (web, docs):
         d.mkdir(exist_ok=True)
@@ -140,8 +140,9 @@ if __name__ == "__main__":
     step(3, "rebuild reco books (mark open calls to latest close)", build_recos)
     step(4, "regenerate cube", lambda: sub("export.cube"))
     step(5, "regenerate theme return series", lambda: sub("export.themes"))
-    step(6, "regenerate macro regime masks", lambda: sub("export.regimes"))
-    step(7, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(8, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(9, "validate", lambda: sub("validate.py"))
+    step(6, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
+    step(7, "regenerate macro regime masks", lambda: sub("export.regimes"))
+    step(8, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(9, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(10, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")
