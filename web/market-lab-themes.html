@@ -139,14 +139,23 @@
     .note b { color:var(--ink); font-weight:600; }
     .ddhd { margin-top:34px; }
     .ddwrap { overflow-x:auto; }
-    #ddtbl { margin-top:0; min-width:1080px; table-layout:fixed; }
-    #ddtbl thead th { cursor:default; }
+    #ddtbl { margin-top:0; min-width:1180px; table-layout:fixed; }
+    #ddtbl thead th { cursor:default; white-space:normal; line-height:1.25;
+                      vertical-align:bottom; }
     #ddtbl thead th:nth-child(1) { width:17%; }
-    #ddtbl thead th:nth-child(2), #ddtbl thead th:nth-child(3) { width:7%; }
+    #ddtbl thead th:nth-child(2) { width:6%; }
+    #ddtbl thead th:nth-child(3) { width:7%; }
     #ddtbl thead th:nth-child(4), #ddtbl thead th:nth-child(5),
-    #ddtbl thead th:nth-child(6), #ddtbl thead th:nth-child(7) { width:8%; }
-    #ddtbl thead th:nth-child(8) { width:37%; }
+    #ddtbl thead th:nth-child(6) { width:8%; }
+    #ddtbl thead th:nth-child(7) { width:10%; }
+    #ddtbl thead th:nth-child(8) { width:36%; }
+    #ddtbl .th-main, #ddtbl .th-sub { display:block; }
+    #ddtbl .th-sub { margin-top:2px; font-size:9px; letter-spacing:.13em; color:var(--steel); }
+    #ddtbl th.trough-head { color:#755060; }
     #ddtbl tbody tr { cursor:default; }
+    #ddtbl td.dd-metric { background:var(--dd-heat, transparent); }
+    #ddtbl td.dd-metric.trough { box-shadow:inset 2px 0 rgba(117,50,77,.28); }
+    #ddtbl td.dd-metric.empty { color:var(--steel); font-weight:400; }
     #ddtbl td.events { text-align:left; padding-top:5px; padding-bottom:5px; }
     .dd-events { max-height:132px; overflow-y:auto; }
     .dd-event { display:grid; grid-template-columns:58px 172px 1fr; gap:8px; line-height:1.7;
@@ -241,9 +250,9 @@
           <th>Episodes</th>
           <th>Average</th>
           <th>Median</th>
-          <th>Current</th>
-          <th>Current Trough</th>
-          <th class="l">Completed episodes · newest first</th>
+          <th><span class="th-main">Current</span></th>
+          <th class="trough-head"><span class="th-main">Current</span><span class="th-sub">Trough</span></th>
+          <th class="l"><span class="th-main">Completed episodes</span><span class="th-sub">Newest first</span></th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -1135,6 +1144,17 @@
       ? { depth, peak:peakIdx, asof:lastIdx, troughDepth, trough:troughIdx }
       : null;
   }
+  function drawdownCell(value, max, tone, title){
+    if (value == null) return `<td class="dd-metric empty ${tone}" title="${esc(title)}">—</td>`;
+    const ratio = max > 0 ? Math.min(1, value / max) : 0;
+    const spec = tone === 'trough' ? { h:337, s:53 } :
+                 tone === 'current' ? { h:12, s:58 } : { h:356, s:49 };
+    const alpha = .025 + .16 * Math.pow(ratio, .85);
+    const light = 58 - 18 * ratio;
+    const weight = 500 + Math.round(150 * ratio);
+    return `<td class="dd-metric ${tone}" title="${esc(title)}"
+      style="--dd-heat:hsla(${spec.h},${spec.s}%,52%,${alpha.toFixed(3)});color:hsl(${spec.h},${spec.s}%,${light.toFixed(1)}%);font-weight:${weight}">${fmtPct(-value)}</td>`;
+  }
   function renderDrawdowns(){
     const rows = st.sel.map(id => {
       const item = SER[id]; if (!item) return null;
@@ -1150,6 +1170,13 @@
     }).filter(Boolean);
     const body = document.querySelector('#ddtbl tbody');
     if (!rows.length){ body.innerHTML = `<tr><td colspan="8" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
+    const colMax = get => Math.max(0, ...rows.map(get).filter(Number.isFinite));
+    const maxes = {
+      avg:colMax(r => r.avg),
+      med:colMax(r => r.med),
+      current:colMax(r => r.current?.depth),
+      trough:colMax(r => r.current?.troughDepth)
+    };
     body.innerHTML = rows.map(r => {
       const events = r.events.slice().sort((a,b) => b.trough - a.trough);
       const detail = events.length ? `<div class="dd-events">${events.map((e, i) =>
@@ -1160,12 +1187,12 @@
           <span class="grp">${esc(r.group.replace(' — baskets','').replace('Thematic ETFs','ETF'))}</span></td>
         <td>&gt;${(r.floor*100).toFixed(0)}%</td>
         <td>${r.events.length}</td>
-        <td style="color:${r.avg == null ? '#a8a29e' : '#b8484f'}">${r.avg == null ? '—' : fmtPct(-r.avg)}</td>
-        <td style="color:${r.med == null ? '#a8a29e' : '#b8484f'}">${r.med == null ? '—' : fmtPct(-r.med)}</td>
-        <td title="${r.current ? `ATH ${DATES[r.current.peak]} → ${DATES[r.current.asof]}` : 'Currently at an all-time high'}"
-            style="color:${r.current == null ? '#a8a29e' : '#b8484f'}">${r.current == null ? '—' : fmtPct(-r.current.depth)}</td>
-        <td title="${r.current ? `ATH ${DATES[r.current.peak]} → trough ${DATES[r.current.trough]}` : 'No open drawdown'}"
-            style="color:${r.current == null ? '#a8a29e' : '#b8484f'}">${r.current == null ? '—' : fmtPct(-r.current.troughDepth)}</td>
+        ${drawdownCell(r.avg, maxes.avg, 'historical', 'Average qualifying completed drawdown')}
+        ${drawdownCell(r.med, maxes.med, 'historical', 'Median qualifying completed drawdown')}
+        ${drawdownCell(r.current?.depth, maxes.current, 'current',
+          r.current ? `ATH ${DATES[r.current.peak]} → ${DATES[r.current.asof]}` : 'Currently at an all-time high')}
+        ${drawdownCell(r.current?.troughDepth, maxes.trough, 'trough',
+          r.current ? `ATH ${DATES[r.current.peak]} → trough ${DATES[r.current.trough]}` : 'No open drawdown')}
         <td class="events">${detail}</td>
       </tr>`;
     }).join('');
