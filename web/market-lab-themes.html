@@ -575,6 +575,97 @@
     // the drill-down (as plain constituent lines, like a basket's members).
   }
 
+  // ---------- alpha band ----------
+  // A Recommended book and one of its coverage books make an alpha pair: the gap
+  // between them is what the calls added over just owning the list. Each book
+  // `<x>_reco` pairs with `<x>` and, through the handoff, with `<x>`'s prior
+  // book. If both coverage books are on, shade against whichever is live — two
+  // overlapping bands read as mud.
+  // The band is only honest when both lines share a base, and the reco line is
+  // always based at the book's inception, so selecting a pair snaps the window
+  // there (see snapToBook). Drag the window away and the readout says so.
+  const ALPHA_UP = '#3f9d6a', ALPHA_DN = '#b8484f';
+  function alphaPair(){
+    const recos = st.sel.filter(id => SER[id] && SER[id].kind === 'reco');
+    if (recos.length !== 1) return null;
+    const rid = recos[0], base = rid.slice(0, -5), b = SER[base];
+    if (!b) return null;
+    const h = b.handoff, switched = h && h.switch <= DATES[N-1];
+    const order = (h && h.prevId) ? (switched ? [base, h.prevId] : [h.prevId, base]) : [base];
+    const cov = order.find(id => st.sel.includes(id));
+    return cov ? { reco: rid, cov, i0: SER[rid].i0 } : null;
+  }
+  // window start -> the book's inception, so the two lines start together
+  function snapToBook(){
+    const p = alphaPair();
+    if (!p || st.i1 === p.i0 || p.i0 >= N-1) return false;
+    st.i1 = p.i0; st.i2 = N-1; st.span = null; st.anchor = null;
+    return true;
+  }
+  function alphaBand(R, C, X, Y, stride){
+    // Walk the shared bars, split into runs where the book leads / lags, and
+    // close each run into a polygon. Crossings are interpolated so the two
+    // colours meet exactly where the lines cross, not on the next sampled bar.
+    const pts = [];
+    for (let k = 0; k < R.g.length; k += stride){
+      const a = R.g[k], b = C.g[k];
+      pts.push((a == null || b == null) ? null
+        : { x: X(st.i1 + k), ya: Y(a), yb: Y(b), d: a - b });
+    }
+    let out = '', run = [], sign = 0, prev = null;
+    const flush = () => {
+      if (run.length > 1){
+        const top = run.map(p => `${p.x.toFixed(1)} ${p.ya.toFixed(1)}`).join(' L');
+        const bot = run.slice().reverse().map(p => `${p.x.toFixed(1)} ${p.yb.toFixed(1)}`).join(' L');
+        out += `<path d="M${top} L${bot} Z" fill="${sign > 0 ? ALPHA_UP : ALPHA_DN}"
+                 fill-opacity="0.14" stroke="none" pointer-events="none"/>`;
+      }
+      run = [];
+    };
+    for (const p of pts){
+      if (!p){ flush(); sign = 0; prev = null; continue; }
+      const s = p.d >= 0 ? 1 : -1;
+      if (prev && s !== sign){
+        let t = prev.d / (prev.d - p.d);
+        if (!isFinite(t)) t = 0.5;
+        const cx = prev.x + (p.x - prev.x) * t, cy = prev.ya + (p.ya - prev.ya) * t;
+        const cross = { x: cx, ya: cy, yb: cy, d: 0 };
+        run.push(cross); flush(); run.push(cross);
+      }
+      sign = s; run.push(p); prev = p;
+    }
+    flush();
+    return out;
+  }
+  // the pair's lead in points of return at bar `i` (last drawn bar when null).
+  // Only meaningful on the plain level measures — a drawdown or a ratio to the
+  // benchmark is not a return you can difference.
+  function alphaAt(i){
+    if (st.mode !== 'cum' && st.mode !== 'idx') return null;
+    const p = alphaPair(); if (!p || !geom) return null;
+    const R = geom.data.find(d => d.id === p.reco), C = geom.data.find(d => d.id === p.cov);
+    if (!R || !C) return null;
+    const pick = d => {
+      if (i != null) return d.g[i - st.i1] != null ? d.g[i - st.i1] : null;
+      for (let k = d.g.length - 1; k >= 0; k--) if (d.g[k] != null) return d.g[k];
+      return null;
+    };
+    const a = pick(R), b = pick(C);
+    if (a == null || b == null) return null;
+    return { pt: (a - b) * 100, clean: st.i1 === p.i0, i0: p.i0 };
+  }
+  function alphaNote(i){
+    const A = alphaAt(i); if (!A) return '';
+    return A.clean
+      ? `  ·  alpha ${A.pt >= 0 ? '+' : ''}${A.pt.toFixed(1)}pt`
+      : `  ·  shading is not alpha — book starts ${DATES[A.i0]}`;
+  }
+  function windowNote(){
+    return `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions`
+      + (st.anchor ? `  ·  each line from its ${DYN_NOTE[st.anchor]}` : '')
+      + alphaNote();
+  }
+
   function transform(){
     // returns array of drawable {id,color,label,y[] (growth ratio), stats}
     const out = [];
@@ -882,6 +973,12 @@
 
     // paths — stride down to ~1400 points per series
     const stride = Math.max(1, Math.ceil((st.i2 - st.i1) / 1400));
+    // alpha shading goes down before the lines, so the lines stay readable on top
+    if (st.mode === 'cum' || st.mode === 'idx'){
+      const AP = alphaPair();
+      const R = AP && data.find(d => d.id === AP.reco), C = AP && data.find(d => d.id === AP.cov);
+      if (R && C) g += alphaBand(R, C, X, Y, stride);
+    }
     const ends = [];
     const inHeld = (i, wins) => wins.some(([e,x]) => i >= e && (x == null || i <= x));
     const pathKs = d => {
@@ -1022,7 +1119,7 @@
       <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
             fill="transparent" id="hit"/><g id="recomarks">${marks}</g>`;
     geom = { px, X, Y, data, label, W, H };
-    readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions` + (st.anchor ? `  ·  each line from its ${DYN_NOTE[st.anchor]}` : '');
+    readout.textContent = windowNote();
     drawTable(data, null);
     renderHeat(data);
     renderDrawdowns();
@@ -1071,15 +1168,15 @@
     g += `<text class="m" x="${(pillX+pillW/2).toFixed(1)}" y="${(px.y1+14).toFixed(1)}"
            text-anchor="middle" fill="#ffffff" font-size="10.5">${dlbl}</text>`;
     document.getElementById('cross').innerHTML = g;
-    readout.textContent = `${DATES[i]}  ·  from ${st.anchor ? DYN_NOTE[st.anchor] : DATES[st.i1]}`;
+    readout.textContent = `${DATES[i]}  ·  from ${st.anchor ? DYN_NOTE[st.anchor] : DATES[st.i1]}`
+                          + alphaNote(i);
     drawTable(geom.data, i);
   });
   svg.addEventListener('mouseleave', clearCross);
   function clearCross(){
     st.cursor = null;
     const c = document.getElementById('cross'); if (c) c.innerHTML = '';
-    if (geom){ readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions` + (st.anchor ? `  ·  each line from its ${DYN_NOTE[st.anchor]}` : '');
-               drawTable(geom.data, null); }
+    if (geom){ readout.textContent = windowNote(); drawTable(geom.data, null); }
   }
 
   // ---------- table ----------
@@ -1339,6 +1436,9 @@
     st.sel = st.sel.includes(id) ? st.sel.filter(x => x !== id) : st.sel.concat([id]);
     assign(id);
     if (st.focus && !st.sel.includes(st.focus)) st.focus = null;
+    // completing a book/coverage pair moves the window to the book's start, so
+    // the shaded gap between the two is alpha and not a head start
+    if (snapToBook()){ anchorSel.value = ''; syncCtl(); }
     syncRail(); render();
   }
   function syncRail(){
