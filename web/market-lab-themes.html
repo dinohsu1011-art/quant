@@ -274,6 +274,13 @@
     {id:'2020-03-23', label:'Mar 23 2020 covid low'},
     {id:'2009-03-09', label:'Mar 9 2009 GFC low'}
   ];
+  // anchors whose date is read off a series instead of being a fixed event.
+  // reference series = the focused line if one is focused, else the benchmark.
+  const DYN_ANCHORS = [
+    {id:'@hi52', label:'52w high'},
+    {id:'@lo52', label:'52w low'},
+    {id:'@ath',  label:'all-time high'}
+  ];
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   // spans are trading sessions of return: '1D' = previous close -> last close
   const SPANS = [['1D',1],['3D',3],['1W',5],['2W',10],['|'],
@@ -296,6 +303,26 @@
   // ---------- helpers ----------
   const lvAt = (s,i) => { const j = i - s.i0; return (j < 0 || j >= s.lv.length) ? null : s.lv[j]; };
   const idxOnOrAfter = d => { for (let i=0;i<N;i++) if (DATES[i] >= d) return i; return N-1; };
+  // which series the 52w / all-time anchors read. focused line wins, else the benchmark.
+  function anchorRef(){
+    for (const id of [st.focus, st.bench]){
+      const s = SER[id];
+      if (s && s.lv && s.lv.length) return id;
+    }
+    return null;
+  }
+  // date index of the extreme. 52w = trailing 252 sessions off the series' last bar.
+  function dynAnchorIdx(kind, id){
+    const s = SER[id]; if (!s || !s.lv || !s.lv.length) return null;
+    const end = Math.min(N-1, s.i0 + s.lv.length - 1);
+    const from = kind === 'ath' ? s.i0 : Math.max(s.i0, end - 251);
+    let bi = null, bv = null;
+    for (let i = from; i <= end; i++){
+      const v = lvAt(s,i); if (v == null) continue;
+      if (bv == null || (kind === 'lo52' ? v < bv : v > bv)){ bv = v; bi = i; }
+    }
+    return bi;
+  }
   // average daily move: mean |daily % change| over [a,b] on the shared calendar
   function avgDailyVol(id, a, b){
     const s = SER[id]; if (!s) return null;
@@ -653,6 +680,7 @@
 
   function render(){
     writeHash();   // keep the URL in sync with the current selection, not just control changes
+    fillAnchors(); // computed anchors follow the focused series / benchmark
     const data = transform();
     const W = svg.parentNode.clientWidth, H = Math.max(380, Math.min(560, window.innerHeight - 430));
     const L = 8, R = 176, T = 22, B = 30;
@@ -1072,11 +1100,30 @@
   benchSel.value = st.bench;
   benchSel.onchange = () => { st.bench = benchSel.value; render(); };
   const anchorSel = document.getElementById('anchor');
-  anchorSel.innerHTML = ANCHORS.filter(a => !a.id || a.id >= DATES[0])
-    .map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('');
+  // rebuilt on every syncCtl so the computed anchors show the date they currently
+  // resolve to, and follow the focused series as you click around the rail
+  function fillAnchors(){
+    const keep = anchorSel.value;
+    const fixed = ANCHORS.filter(a => !a.id || a.id >= DATES[0])
+      .map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('');
+    const ref = anchorRef();
+    const dyn = DYN_ANCHORS.map(a => {
+      const i = ref ? dynAnchorIdx(a.id.slice(1), ref) : null;
+      const lab = i == null ? `${a.label} — n/a` : `${a.label} · ${ref.toUpperCase()} · ${DATES[i]}`;
+      return `<option value="${a.id}"${i == null ? ' disabled' : ''}>${esc(lab)}</option>`;
+    }).join('');
+    anchorSel.innerHTML = fixed + `<optgroup label="from ${ref ? esc(ref.toUpperCase()) : 'series'}">${dyn}</optgroup>`;
+    anchorSel.value = keep;
+  }
+  fillAnchors();
   anchorSel.onchange = () => {
-    if (!anchorSel.value) return;
-    st.i1 = idxOnOrAfter(anchorSel.value); st.i2 = N-1; st.span = null; syncCtl(); render();
+    const v = anchorSel.value; if (!v) return;
+    let i;
+    if (v[0] === '@'){
+      const ref = anchorRef(); if (!ref) return;
+      i = dynAnchorIdx(v.slice(1), ref); if (i == null) return;
+    } else i = idxOnOrAfter(v);
+    st.i1 = Math.min(i, N-2); st.i2 = N-1; st.span = null; syncCtl(); render();
   };
   const d1 = document.getElementById('d1'), d2 = document.getElementById('d2');
   d1.min = d2.min = DATES[0]; d1.max = d2.max = DATES[N-1];
@@ -1095,6 +1142,7 @@
     document.getElementById('benchwrap').style.opacity = st.mode === 'rel' ? 1 : .35;
     document.getElementById('scales').style.opacity = st.mode === 'dd' ? .35 : 1;
     d1.value = DATES[st.i1]; d2.value = DATES[st.i2];
+    fillAnchors();
     writeHash();
   }
 
