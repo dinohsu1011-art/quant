@@ -274,13 +274,15 @@
     {id:'2020-03-23', label:'Mar 23 2020 covid low'},
     {id:'2009-03-09', label:'Mar 9 2009 GFC low'}
   ];
-  // anchors whose date is read off a series instead of being a fixed event.
-  // reference series = the focused line if one is focused, else the benchmark.
+  // These don't pick a shared date — they change what each line is measured
+  // FROM. Every series is rebased to its own extreme, so "own 52w high" reads
+  // as how far each theme sits below its own peak, not below QQQ's.
   const DYN_ANCHORS = [
-    {id:'@hi52', label:'52w high'},
-    {id:'@lo52', label:'52w low'},
-    {id:'@ath',  label:'all-time high'}
+    {id:'@hi52', label:'own 52w high'},
+    {id:'@lo52', label:'own 52w low'},
+    {id:'@ath',  label:'own all-time high'}
   ];
+  const DYN_NOTE = {hi52:'own 52w high', lo52:'own 52w low', ath:'own all-time high'};
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   // spans are trading sessions of return: '1D' = previous close -> last close
   const SPANS = [['1D',1],['3D',3],['1W',5],['2W',10],['|'],
@@ -291,7 +293,7 @@
   const st = {
     sel: QUICK.ai.slice(),
     span: 'YTD', i1: 0, i2: N-1,
-    mode: 'cum', bench: 'qqq', log: false,
+    mode: 'cum', bench: 'qqq', log: false, anchor: null,
     sortK: 'ret', sortDir: -1, focus: null, cursor: null
   };
   st.sel.forEach(assign);
@@ -303,17 +305,9 @@
   // ---------- helpers ----------
   const lvAt = (s,i) => { const j = i - s.i0; return (j < 0 || j >= s.lv.length) ? null : s.lv[j]; };
   const idxOnOrAfter = d => { for (let i=0;i<N;i++) if (DATES[i] >= d) return i; return N-1; };
-  // which series the 52w / all-time anchors read. focused line wins, else the benchmark.
-  function anchorRef(){
-    for (const id of [st.focus, st.bench]){
-      const s = SER[id];
-      if (s && s.lv && s.lv.length) return id;
-    }
-    return null;
-  }
-  // date index of the extreme. 52w = trailing 252 sessions off the series' last bar.
-  function dynAnchorIdx(kind, id){
-    const s = SER[id]; if (!s || !s.lv || !s.lv.length) return null;
+  // date index of a series' own extreme. 52w = trailing 252 sessions off its last bar.
+  function dynAnchorIdx(kind, s){
+    if (!s || !s.lv || !s.lv.length) return null;
     const end = Math.min(N-1, s.i0 + s.lv.length - 1);
     const from = kind === 'ath' ? s.i0 : Math.max(s.i0, end - 251);
     let bi = null, bv = null;
@@ -322,6 +316,11 @@
       if (bv == null || (kind === 'lo52' ? v < bv : v > bv)){ bv = v; bi = i; }
     }
     return bi;
+  }
+  // the level a series is measured from when a dynamic anchor is active
+  function anchorBase(s){
+    const i = dynAnchorIdx(st.anchor, s);
+    return i == null ? null : lvAt(s, i);
   }
   // average daily move: mean |daily % change| over [a,b] on the shared calendar
   function avgDailyVol(id, a, b){
@@ -340,7 +339,7 @@
   const fmtNum = v => v.toFixed(1);
 
   function setSpan(tag){
-    st.span = tag;
+    st.span = tag; st.anchor = null;   // a span is a shared window, not a per-series rebase
     const spec = (SPANS.find(s => s[0]===tag)||[])[1];
     if (spec === 'max') st.i1 = 0;
     else if (spec === 'ytd') st.i1 = idxOnOrAfter(DATES[N-1].slice(0,4) + '-01-01');
@@ -354,9 +353,14 @@
     const s = SER[id];
     let a = Math.max(st.i1, s.i0), b = Math.min(st.i2, s.i0 + s.lv.length - 1);
     if (b <= a) return null;
-    const base = lvAt(s,a);
+    // normally the window start; with a dynamic anchor, this series' own extreme,
+    // so each line answers "where am I versus my own high/low", not a shared date
+    const base = st.anchor ? anchorBase(s) : lvAt(s,a);
+    if (base == null || !base) return null;
     const g = new Array(st.i2 - st.i1 + 1).fill(null);
-    let peak = base, mdd = 0, prev = base, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
+    // peak tracks the window's own running max — starting it at `base` would
+    // measure drawdown from the anchor rather than from the window
+    let peak = -Infinity, mdd = 0, prev = base, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
     for (let i = a; i <= b; i++){
       const v = lvAt(s,i); if (v == null) continue;
       g[i - st.i1] = v / base;
@@ -386,6 +390,25 @@
       const v = lvAt(s, i); if (v != null) return v;
     }
     return null;
+  }
+  // reco lines are rebased to a call date, not the window. When a dynamic anchor
+  // is on, re-scale them so they read off their own extreme like everything else
+  // — a constant multiplier, so the drawn shape and the bold/ghost split are
+  // untouched, only the level the line is measured from moves.
+  function anchorScale(s, entryIdx){
+    if (!st.anchor || !s) return 1;
+    const ab = anchorBase(s), eb = baseAt(s, entryIdx);
+    return (ab && eb) ? eb / ab : 1;
+  }
+  function applyAnchor(w, s, entryIdx){
+    const k = anchorScale(s, entryIdx);
+    if (k === 1) return w;
+    const g = w.g.map(v => v == null ? null : v * k);
+    let last = null;
+    for (let i = g.length - 1; i >= 0; i--) if (g[i] != null){ last = g[i]; break; }
+    // `disp` is what the table prints for reco lines — scale it with `ret`,
+    // or the row keeps reporting the return since inception
+    return { ...w, g, ret: last == null ? w.ret : last - 1, disp: last };
   }
   function recoStats(id, entryIdx){
     // like windowStats but rebased to the close on entryIdx, drawn from entry on
@@ -431,7 +454,8 @@
     RECO_EXITS = s._exits || (s._exits = buildExits(R));
     // the headline strategy line — rebased to book inception, so it always reads
     // cumulative book P&L (sum of every call's return / 5) regardless of window.
-    const strat = recoStats(s.id, s.i0);
+    const strat0 = recoStats(s.id, s.i0);
+    const strat = strat0 && applyAnchor(strat0, s, s.i0);
     if (strat){
       let g = strat.g;
       if (st.mode === 'dd'){ let pk = -Infinity;
@@ -456,7 +480,8 @@
         // never touching the plain stock line of the same ticker.
         const S = SER[id];
         const wins = S.windows.map(([e,x]) => [entryIdxOf(e), x ? entryIdxOf(x) : null]);
-        const w = recoStats(S.src, wins[0][0]); if (!w) return;
+        const w0 = recoStats(S.src, wins[0][0]); if (!w0) return;
+        const w = applyAnchor(w0, SER[S.src], wins[0][0]);
         let g = w.g;
         if (st.mode === 'dd'){ let pk = -Infinity;
           g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
@@ -680,7 +705,6 @@
 
   function render(){
     writeHash();   // keep the URL in sync with the current selection, not just control changes
-    fillAnchors(); // computed anchors follow the focused series / benchmark
     const data = transform();
     const W = svg.parentNode.clientWidth, H = Math.max(380, Math.min(560, window.innerHeight - 430));
     const L = 8, R = 176, T = 22, B = 30;
@@ -844,7 +868,7 @@
       <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
             fill="transparent" id="hit"/><g id="recomarks">${marks}</g>`;
     geom = { px, X, Y, data, label, W, H };
-    readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions`;
+    readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions` + (st.anchor ? `  ·  each line from its ${DYN_NOTE[st.anchor]}` : '');
     drawTable(data, null);
     renderHeat(data);
   }
@@ -892,14 +916,14 @@
     g += `<text class="m" x="${(pillX+pillW/2).toFixed(1)}" y="${(px.y1+14).toFixed(1)}"
            text-anchor="middle" fill="#ffffff" font-size="10.5">${dlbl}</text>`;
     document.getElementById('cross').innerHTML = g;
-    readout.textContent = `${DATES[i]}  ·  from ${DATES[st.i1]}`;
+    readout.textContent = `${DATES[i]}  ·  from ${st.anchor ? DYN_NOTE[st.anchor] : DATES[st.i1]}`;
     drawTable(geom.data, i);
   });
   svg.addEventListener('mouseleave', clearCross);
   function clearCross(){
     st.cursor = null;
     const c = document.getElementById('cross'); if (c) c.innerHTML = '';
-    if (geom){ readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions`;
+    if (geom){ readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions` + (st.anchor ? `  ·  each line from its ${DYN_NOTE[st.anchor]}` : '');
                drawTable(geom.data, null); }
   }
 
@@ -1100,37 +1124,36 @@
   benchSel.value = st.bench;
   benchSel.onchange = () => { st.bench = benchSel.value; render(); };
   const anchorSel = document.getElementById('anchor');
-  // rebuilt on every syncCtl so the computed anchors show the date they currently
-  // resolve to, and follow the focused series as you click around the rail
-  function fillAnchors(){
-    const keep = anchorSel.value;
-    const fixed = ANCHORS.filter(a => !a.id || a.id >= DATES[0])
-      .map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('');
-    const ref = anchorRef();
-    const dyn = DYN_ANCHORS.map(a => {
-      const i = ref ? dynAnchorIdx(a.id.slice(1), ref) : null;
-      const lab = i == null ? `${a.label} — n/a` : `${a.label} · ${ref.toUpperCase()} · ${DATES[i]}`;
-      return `<option value="${a.id}"${i == null ? ' disabled' : ''}>${esc(lab)}</option>`;
-    }).join('');
-    anchorSel.innerHTML = fixed + `<optgroup label="from ${ref ? esc(ref.toUpperCase()) : 'series'}">${dyn}</optgroup>`;
-    anchorSel.value = keep;
-  }
-  fillAnchors();
+  anchorSel.innerHTML =
+    ANCHORS.filter(a => !a.id || a.id >= DATES[0])
+      .map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('')
+    + `<optgroup label="per-series">`
+    + DYN_ANCHORS.map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('')
+    + `</optgroup>`;
   anchorSel.onchange = () => {
-    const v = anchorSel.value; if (!v) return;
-    let i;
+    const v = anchorSel.value;
+    if (!v){ st.anchor = null; syncCtl(); render(); return; }
     if (v[0] === '@'){
-      const ref = anchorRef(); if (!ref) return;
-      i = dynAnchorIdx(v.slice(1), ref); if (i == null) return;
-    } else i = idxOnOrAfter(v);
-    st.i1 = Math.min(i, N-2); st.i2 = N-1; st.span = null; syncCtl(); render();
+      st.anchor = v.slice(1);
+      // widen the window so every selected line's own anchor bar is on screen
+      let e = N-1;
+      st.sel.forEach(id => {
+        const i = SER[id] ? dynAnchorIdx(st.anchor, SER[id]) : null;
+        if (i != null && i < e) e = i;
+      });
+      st.i1 = Math.min(e, N-2);
+    } else {
+      st.anchor = null;
+      st.i1 = idxOnOrAfter(v);
+    }
+    st.i2 = N-1; st.span = null; syncCtl(); render();
   };
   const d1 = document.getElementById('d1'), d2 = document.getElementById('d2');
   d1.min = d2.min = DATES[0]; d1.max = d2.max = DATES[N-1];
   function onDate(){
     if (d1.value) st.i1 = idxOnOrAfter(d1.value);
     if (d2.value) st.i2 = Math.max(st.i1+1, idxOnOrAfter(d2.value));
-    st.span = null; anchorSel.value = ''; syncCtl(); render();
+    st.span = null; st.anchor = null; anchorSel.value = ''; syncCtl(); render();
   }
   d1.onchange = d2.onchange = onDate;
 
@@ -1142,7 +1165,7 @@
     document.getElementById('benchwrap').style.opacity = st.mode === 'rel' ? 1 : .35;
     document.getElementById('scales').style.opacity = st.mode === 'dd' ? .35 : 1;
     d1.value = DATES[st.i1]; d2.value = DATES[st.i2];
-    fillAnchors();
+    anchorSel.value = st.anchor ? '@' + st.anchor : anchorSel.value;
     writeHash();
   }
 
