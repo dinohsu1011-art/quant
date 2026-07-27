@@ -5,7 +5,7 @@ basket components, theme returns, and pullback/drawdown distributions. Refreshed
 running [`ops/daily.sh`](ops/README.md). Published from the `gh-pages` branch, which is
 force-replaced each deploy; `docs/` is gitignored build output, not source.
 
-Daily-prices research repo: 585 series (S&P 500 constituents, indices, sector /
+Daily-prices research repo: 700+ series (S&P 500 constituents, indices, sector /
 sub-sector / industry ETFs, AI-chip single-stock baskets, macro cross-asset) stored
 as per-ticker parquet, queried in place by DuckDB, with an event-study engine and
 an interactive panel embedded in the Obsidian trader profile.
@@ -22,9 +22,9 @@ an interactive panel embedded in the Obsidian trader profile.
 | `analysis/events.py` | `event_study()` (trigger/weekday/horizon/`when=` regime gate/`measure_field`), `sequence()` (multi-day chains), `compare_regimes()` |
 | `analysis/betas.py` | Builds `data/betas/stock_betas.parquet` / `.csv`: SPX beta, correlation, R², vol, and returns by window |
 | `export/cube.py` | Pre-computes ~90k event-study combos → `trader-profile-cube.js` (offline panel data) |
-| `export/themes.py` | Daily rebased index levels for all 78 themes/sectors/ETFs → `cube/themes.js` (powers `market-lab-themes.html`) |
+| `export/themes.py` | Daily rebased index levels for all theme/sector/ETF/single-name rail series → `cube/themes.js` (powers `market-lab-themes.html`) |
 | `export/trader_profile.py` | Static regime charts → `trader-profile-data.js` |
-| `serve.py` | Optional localhost backend: serves the reports dir + live `/api/event` (all 585 series, arbitrary params) |
+| `serve.py` | Optional localhost backend: serves the reports dir + live `/api/event` (all stored series, arbitrary params) |
 | `validate.py` | Integrity scan (staleness, dup dates, bad bars, gaps, collisions, as_of drift). Exit 1 on failure |
 | `update.py` | **The one command to refresh everything** (fetch → baskets → cube → themes → bundle → sync → validate) |
 | `ops/` | Guarded refresh + `gh-pages` publish. See [`ops/README.md`](ops/README.md) |
@@ -35,6 +35,7 @@ Outputs land in `~/Desktop/Obsidian/trading-brain/reports/` next to `trader-prof
 
 ```bash
 ./.venv/bin/python update.py                 # refresh data + all artifacts + validate
+QUANT_DATA_THROUGH=2026-07-24 ./.venv/bin/python update.py  # inclusive historical cutoff
 rm -f ops/.last-run && ./ops/daily.sh        # refresh + publish, guarded (the usual command)
 ./ops/deploy.sh                              # republish the site without refetching
 ./.venv/bin/python validate.py               # integrity scan only

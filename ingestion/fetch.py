@@ -13,16 +13,18 @@ import yfinance as yf
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import START_DATE, BATCH_SIZE, BATCH_DELAY_SECONDS, MAX_RETRIES, DAILY_DIR, file_stem
+from config import (START_DATE, FETCH_END_DATE, BATCH_SIZE, BATCH_DELAY_SECONDS,
+                    MAX_RETRIES, DAILY_DIR, file_stem)
 from ingestion.tickers import load_tickers
 from ingestion.store import store_ticker
 
 
-def fetch_batch(tickers: list[str], start: str) -> dict[str, pd.DataFrame]:
+def fetch_batch(tickers: list[str], start: str, end: str | None = None) -> dict[str, pd.DataFrame]:
     """Download a batch of tickers. Returns {ticker: df}."""
     raw = yf.download(
         tickers,
         start=start,
+        end=end,
         auto_adjust=True,
         progress=False,
         group_by="ticker",
@@ -41,10 +43,10 @@ def fetch_batch(tickers: list[str], start: str) -> dict[str, pd.DataFrame]:
     return results
 
 
-def fetch_with_retry(tickers: list[str], start: str) -> dict[str, pd.DataFrame]:
+def fetch_with_retry(tickers: list[str], start: str, end: str | None = None) -> dict[str, pd.DataFrame]:
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            return fetch_batch(tickers, start)
+            return fetch_batch(tickers, start, end)
         except Exception as e:
             print(f"  [retry {attempt}/{MAX_RETRIES}] batch failed: {e}")
             time.sleep(2 ** attempt)
@@ -52,7 +54,8 @@ def fetch_with_retry(tickers: list[str], start: str) -> dict[str, pd.DataFrame]:
     return {}
 
 
-def run(tickers: list[str], start: str = START_DATE, skip_existing: bool = True) -> None:
+def run(tickers: list[str], start: str = START_DATE, skip_existing: bool = True,
+        end: str | None = FETCH_END_DATE) -> None:
     if skip_existing:
         existing = {p.stem for p in DAILY_DIR.glob("*.parquet")}
         to_fetch = [t for t in tickers if file_stem(t) not in existing]
@@ -62,13 +65,14 @@ def run(tickers: list[str], start: str = START_DATE, skip_existing: bool = True)
     else:
         to_fetch = tickers
 
-    print(f"Fetching {len(to_fetch)} tickers in batches of {BATCH_SIZE}...")
+    cutoff = f" through {(pd.Timestamp(end) - pd.Timedelta(days=1)).date()}" if end else ""
+    print(f"Fetching {len(to_fetch)} tickers in batches of {BATCH_SIZE}{cutoff}...")
 
     ok, fail = 0, 0
     for i in range(0, len(to_fetch), BATCH_SIZE):
         batch = to_fetch[i : i + BATCH_SIZE]
         print(f"Batch {i // BATCH_SIZE + 1}: {batch[0]} … {batch[-1]}")
-        data = fetch_with_retry(batch, start)
+        data = fetch_with_retry(batch, start, end)
 
         for ticker, df in data.items():
             if df.empty:

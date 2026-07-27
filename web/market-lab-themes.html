@@ -1116,7 +1116,7 @@
       const item = SER[id]; if (!item) return null;
       const s = item.kind === 'reconame' ? SER[item.src] : item;
       if (!s || !s.lv) return null;
-      const single = s.kind === 'stock' || item.kind === 'reconame';
+      const single = s.kind === 'stock' || s.kind === 'equity' || item.kind === 'reconame';
       const floor = single ? .20 : .05;
       const events = completedDrawdowns(s, floor);
       const depths = events.map(e => e.depth);

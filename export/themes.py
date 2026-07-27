@@ -48,6 +48,10 @@ GROUPS = [
         ("twii", "TAIEX · Taiwan"), ("ssec", "Shanghai Composite"),
         ("hsi", "Hang Seng · China"), ("ftse", "FTSE 100 · London"),
     ]),
+    ("Korea — single names", [
+        ("kr005930", "Samsung Electronics · Korea"),
+        ("kr000660", "SK hynix · Korea"),
+    ]),
     ("Macro & cross-asset", [
         ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),
         ("tlt", "20Y Treasuries · TLT"), ("ief", "7-10Y Treasuries · IEF"),
@@ -100,6 +104,7 @@ GROUPS = [
 # series whose *level* is not a total-return-like price (charting % change on
 # these is still meaningful, but they are not investable — flag for the page).
 NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
+SINGLE_NAMES = {"kr005930", "kr000660"}
 
 # Coverage-book handoff. The prior book ("Coverage 1") is measured from `anchor`
 # and drawn bold up to `switch`, then ghosts forward (the "if I'd kept it"
@@ -231,6 +236,10 @@ def build():
                     rec["full"] = full.strftime("%Y-%m-%d")
             elif sid in NOT_INVESTABLE:
                 rec["kind"] = "level"
+            elif sid in SINGLE_NAMES:
+                # Visible rail equities use a distinct kind because ordinary
+                # `stock` series are hidden constituent drill-downs on the page.
+                rec["kind"] = "equity"
             else:
                 rec["kind"] = "etf"
             # coverage-book handoff metadata (leaves the basket kind + drill-down

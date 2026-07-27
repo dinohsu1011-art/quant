@@ -14,7 +14,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import DAILY_DIR, PRICE_SCALE, file_stem
+from config import DAILY_DIR, PRICE_SCALE, DATA_THROUGH_DATE, file_stem
 
 SCHEMA = pa.schema([
     ("date", pa.date32()),
@@ -80,6 +80,10 @@ def normalize(df: pd.DataFrame, ticker: str) -> pd.DataFrame | None:
     df.index.name = "date"
     df = df.reset_index()
     df["date"] = pd.to_datetime(df["date"]).dt.date
+
+    # Reproducible historical refreshes may set an inclusive market-data cutoff.
+    if DATA_THROUGH_DATE is not None:
+        df = df[df["date"] <= DATA_THROUGH_DATE]
 
     # Drop a same-day partial bar: while the US session is open, yfinance returns
     # a live intraday row for today — storing it would put a half-day bar in the

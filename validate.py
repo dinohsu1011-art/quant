@@ -19,6 +19,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 from ingestion.baskets import BASKETS
 from ingestion.recos import LEDGER
+from config import DATA_THROUGH_DATE
 
 DATA = Path(__file__).parent / "data" / "daily"
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
@@ -27,10 +28,10 @@ DELISTED: set = set()  # stems exempt from the staleness check
 # Staleness is graded, because Yahoo routinely stalls the history endpoint for a
 # handful of thin symbols while still quoting them live (seen 2026-07: VIX3M,
 # SATS, FIVG, IGN froze at 07-17 with working quotes). Halting an unattended
-# daily job over 4 files in 703 would mean the site stops updating for weeks over
+# daily job over 4 files in a 700+ series database would mean the site stops updating for weeks over
 # nothing. So a few stale series warn; the spine going stale, or staleness
 # spreading, still fails hard.
-CORE = {"SPY", "QQQ", "GSPC", "NDX", "IXIC", "VIX",
+CORE = {"SPY", "QQQ", "GSPC", "NDX", "IXIC", "VIX", "KR005930", "KR000660",
         "XLK", "XLF", "XLV", "XLE", "XLI", "XLY", "XLC", "XLP", "XLU", "XLRE", "XLB"}
 STALE_TOLERANCE = 0.02  # fraction of all series allowed stale before it's a failure
 
@@ -63,6 +64,12 @@ def main():
     ref = q.hi.max()
     thresh = ref - timedelta(days=3)
     print(f"files: {len(q)} · freshest date: {ref} · staleness threshold: {thresh}")
+    if DATA_THROUGH_DATE is not None:
+        check("inclusive data cutoff",
+              q[q.hi.dt.date > DATA_THROUGH_DATE].tkr.tolist())
+        check("cutoff market close present",
+              [] if ref.date() == DATA_THROUGH_DATE
+              else [f"expected={DATA_THROUGH_DATE}", f"freshest={ref.date()}"])
     stale = q[(q.hi < thresh) & (~q.tkr.isin(DELISTED))].tkr.tolist()
     core_stale = sorted(set(stale) & CORE)
     if core_stale:
@@ -75,16 +82,16 @@ def main():
     check("duplicate dates", q[q.dup_dates > 0].tkr.tolist())
     check("non-positive prices", q[q.bad_px > 0].tkr.tolist())
     check("inverted high/low", q[q.hl_inv > 0].tkr.tolist())
-    # TSE names (JP* stems) and the japan basket legitimately close for Japan's
-    # Golden Week — up to ~10 consecutive sessions (~11 calendar days, e.g. the
-    # 2019 imperial-transition closure), so they get a wider gap tolerance.
+    # TSE names (JP* stems) and KRX names (KR* stems) legitimately close for
+    # Golden Week / Lunar New Year — up to ~10 consecutive sessions (~11
+    # calendar days), so they get a wider gap tolerance.
     # International headline indices close for long local holidays (Shanghai's
     # ~3-week 1999 Spring Festival, Taiwan/Korea Lunar New Year + Chuseok), so
     # they get a generous 22-day allowance — verified genuine market closures.
     FOREIGN_IDX = {"N225", "KS11", "TWII", "SSEC", "HSI", "FTSE"}
     def gap_limit(t):
         if str(t) in FOREIGN_IDX: return 22
-        if str(t).startswith("JP") or t == "japan": return 12
+        if str(t).startswith(("JP", "KR")) or t == "japan": return 12
         return 10
     gap_bad = [t for t, g in zip(q.tkr, q.max_gap) if pd.notna(g) and g > gap_limit(t)]
     check("calendar gap > 10 days", gap_bad)

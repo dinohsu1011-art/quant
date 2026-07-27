@@ -13,6 +13,10 @@ One-command refresh pipeline, in strict order:
   8. validate (exits non-zero on any integrity failure)
 
     ./.venv/bin/python update.py
+
+For an inclusive historical cutoff (yfinance's download end is exclusive):
+
+    QUANT_DATA_THROUGH=2026-07-24 ./.venv/bin/python update.py
 """
 import shutil
 import subprocess
@@ -39,7 +43,9 @@ EXTRA_SERIES = ["GLD", "SLV", "CPER", "COPX", "URNM", "ETHA", "EEM", "ROBO",
                 "TLN", "CRCL", "LCID", "NEO",
                 # Tokyo Stock Exchange listings (JPY; TSE calendar). Aliased to
                 # SQL-safe stems JP6674/JP7011/JP5802/JP5803 via SYMBOL_ALIASES.
-                "6674.T", "7011.T", "5802.T", "5803.T"]
+                "6674.T", "7011.T", "5802.T", "5803.T",
+                # Korea Exchange listings (KRW; KOSPI calendar).
+                "005930.KS", "000660.KS"]
 
 
 def fetch_all():

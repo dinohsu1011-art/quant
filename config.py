@@ -1,3 +1,5 @@
+import os
+from datetime import date, timedelta
 from pathlib import Path
 
 # Project root
@@ -17,6 +19,17 @@ PRICE_SCALE = 100_000
 
 # Historical range
 START_DATE = "1990-01-01"
+
+# Optional inclusive data cutoff for reproducible historical refreshes.
+# yfinance's `end` is exclusive, so FETCH_END_DATE advances this by one day;
+# ingestion/store.py also enforces the inclusive date after normalization.
+DATA_THROUGH = os.environ.get("QUANT_DATA_THROUGH")
+try:
+    DATA_THROUGH_DATE = date.fromisoformat(DATA_THROUGH) if DATA_THROUGH else None
+except ValueError as exc:
+    raise RuntimeError("QUANT_DATA_THROUGH must be YYYY-MM-DD") from exc
+FETCH_END_DATE = ((DATA_THROUGH_DATE + timedelta(days=1)).isoformat()
+                  if DATA_THROUGH_DATE else None)
 
 # Index / ETF symbols tracked alongside the S&P 500 constituents. yfinance
 # prefixes indices with '^'. They need deeper history than equities to capture
@@ -56,6 +69,9 @@ SYMBOL_ALIASES = {
     "6981.T": "JP6981",  # Murata Manufacturing
     "8035.T": "JP8035",  # Tokyo Electron
     "4062.T": "JP4062",  # Ibiden
+    # Korea Exchange listings (KRW; KOSPI calendar).
+    "005930.KS": "KR005930",  # Samsung Electronics
+    "000660.KS": "KR000660",  # SK hynix
     # European turbine / power-equipment OEMs (XETRA / Helsinki calendars).
     "ENR.DE": "SIEMENS_ENERGY",   # Siemens Energy AG
     "WRT1V.HE": "WARTSILA",       # Wärtsilä
