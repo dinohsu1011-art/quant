@@ -139,13 +139,13 @@
     .note b { color:var(--ink); font-weight:600; }
     .ddhd { margin-top:34px; }
     .ddwrap { overflow-x:auto; }
-    #ddtbl { margin-top:0; min-width:980px; table-layout:fixed; }
+    #ddtbl { margin-top:0; min-width:1080px; table-layout:fixed; }
     #ddtbl thead th { cursor:default; }
-    #ddtbl thead th:nth-child(1) { width:18%; }
+    #ddtbl thead th:nth-child(1) { width:17%; }
     #ddtbl thead th:nth-child(2), #ddtbl thead th:nth-child(3) { width:7%; }
     #ddtbl thead th:nth-child(4), #ddtbl thead th:nth-child(5),
-    #ddtbl thead th:nth-child(6) { width:8%; }
-    #ddtbl thead th:nth-child(7) { width:44%; }
+    #ddtbl thead th:nth-child(6), #ddtbl thead th:nth-child(7) { width:8%; }
+    #ddtbl thead th:nth-child(8) { width:37%; }
     #ddtbl tbody tr { cursor:default; }
     #ddtbl td.events { text-align:left; padding-top:5px; padding-bottom:5px; }
     .dd-events { max-height:132px; overflow-y:auto; }
@@ -231,7 +231,7 @@
 
     <div class="heathd ddhd">
       <span class="lbl">Completed ATH drawdowns</span>
-      <span class="hnote">full history · &gt;20% single names · &gt;5% indices, ETFs &amp; composites · open drawdown shown under Current</span>
+      <span class="hnote">full history · &gt;20% single names · &gt;5% indices, ETFs &amp; composites · Current = latest close · Current Trough = low since ATH</span>
     </div>
     <div class="ddwrap">
       <table id="ddtbl">
@@ -242,6 +242,7 @@
           <th>Average</th>
           <th>Median</th>
           <th>Current</th>
+          <th>Current Trough</th>
           <th class="l">Completed episodes · newest first</th>
         </tr></thead>
         <tbody></tbody>
@@ -1115,16 +1116,24 @@
     return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2;
   }
   function currentDrawdown(s){
-    let peak = null, peakIdx = null, last = null, lastIdx = null;
+    let peak = null, peakIdx = null, trough = null, troughIdx = null;
+    let last = null, lastIdx = null;
     for (let j = 0; j < s.lv.length; j++){
       const v = s.lv[j], i = s.i0 + j;
       if (v == null || v <= 0 || i >= N) continue;
-      if (peak == null || v > peak){ peak = v; peakIdx = i; }
+      if (peak == null || v > peak){
+        peak = trough = v; peakIdx = troughIdx = i;
+      } else if (v < trough){
+        trough = v; troughIdx = i;
+      }
       last = v; lastIdx = i;
     }
     if (peak == null || last == null) return null;
     const depth = 1 - last / peak;
-    return depth > 1e-9 ? { depth, peak:peakIdx, asof:lastIdx } : null;
+    const troughDepth = 1 - trough / peak;
+    return troughIdx > peakIdx
+      ? { depth, peak:peakIdx, asof:lastIdx, troughDepth, trough:troughIdx }
+      : null;
   }
   function renderDrawdowns(){
     const rows = st.sel.map(id => {
@@ -1140,7 +1149,7 @@
                med:median(depths), current:currentDrawdown(s) };
     }).filter(Boolean);
     const body = document.querySelector('#ddtbl tbody');
-    if (!rows.length){ body.innerHTML = `<tr><td colspan="7" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
+    if (!rows.length){ body.innerHTML = `<tr><td colspan="8" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
     body.innerHTML = rows.map(r => {
       const events = r.events.slice().sort((a,b) => b.trough - a.trough);
       const detail = events.length ? `<div class="dd-events">${events.map((e, i) =>
@@ -1155,6 +1164,8 @@
         <td style="color:${r.med == null ? '#a8a29e' : '#b8484f'}">${r.med == null ? '—' : fmtPct(-r.med)}</td>
         <td title="${r.current ? `ATH ${DATES[r.current.peak]} → ${DATES[r.current.asof]}` : 'Currently at an all-time high'}"
             style="color:${r.current == null ? '#a8a29e' : '#b8484f'}">${r.current == null ? '—' : fmtPct(-r.current.depth)}</td>
+        <td title="${r.current ? `ATH ${DATES[r.current.peak]} → trough ${DATES[r.current.trough]}` : 'No open drawdown'}"
+            style="color:${r.current == null ? '#a8a29e' : '#b8484f'}">${r.current == null ? '—' : fmtPct(-r.current.troughDepth)}</td>
         <td class="events">${detail}</td>
       </tr>`;
     }).join('');
