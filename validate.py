@@ -31,7 +31,8 @@ DELISTED: set = set()  # stems exempt from the staleness check
 # daily job over 4 files in a 700+ series database would mean the site stops updating for weeks over
 # nothing. So a few stale series warn; the spine going stale, or staleness
 # spreading, still fails hard.
-CORE = {"SPY", "QQQ", "GSPC", "NDX", "IXIC", "VIX", "KR005930", "KR000660",
+CORE = {"SPY", "QQQ", "GSPC", "NDX", "IXIC", "VIX",
+        "KR005930", "KR000660", "SIEMENS_ENERGY",
         "XLK", "XLF", "XLV", "XLE", "XLI", "XLY", "XLC", "XLP", "XLU", "XLRE", "XLB"}
 STALE_TOLERANCE = 0.02  # fraction of all series allowed stale before it's a failure
 

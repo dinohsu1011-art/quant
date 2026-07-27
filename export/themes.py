@@ -52,6 +52,9 @@ GROUPS = [
         ("kr005930", "Samsung Electronics · Korea"),
         ("kr000660", "SK hynix · Korea"),
     ]),
+    ("Europe — single names", [
+        ("siemens_energy", "Siemens Energy · Germany"),
+    ]),
     ("Macro & cross-asset", [
         ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),
         ("tlt", "20Y Treasuries · TLT"), ("ief", "7-10Y Treasuries · IEF"),
@@ -104,7 +107,7 @@ GROUPS = [
 # series whose *level* is not a total-return-like price (charting % change on
 # these is still meaningful, but they are not investable — flag for the page).
 NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
-SINGLE_NAMES = {"kr005930", "kr000660"}
+SINGLE_NAMES = {"kr005930", "kr000660", "siemens_energy"}
 
 # Coverage-book handoff. The prior book ("Coverage 1") is measured from `anchor`
 # and drawn bold up to `switch`, then ghosts forward (the "if I'd kept it"

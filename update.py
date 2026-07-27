@@ -45,7 +45,9 @@ EXTRA_SERIES = ["GLD", "SLV", "CPER", "COPX", "URNM", "ETHA", "EEM", "ROBO",
                 # SQL-safe stems JP6674/JP7011/JP5802/JP5803 via SYMBOL_ALIASES.
                 "6674.T", "7011.T", "5802.T", "5803.T",
                 # Korea Exchange listings (KRW; KOSPI calendar).
-                "005930.KS", "000660.KS"]
+                "005930.KS", "000660.KS",
+                # XETRA listing (EUR); also participates in the gas-power basket.
+                "ENR.DE"]
 
 
 def fetch_all():

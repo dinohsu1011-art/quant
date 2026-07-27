@@ -153,6 +153,8 @@
                 white-space:nowrap; font-size:11px; }
     .dd-event b { color:var(--red); font-weight:600; }
     .dd-event em { color:var(--steel); font-style:normal; }
+    .dd-event.latest { background:#fff8f8; box-shadow:inset 2px 0 var(--red);
+                       border-radius:2px; padding-left:6px; margin-left:-6px; }
     .dd-none { color:var(--steel); font-size:11px; }
     @media (max-width:900px){ .shell{grid-template-columns:1fr;} .rail{height:auto;position:static;}
       .list{max-height:260px;} .main{padding:20px 16px 60px;} .mast h1{font-size:30px;} }
@@ -229,7 +231,7 @@
 
     <div class="heathd ddhd">
       <span class="lbl">Completed ATH drawdowns</span>
-      <span class="hnote">full history · &gt;20% single names · &gt;5% indices, ETFs &amp; composites · open drawdowns excluded</span>
+      <span class="hnote">full history · &gt;20% single names · &gt;5% indices, ETFs &amp; composites · open drawdown shown under Current</span>
     </div>
     <div class="ddwrap">
       <table id="ddtbl">
@@ -240,7 +242,7 @@
           <th>Average</th>
           <th>Median</th>
           <th>Current</th>
-          <th class="l">Peak → trough · next ATH</th>
+          <th class="l">Completed episodes · newest first</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -1141,8 +1143,8 @@
     if (!rows.length){ body.innerHTML = `<tr><td colspan="7" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
     body.innerHTML = rows.map(r => {
       const events = r.events.slice().sort((a,b) => b.trough - a.trough);
-      const detail = events.length ? `<div class="dd-events">${events.map(e =>
-        `<div class="dd-event"><b>${fmtPct(-e.depth)}</b><span>${DATES[e.peak]} → ${DATES[e.trough]}</span><em>new ATH ${DATES[e.recovery]}</em></div>`
+      const detail = events.length ? `<div class="dd-events">${events.map((e, i) =>
+        `<div class="dd-event${i === 0 ? ' latest' : ''}"${i === 0 ? ' title="Latest completed drawdown"' : ''}><b>${fmtPct(-e.depth)}</b><span>${DATES[e.peak]} → ${DATES[e.trough]}</span><em>new ATH ${DATES[e.recovery]}</em></div>`
       ).join('')}</div>` : `<span class="dd-none">No completed episodes above ${(r.floor*100).toFixed(0)}%.</span>`;
       return `<tr>
         <td class="l"><span class="swatch" style="background:${r.color}"></span><span class="nm">${esc(r.label)}</span>
