@@ -387,8 +387,10 @@
     return changed;
   }
   // average daily move: mean |daily % change| over [a,b] on the shared calendar
-  function avgDailyVol(id, a, b){
-    const s = SER[id]; if (!s) return null;
+  // `src` is a series object when the row was drawn off a rebuilt composite, so
+  // the daily-move stat measures the same path the chart shows
+  function avgDailyVol(src, a, b){
+    const s = typeof src === 'string' ? SER[src] : src; if (!s) return null;
     const lo = Math.max(a, s.i0), hi = Math.min(b, s.i0 + s.lv.length - 1);
     let sum = 0, n = 0, prev = null;
     for (let i = lo; i <= hi; i++){
@@ -413,10 +415,43 @@
   setSpan('YTD');
 
   // ---------- window series maths ----------
+  // A coverage book (`avg`) is read as "I bought these names and held them", so
+  // its level is the plain average of the members' returns since the left edge
+  // of the window — each name counts once, never rebalanced, so a winner keeps
+  // compounding at full size. Rebuilt on every window change, because a
+  // buy-and-hold path depends on where you started. Members with no price at
+  // `from` are left out (you couldn't have owned them); members that don't trade
+  // on a given day hold their last price, so a Tokyo name on a US-only session
+  // doesn't drop out of the average. Everything else keeps the daily-rebalanced
+  // index shipped in `lv`.
+  function avgLevels(s0, from){
+    const ms = [];
+    (s0.memberIds || []).forEach(mid => {
+      const m = SER[mid]; if (!m) return;
+      const b = baseAt(m, from); if (!b) return;
+      ms.push({ m, b, last: b });
+    });
+    if (!ms.length) return null;
+    const end = Math.min(N - 1, Math.max(...ms.map(o => o.m.i0 + o.m.lv.length - 1)));
+    if (end <= from) return null;
+    const lv = new Array(end - from + 1);
+    for (let i = from; i <= end; i++){
+      let sum = 0;
+      for (const o of ms){ const v = lvAt(o.m, i); if (v != null) o.last = v; sum += o.last / o.b; }
+      lv[i - from] = 100 * sum / ms.length;
+    }
+    return { i0: from, lv, n: ms.length };
+  }
   function windowStats(id){
-    const s = SER[id];
-    const anchorIdx = st.anchor ? dynAnchorIdx(st.anchor, s) : null;
+    const s0 = SER[id];
+    const anchorIdx = st.anchor ? dynAnchorIdx(st.anchor, s0) : null;
     if (st.anchor && anchorIdx == null) return null;
+    // The average runs from the left edge of the window; a dynamic anchor only
+    // changes what the finished path is divided by, as for any shipped series.
+    // The extreme bar itself is still located on the shipped daily-rebalanced
+    // index, whose shape doesn't move with the window — the composite can't be
+    // used to find a date it is itself built from.
+    const s = s0.avg ? (avgLevels(s0, Math.max(st.i1, s0.i0)) || s0) : s0;
     const drawA = Math.max(st.i1, s.i0);
     // Stats begin at this series' own anchor. Earlier values remain in `g` so
     // the renderer can show the lead-in as a ghost line.
@@ -425,7 +460,7 @@
     if (b <= a) return null;
     // normally the window start; with a dynamic anchor, this series' own extreme,
     // so each line answers "where am I versus my own high/low", not a shared date
-    const base = anchorIdx == null ? lvAt(s,a) : lvAt(s,anchorIdx);
+    const base = (anchorIdx == null || anchorIdx < s.i0) ? lvAt(s,a) : lvAt(s,anchorIdx);
     if (base == null || !base) return null;
     const g = new Array(st.i2 - st.i1 + 1).fill(null);
     let peak = -Infinity, mdd = 0, prev = null, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
@@ -443,8 +478,10 @@
     // one observation carries no dispersion — say so rather than reporting 0%
     const vol = n > 1 ? Math.sqrt((sq/n - mean*mean) * 252) : null;
     const ret = g[b - st.i1] - 1;
-    return { id, s, g, a, b, anchorIdx, ret, vol, mdd, best, worst, partial: s.i0 > st.i1,
-             lateFull: s.full && s.full > DATES[a] };
+    return { id, s, g, a, b, anchorIdx, ret, vol, mdd, best, worst, partial: s0.i0 > st.i1,
+             lateFull: s0.full && s0.full > DATES[a],
+             // how many names the average actually covers, when it is an average
+             avgN: s === s0 ? null : s.n, avgOf: s0.avg ? (s0.memberIds||[]).length : null };
   }
 
   // ---------- reco-book maths ----------
@@ -1053,9 +1090,9 @@
       ret: d.disp != null ? d.disp - 1 : null,
       cursor: cur != null && d.g[cur-st.i1] != null ? d.g[cur-st.i1] - 1 : null,
       vol: d.vol, dd: d.mdd, rv: d.vol ? (d.ret/d.vol) : null,
-      advol: avgDailyVol(d.id, d.a, cur != null ? Math.min(cur, d.b) : d.b),
+      advol: avgDailyVol(d.s || d.id, d.a, cur != null ? Math.min(cur, d.b) : d.b),
       best: d.best, worst: d.worst, partial: d.partial, lateFull: d.lateFull,
-      startd: DATES[d.a]
+      avgN: d.avgN, avgOf: d.avgOf, startd: DATES[d.a]
     }));
     const k = st.sortK, dir = st.sortDir;
     rows.sort((a,b) => {
@@ -1070,7 +1107,8 @@
         <td class="l"><span class="swatch" style="background:${r.color}"></span><span class="nm">${esc(r.label)}</span>
           <span class="grp">${esc(r.group.replace(' — baskets','').replace('Thematic ETFs','ETF'))}</span>
           ${r.partial ? `<span class="flag" title="series begins inside the window">starts ${r.startd}</span>` : ''}
-          ${!r.partial && r.lateFull ? `<span class="flag" title="basket membership was still filling in at the window start">partial members</span>` : ''}</td>
+          ${!r.partial && r.lateFull ? `<span class="flag" title="basket membership was still filling in at the window start">partial members</span>` : ''}
+          ${r.avgN ? `<span class="flag" title="equal average of each name's return since the window start, held — no rebalancing">avg of ${r.avgN}${r.avgOf && r.avgOf > r.avgN ? ` of ${r.avgOf}` : ''}</span>` : ''}</td>
         <td class="big" ${cls(r.ret)}>${r.ret==null ? '—'
           : st.mode==='dd' && r.ret >= 0 ? '0.0%' : fmtPct(r.ret)}</td>
         <td ${cls(r.cursor)}>${r.cursor==null?'':fmtPct(r.cursor)}</td>

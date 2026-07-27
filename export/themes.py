@@ -40,7 +40,8 @@ GROUPS = [
     ]),
     ("Fred Coverage", [
         ("fredcoverage_reco", "Fred Recommended"),
-        ("fredcoverage", "Fred Coverage"),
+        ("fredcoverage", "Fred Active Coverage"),
+        ("fredcoverage1", "Fred Original Coverage"),
     ]),
     ("Indices", [
         ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
@@ -110,20 +111,29 @@ GROUPS = [
 NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
 SINGLE_NAMES = {"kr005930", "kr000660", "siemens_energy"}
 
-# Coverage-book handoff. The prior book ("Coverage 1") is measured from `anchor`
-# and drawn bold up to `switch`, then ghosts forward (the "if I'd kept it"
-# counterfactual); the live book ("Active Coverage") is level-matched to the
-# prior book at `switch` and drawn bold from there — one continuous coverage
-# track. The page reads these dates off each series' shipped `handoff` block.
+# Coverage-book handoffs, one per person. The prior book is measured from
+# `anchor` and drawn bold up to `switch`, then ghosts forward (the "if I'd kept
+# it" counterfactual); the newer book is level-matched to the prior book at
+# `switch` and drawn bold from there — one continuous coverage track. The page
+# reads these dates off each series' shipped `handoff` block.
 # `switch` is a forward placeholder until the swap is official; while it is still
-# in the future (beyond the data), Coverage 1 simply runs bold to the present and
-# the active book renders as a normal basket. Update this one date on switch day.
-COVERAGE_HANDOFF = {
-    "prev": "coverage1",
-    "next": "mycoverage",
-    "anchor": "2026-04-30",
-    "switch": "2026-07-31",
-}
+# in the future (beyond the data), the original book simply runs bold to the
+# present and the newer book renders as a normal basket. Neither switch has
+# happened yet — update the one date on switch day.
+HANDOFFS = [
+    {"prev": "coverage1",     "next": "mycoverage",   "anchor": "2026-04-30",
+     "switch": "2026-07-31"},
+    {"prev": "fredcoverage1", "next": "fredcoverage", "anchor": "2026-01-09",
+     "switch": "2026-07-31"},
+]
+
+# Coverage books are read as "I bought these names and held them", so their
+# headline is the plain average of the members' returns from the left edge of the
+# window — each name counts once, no rebalancing. The thematic baskets keep the
+# standard daily-rebalanced index shipped in `lv`, which is start-invariant and
+# stops one 10-bagger from becoming the whole theme. The page rebuilds the
+# average whenever the window moves; this flag only tells it which to do.
+AVG_BASKETS = {"mycoverage", "coverage1", "fredcoverage", "fredcoverage1"}
 
 
 def _view(t):
@@ -232,6 +242,8 @@ def build():
                 rec["memberIds"] = [n["t"] for n in r["names"] if n["t"] in stock_raw]
             elif sid in BASKETS:
                 rec["kind"] = "basket"
+                if sid in AVG_BASKETS:
+                    rec["avg"] = True
                 rec["members"] = list(BASKETS[sid])
                 # only the members that actually have a drawable series
                 rec["memberIds"] = [t for t in BASKETS[sid] if t in stock_raw]
@@ -248,13 +260,13 @@ def build():
                 rec["kind"] = "etf"
             # coverage-book handoff metadata (leaves the basket kind + drill-down
             # intact; only tells the page how to rebase/split this aggregate line)
-            if sid == COVERAGE_HANDOFF["prev"]:
-                rec["handoff"] = {"role": "prev", "anchor": COVERAGE_HANDOFF["anchor"],
-                                  "switch": COVERAGE_HANDOFF["switch"]}
-            elif sid == COVERAGE_HANDOFF["next"]:
-                rec["handoff"] = {"role": "next", "anchor": COVERAGE_HANDOFF["anchor"],
-                                  "switch": COVERAGE_HANDOFF["switch"],
-                                  "prevId": COVERAGE_HANDOFF["prev"]}
+            for h in HANDOFFS:
+                if sid == h["prev"]:
+                    rec["handoff"] = {"role": "prev", "anchor": h["anchor"],
+                                      "switch": h["switch"]}
+                elif sid == h["next"]:
+                    rec["handoff"] = {"role": "next", "anchor": h["anchor"],
+                                      "switch": h["switch"], "prevId": h["prev"]}
             series.append(rec)
 
     n_rail = len(series)

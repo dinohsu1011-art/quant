@@ -99,7 +99,7 @@ BASKETS = {
     # The prior personal coverage book (20 names), kept as a fixed reference vs
     # the live `mycoverage` ("Active Coverage"). The themes page anchors it to
     # 2026-04-30 and hands off to the active book on the switch date — see
-    # COVERAGE_HANDOFF in export/themes.py. Equal-weight, same tracker semantics.
+    # HANDOFFS in export/themes.py. Equal-weight, same tracker semantics.
     "coverage1":    ["AME", "EMR", "ETN", "FSLR", "GEV", "HUBB", "HWM", "PWR",
                      "TSLA", "5802.T", "7011.T", "ED", "CEG", "CNP", "DUK",
                      "NRG", "VST", "FCX", "NEM", "STLD"],
@@ -110,6 +110,13 @@ BASKETS = {
     "fredcoverage": ["MU", "WDC", "SNDK", "STX", "ANET", "CSCO", "MRVL", "NVDA",
                      "AMD", "AVGO", "INTC", "AMAT", "ASML", "TER", "LITE", "COHR",
                      "6857.T", "6981.T", "8035.T", "4062.T"],
+    # Fred's prior book — the same 20 slots before six mega-cap/software names
+    # (META, AAPL, MSFT, GOOGL, ORCL, AMZN) were swapped out for six semis
+    # (COHR, LITE, STX, SNDK, MRVL, INTC). Still the live book; `fredcoverage`
+    # is labelled "Active" but hasn't taken over yet — see HANDOFFS.
+    "fredcoverage1": ["MU", "WDC", "ANET", "CSCO", "NVDA", "AMD", "AVGO", "AMAT",
+                      "ASML", "TER", "6857.T", "6981.T", "8035.T", "4062.T",
+                      "META", "AAPL", "MSFT", "GOOGL", "ORCL", "AMZN"],
 }
 
 
