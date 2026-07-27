@@ -137,6 +137,23 @@
     .big { font-size:14px; font-weight:600; }
     .note { font-size:12px; color:var(--ash); margin-top:26px; max-width:760px; }
     .note b { color:var(--ink); font-weight:600; }
+    .ddhd { margin-top:34px; }
+    .ddwrap { overflow-x:auto; }
+    #ddtbl { margin-top:0; min-width:900px; table-layout:fixed; }
+    #ddtbl thead th { cursor:default; }
+    #ddtbl thead th:nth-child(1) { width:19%; }
+    #ddtbl thead th:nth-child(2) { width:8%; }
+    #ddtbl thead th:nth-child(3) { width:8%; }
+    #ddtbl thead th:nth-child(4), #ddtbl thead th:nth-child(5) { width:9%; }
+    #ddtbl thead th:nth-child(6) { width:47%; }
+    #ddtbl tbody tr { cursor:default; }
+    #ddtbl td.events { text-align:left; padding-top:5px; padding-bottom:5px; }
+    .dd-events { max-height:132px; overflow-y:auto; }
+    .dd-event { display:grid; grid-template-columns:58px 172px 1fr; gap:8px; line-height:1.7;
+                white-space:nowrap; font-size:11px; }
+    .dd-event b { color:var(--red); font-weight:600; }
+    .dd-event em { color:var(--steel); font-style:normal; }
+    .dd-none { color:var(--steel); font-size:11px; }
     @media (max-width:900px){ .shell{grid-template-columns:1fr;} .rail{height:auto;position:static;}
       .list{max-height:260px;} .main{padding:20px 16px 60px;} .mast h1{font-size:30px;} }
   </style>
@@ -209,6 +226,24 @@
       </tr></thead>
       <tbody></tbody>
     </table>
+
+    <div class="heathd ddhd">
+      <span class="lbl">Completed ATH drawdowns</span>
+      <span class="hnote">full history · &gt;20% single names · &gt;5% indices, ETFs &amp; composites · open drawdowns excluded</span>
+    </div>
+    <div class="ddwrap">
+      <table id="ddtbl">
+        <thead><tr>
+          <th class="l">Series</th>
+          <th>Floor</th>
+          <th>Episodes</th>
+          <th>Average</th>
+          <th>Median</th>
+          <th class="l">Peak → trough · next ATH</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
 
     <p class="note" id="foot"></p>
   </main>
@@ -742,7 +777,8 @@
     if (!data.length){
       svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#a8a29e"
         font-size="13">Nothing selected — pick a theme from the rail.</text>`;
-      geom = null; document.querySelector('#tbl tbody').innerHTML = ''; renderHeat([]); return;
+      geom = null; document.querySelector('#tbl tbody').innerHTML = '';
+      renderHeat([]); renderDrawdowns(); return;
     }
     const px = { x0:L, x1:W-R, y0:T, y1:H-B };
 
@@ -929,6 +965,7 @@
     readout.textContent = `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions` + (st.anchor ? `  ·  each line from its ${DYN_NOTE[st.anchor]}` : '');
     drawTable(data, null);
     renderHeat(data);
+    renderDrawdowns();
   }
 
   // ---------- swap-marker tooltip ----------
@@ -1044,6 +1081,67 @@
       if (geom) drawTable(geom.data, st.cursor);
     };
   });
+
+  // ---------- completed all-time-high drawdowns ----------
+  // An episode begins at an ATH, bottoms at the lowest close that follows, and
+  // is complete only when a strictly higher ATH is printed. The still-open
+  // drawdown at the end of a series is intentionally excluded.
+  function completedDrawdowns(s, floor){
+    if (!s || !s.lv || !s.lv.length) return [];
+    let peak = null, peakIdx = null, trough = null, troughIdx = null;
+    const out = [];
+    for (let j = 0; j < s.lv.length; j++){
+      const v = s.lv[j], i = s.i0 + j;
+      if (v == null || v <= 0 || i >= N) continue;
+      if (peak == null){ peak = trough = v; peakIdx = troughIdx = i; continue; }
+      if (v > peak){
+        if (troughIdx != null && troughIdx > peakIdx){
+          const depth = 1 - trough / peak;
+          if (depth > floor) out.push({ depth, peak:peakIdx, trough:troughIdx, recovery:i });
+        }
+        peak = trough = v; peakIdx = troughIdx = i;
+      } else if (v < trough){
+        trough = v; troughIdx = i;
+      }
+    }
+    return out;
+  }
+  function median(xs){
+    if (!xs.length) return null;
+    const a = xs.slice().sort((x,y) => x-y), m = Math.floor(a.length/2);
+    return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2;
+  }
+  function renderDrawdowns(){
+    const rows = st.sel.map(id => {
+      const item = SER[id]; if (!item) return null;
+      const s = item.kind === 'reconame' ? SER[item.src] : item;
+      if (!s || !s.lv) return null;
+      const single = s.kind === 'stock' || item.kind === 'reconame';
+      const floor = single ? .20 : .05;
+      const events = completedDrawdowns(s, floor);
+      const depths = events.map(e => e.depth);
+      return { id, label:item.label, group:item.group || s.group || '', color:assign(id),
+               floor, events, avg:depths.length ? depths.reduce((a,b)=>a+b,0)/depths.length : null,
+               med:median(depths) };
+    }).filter(Boolean);
+    const body = document.querySelector('#ddtbl tbody');
+    if (!rows.length){ body.innerHTML = `<tr><td colspan="6" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
+    body.innerHTML = rows.map(r => {
+      const events = r.events.slice().sort((a,b) => b.trough - a.trough);
+      const detail = events.length ? `<div class="dd-events">${events.map(e =>
+        `<div class="dd-event"><b>${fmtPct(-e.depth)}</b><span>${DATES[e.peak]} → ${DATES[e.trough]}</span><em>new ATH ${DATES[e.recovery]}</em></div>`
+      ).join('')}</div>` : `<span class="dd-none">No completed episodes above ${(r.floor*100).toFixed(0)}%.</span>`;
+      return `<tr>
+        <td class="l"><span class="swatch" style="background:${r.color}"></span><span class="nm">${esc(r.label)}</span>
+          <span class="grp">${esc(r.group.replace(' — baskets','').replace('Thematic ETFs','ETF'))}</span></td>
+        <td>&gt;${(r.floor*100).toFixed(0)}%</td>
+        <td>${r.events.length}</td>
+        <td style="color:${r.avg == null ? '#a8a29e' : '#b8484f'}">${r.avg == null ? '—' : fmtPct(-r.avg)}</td>
+        <td style="color:${r.med == null ? '#a8a29e' : '#b8484f'}">${r.med == null ? '—' : fmtPct(-r.med)}</td>
+        <td class="events">${detail}</td>
+      </tr>`;
+    }).join('');
+  }
 
   // ---------- rail ----------
   function railRow(s, sub){
