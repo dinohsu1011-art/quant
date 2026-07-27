@@ -275,10 +275,13 @@ colour tokens on purpose: this is a sibling page in the same product, not a new 
 
 What is on it:
 
-* A **verdict line** — Risk-on / Mixed / Risk-off, decided by how many of the six gauges
-  sit above their own five-year median, with the supporting numbers spelled out beneath.
-* The **six gauges**, each with its value and a rail showing where that value sits in its
-  own history. The percentile is the point; the raw number alone says little.
+* A **verdict line** — decided on two axes, risk and participation, because they are not
+  the same question. See the rework below.
+* **Risk appetite** — four cohort gauges, three risk ratios (QQQ, SMH, ARKK against SPY),
+  and a chart of high-beta/low-beta with the leader-minus-index breadth spread under it.
+* **Participation** — the six breadth gauges, each with its value and a rail showing where
+  that value sits in its own history. The percentile is the point; the raw number alone
+  says little.
 * **Indexes** — the five-row table, plus the four ratios with sparklines.
 * **Themes** — a rotating-in / rotating-out callout off Δrank, then the full 38-row table.
 * **High volume edge** and **High tight flags**, both sortable. Where a name appears in
@@ -289,6 +292,38 @@ What is on it:
   that they come apart.
 
 Wired into `update.py` as step 6, so `cube/weekend.js` regenerates on every daily run.
+
+### Reworked the same day: breadth is not risk
+
+The first version called 2026-07-24 "risk-on". It was wrong, and the mistake was
+structural rather than a bug. Every gauge was measured on all 503 S&P names, equally
+weighted. When money leaves semiconductors for staples, utilities and energy, most names
+stay above their moving averages — so breadth reads healthy while risk appetite is being
+sold. Breadth cannot tell a broad *advance* from a broad *rotation*. The tape that day:
+
+| 2 weeks | SOXX −9.3% · ARKK −10.4% · SMH −8.2% · QQQ −5.7% · SPY −2.1% · XLU +1.9% · XLE +8.2% |
+
+Both readings were right. Only one of them was about risk. So:
+
+* Risk moved to cohorts, in `analysis/risk.py`, ranked out of the universe rather than
+  hand-picked. **High beta** is the equal-weight top quintile by 126-day beta to SPY over
+  the bottom quintile. **Leaders** are the top quintile by 6-month return, measured to a
+  month ago so the cohort is not selected on the window it is scored over. What is scored
+  is the *change* in each ratio, not its level — the level drifts with the long-run beta
+  premium and its percentile would mean nothing.
+* Breadth was relabelled **Participation** and the page says outright it is a trend
+  measure, not a risk measure.
+* The verdict now reads both axes and names the disagreement, because the disagreement is
+  the rotation. `risk-off / broad` prints "Risk-off under a firm index — the index is
+  holding because money rotated to defensives, not because risk is being taken."
+
+On 2026-07-24 the two axes read: high-beta vs low-beta −10.7% (5th percentile of five
+years), leaders less index breadth −7.7pt (8th), against 66.1% of S&P names above their
+50-day (68th).
+
+**The caveat this cannot fix:** leadership itself rotates. Energy and health names have
+now entered the 6-month momentum cohort, so "leaders" is drifting away from "trendy
+names". That is why beta is the primary gauge and momentum the secondary one.
 
 ---
 

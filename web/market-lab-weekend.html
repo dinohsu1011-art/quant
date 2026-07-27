@@ -47,6 +47,7 @@
 
     /* ---------- gauges ---------- */
     .gauges { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px 34px; }
+    .gauges.risk { grid-template-columns:repeat(2,minmax(0,1fr)); }
     .g .glbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
     .g .gval { font-family:var(--mono); font-size:23px; font-weight:600; letter-spacing:-.02em;
                font-variant-numeric:tabular-nums; margin-top:3px; }
@@ -119,8 +120,8 @@
     /* ---------- history chart ---------- */
     .chartwrap { background:var(--white); border:1px solid var(--stone); margin-top:18px;
                  position:relative; }
-    #hist { display:block; width:100%; touch-action:none; }
-    #hist text { font-family:var(--mono); font-size:9.5px; fill:var(--steel);
+    #hist, #rchart { display:block; width:100%; touch-action:none; }
+    #hist text, #rchart text { font-family:var(--mono); font-size:9.5px; fill:var(--steel);
                  font-variant-numeric:tabular-nums; }
     .spans { display:flex; align-items:center; gap:14px; margin-top:14px; }
     .spans .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
@@ -160,8 +161,36 @@
       <div class="why" id="why"></div>
       <div class="tally" id="tally"></div>
     </div>
-    <div class="gauges" id="gauges"></div>
+    <div class="gauges risk" id="riskg"></div>
   </div>
+
+  <section id="risk">
+    <div class="shd"><h2>Risk appetite</h2><div class="leg" id="riskleg"></div></div>
+    <div class="lede">Measured on the names that carry risk, ranked out of the universe
+      rather than picked. <b>High beta</b> is the top quintile by beta to the S&amp;P over
+      the equal-weight bottom quintile. <b>Leaders</b> are the top quintile by 6-month
+      return, lagged a month so the cohort is not selected on the window it is scored over.</div>
+    <div class="ratios" id="rratios"></div>
+    <div class="spans" id="rspans"><span class="lbl">History</span>
+      <button data-y="1">1y</button><button data-y="3" class="on">3y</button>
+      <button data-y="5">5y</button><button data-y="0">Max</button>
+    </div>
+    <div class="chartwrap"><svg id="rchart"></svg></div>
+    <div class="readout" id="rro"></div>
+    <div class="note">The line is high-beta over low-beta, rebased to the window start —
+      falling means risk is being sold whatever the index does. The band underneath is
+      leader breadth less index breadth: <b>below zero, the index is being carried by names
+      that were not leading it.</b> That is what a defensive rotation looks like from the
+      inside, and it is invisible to a breadth count.</div>
+  </section>
+
+  <section id="participation">
+    <div class="shd"><h2>Participation</h2><div class="leg">S&amp;P members, equal weight</div></div>
+    <div class="lede">How much of the index is above water. <b>This is a trend measure, not a
+      risk measure.</b> Every name counts the same, so money leaving semiconductors for
+      staples and utilities can leave these numbers high — or push them up.</div>
+    <div class="gauges" id="gauges" style="margin-top:22px"></div>
+  </section>
 
   <section id="indexes">
     <div class="shd"><h2>Indexes</h2><div class="leg" id="idxleg"></div></div>
@@ -230,7 +259,7 @@
       is a clean gauge of speculative appetite while the names it returns are big companies
       that happen to fit the geometry.</div>
 
-    <div class="spans"><span class="lbl">History</span>
+    <div class="spans" id="hspans"><span class="lbl">History</span>
       <button data-y="1">1y</button><button data-y="3">3y</button>
       <button data-y="5" class="on">5y</button><button data-y="0">Max</button>
     </div>
@@ -267,46 +296,67 @@
   $('#asof').innerHTML = dstr(W.as_of) + '<br>week of ' + dstr(W.week.start) +
     '<br>' + W.universe.stocks + ' stocks · ' + W.universe.sp500 + ' S&amp;P';
 
-  // ---------- verdict + gauges ----------
-  const sb = W.scoreboard, byid = {};
-  sb.forEach(g => byid[g.id] = g);
-  const scored = sb.filter(g => g.pct != null);
-  const hot = scored.filter(g => g.pct >= 50).length;
-  const tone = hot >= 5 ? 'on' : hot <= 2 ? 'off' : '';
-  const word = hot >= 5 ? 'Risk-on' : hot <= 2 ? 'Risk-off' : 'Mixed';
-  const tail = hot >= 5 ? 'Trend intact, participation behind it.'
-             : hot <= 2 ? 'Participation is narrowing. Size down.'
-             : 'Trend without conviction underneath it.';
-  $('#call').innerHTML = '<em class="' + tone + '">' + word + '.</em> ' + tail;
+  // ---------- gauges ----------
+  const sb = W.scoreboard, RK = W.risk, byid = {};
+  sb.concat(RK).forEach(g => byid[g.id] = g);
 
-  const p50 = byid.pct_above_50, nh = byid.net_highs, fl = byid.flags, vh = byid.volhighs;
-  $('#why').innerHTML =
-    '<b>' + p50.value.toFixed(0) + '%</b> of S&amp;P names are above their 50-day, ' +
-    ord(p50.pct) + ' percentile of the last five years. ' +
-    '52-week highs less lows is <b>' + (nh.value >= 0 ? '+' : '') + nh.value + '</b>. ' +
-    'The scans found <b>' + W.volume.length + '</b> volume ' +
-    (W.volume.length === 1 ? 'high' : 'highs') + ' this week and <b>' + W.flags.length +
-    '</b> high tight ' + (W.flags.length === 1 ? 'flag' : 'flags') + '.';
-  $('#tally').textContent = hot + ' of ' + scored.length +
-    ' gauges above their own five-year median';
-
-  const gw = $('#gauges');
-  sb.forEach(g => {
+  function gauge(g, signed) {
     const d = el('div', 'g');
     d.appendChild(el('div', 'glbl', g.label));
     const v = el('div', 'gval');
+    const pos = g.value > 0 && (signed || g.id === 'net_highs');
     v.appendChild(document.createTextNode(
-      g.unit === '%' ? g.value.toFixed(1) : (g.value > 0 && g.id === 'net_highs' ? '+' : '') + g.value));
+      (pos ? '+' : '') + (g.unit === '%' ? g.value.toFixed(1) : g.value)));
     if (g.unit) v.appendChild(el('span', 'u', g.unit));
     d.appendChild(v);
-    const rail = el('div', 'rail' + (g.pct == null ? '' : g.pct >= 70 ? ' hot' : g.pct <= 30 ? ' cold' : ''));
+    const rail = el('div', 'rail' +
+      (g.pct == null ? '' : g.pct >= 70 ? ' hot' : g.pct <= 30 ? ' cold' : ''));
     if (g.pct != null) { const m = el('i'); m.style.left = 'calc(' + g.pct.toFixed(1) + '% - 1px)';
                          rail.appendChild(m); }
     d.appendChild(rail);
-    d.appendChild(el('div', 'gnote',
-      (g.pct == null ? '' : ord(g.pct) + ' pct · ') + g.note));
-    gw.appendChild(d);
-  });
+    d.appendChild(el('div', 'gnote', (g.pct == null ? '' : ord(g.pct) + ' pct · ') + g.note));
+    return d;
+  }
+  RK.forEach(g => $('#riskg').appendChild(gauge(g, g.id !== 'lead_breadth')));
+  sb.forEach(g => $('#gauges').appendChild(gauge(g, false)));
+
+  // ---------- verdict ----------
+  // Risk and participation answer different questions, so the call reads both and
+  // names the case where they disagree. That disagreement IS the rotation.
+  const rScored = RK.filter(g => g.pct != null);
+  const pScored = sb.filter(g => g.pct != null);
+  const rHot = rScored.filter(g => g.pct >= 50).length;
+  const pHot = pScored.filter(g => g.pct >= 50).length;
+  const R = rHot >= 3 ? 'on' : rHot <= 1 ? 'off' : 'mid';
+  const P = pHot >= 4 ? 'broad' : pHot <= 2 ? 'narrow' : 'mid';
+
+  const CALL = {
+    'on/broad':   ['on', 'Risk-on', 'Trend and risk appetite agree.'],
+    'on/mid':     ['on', 'Risk-on', 'Risk is being paid for.'],
+    'on/narrow':  ['on', 'Narrow risk-on', 'Risk is being taken in a thin tape.'],
+    'mid/broad':  ['', 'Mixed', 'A firm index without much risk being taken.'],
+    'mid/mid':    ['', 'Mixed', 'Nothing is decided.'],
+    'mid/narrow': ['', 'Mixed', 'Thin, and risk appetite is no better.'],
+    'off/broad':  ['off', 'Risk-off under a firm index',
+                   'The index is holding because money rotated to defensives, not because risk is being taken.'],
+    'off/mid':    ['off', 'Risk-off', 'Risk is being sold into a soft tape.'],
+    'off/narrow': ['off', 'Risk-off', 'Risk is being sold and nothing is holding up.'],
+  }[R + '/' + P];
+  $('#call').innerHTML = '<em class="' + CALL[0] + '">' + CALL[1] + '.</em> ' + CALL[2];
+
+  const bt = byid.beta, sp = byid.spread, p50 = byid.pct_above_50, nh = byid.net_highs;
+  $('#why').innerHTML =
+    'High-beta names are <b>' + sgn(bt.value / 100) + '</b> against low-beta over the month, ' +
+    ord(bt.pct) + ' percentile of five years. Leader breadth is <b>' +
+    (sp.value >= 0 ? '+' : '') + sp.value.toFixed(1) + 'pt</b> against the index ' +
+    (sp.value < 0 ? 'below' : 'above') + ' it. Meanwhile <b>' + p50.value.toFixed(0) +
+    '%</b> of S&amp;P names hold their 50-day (' + ord(p50.pct) + ' pct) and net 52-week highs ' +
+    'are <b>' + (nh.value >= 0 ? '+' : '') + nh.value + '</b>. ' +
+    (R === 'off' && P === 'broad'
+      ? 'Breadth is not disagreeing with risk here — it is counting the rotation as health.'
+      : '');
+  $('#tally').textContent = rHot + ' of ' + rScored.length + ' risk gauges and ' +
+    pHot + ' of ' + pScored.length + ' participation gauges above their five-year median';
 
   // ---------- indexes ----------
   const ib = $('#idxtbl tbody');
@@ -348,8 +398,9 @@
     s.appendChild(p);
     return s;
   }
-  const rw = $('#ratios');
-  W.ratios.forEach(r => {
+  function ratioStrip(node, list) {
+  const rw = node;
+  list.forEach(r => {
     const d = el('div', 'ra');
     const lab = el('div', 'rl');
     lab.appendChild(el('div', 'n', r.label));
@@ -362,6 +413,10 @@
     d.appendChild(v);
     rw.appendChild(d);
   });
+  }
+  ratioStrip($('#ratios'), W.ratios);
+  ratioStrip($('#rratios'), W.risk_ratios || []);
+  $('#riskleg').textContent = 'S&P members · beta and momentum quintiles rebuilt daily';
 
   // ---------- themes ----------
   const th = W.themes.slice();
@@ -473,6 +528,118 @@
   if (F.length) table($('#fltbl'), F, flagRow, 'gain', -1);
   else $('#fltbl').style.display = 'none';
 
+  // ---------- risk chart ----------
+  // High-beta / low-beta as a line, and leader-minus-index breadth as a band that
+  // splits at zero. Different units, so the band gets its own axis; the zero line
+  // is the only level on it that matters.
+  const RS = W.risk_series, NS2 = 'http://www.w3.org/2000/svg';
+  function mk2(t, a) { const n = document.createElementNS(NS2, t);
+                       for (const k in a) n.setAttribute(k, a[k]); return n; }
+  let ryears = 3;
+  function drawRisk() {
+    const svg = $('#rchart'), H = 282, pad = { t: 16, r: 44, b: 22, l: 40 };
+    const WW = svg.clientWidth || 1000;
+    svg.setAttribute('viewBox', '0 0 ' + WW + ' ' + H);
+    svg.setAttribute('height', H); svg.textContent = '';
+    const n = RS.dates.length;
+    const i0 = ryears ? Math.max(0, n - ryears * 252) : 0;
+    const dt = RS.dates.slice(i0);
+    const raw = RS.beta.slice(i0);
+    const lb = RS.lead_breadth.slice(i0), ab = RS.all_breadth.slice(i0);
+    const m = dt.length;
+    const base = raw.find(v => v != null) || 100;
+    const bl = raw.map(v => v == null ? null : 100 * v / base);
+    const sprd = lb.map((v, i) => (v == null || ab[i] == null) ? null : v - ab[i]);
+
+    // the band gets the bottom strip; the line gets everything above it, so the
+    // two never tangle even though they share the frame
+    const bandTop = H - pad.b - 68, bandBot = H - pad.b, lineBot = bandTop - 14;
+    const fin = bl.filter(v => v != null);
+    const lo = Math.min.apply(null, fin), hi = Math.max.apply(null, fin);
+    const padr = (hi - lo) * 0.08 || 1;
+    const x = i => pad.l + (i / (m - 1)) * (WW - pad.l - pad.r);
+    const y = v => pad.t + (1 - (v - lo + padr) / (hi - lo + 2 * padr)) * (lineBot - pad.t);
+    const sfin = sprd.filter(v => v != null).map(Math.abs);
+    const smax = Math.max(6, Math.max.apply(null, sfin));
+    const z = (bandTop + bandBot) / 2;
+    const ys = v => z - (v / smax) * ((bandBot - bandTop) / 2);
+
+    for (let k = 0; k <= 4; k++) {
+      const v = lo - padr + (k / 4) * (hi - lo + 2 * padr);
+      svg.appendChild(mk2('line', { x1: pad.l, x2: WW - pad.r, y1: y(v), y2: y(v),
+                                    stroke: '#f4f4f3' }));
+      const t = mk2('text', { x: pad.l - 6, y: y(v) + 3, 'text-anchor': 'end' });
+      t.textContent = v.toFixed(0); svg.appendChild(t);
+    }
+
+    // the spread band, split at zero
+    let d = 'M' + x(0) + ' ' + ys(0), open = false;
+    sprd.forEach((v, i) => { d += 'L' + x(i).toFixed(1) + ' ' + ys(v == null ? 0 : v).toFixed(1); });
+    d += 'L' + x(m - 1) + ' ' + ys(0) + 'Z';
+    const defs = mk2('defs', {});
+    ['up', 'dn'].forEach((k, j) => {
+      const cp = mk2('clipPath', { id: 'rc-' + k });
+      cp.appendChild(mk2('rect', { x: 0, y: j ? z : bandTop - 6, width: WW,
+                                   height: j ? bandBot - z + 6 : z - bandTop + 6 }));
+      defs.appendChild(cp);
+    });
+    svg.appendChild(defs);
+    svg.appendChild(mk2('path', { d: d, fill: '#3f9d6a', 'fill-opacity': .28,
+                                  stroke: 'none', 'clip-path': 'url(#rc-up)' }));
+    svg.appendChild(mk2('path', { d: d, fill: '#b8484f', 'fill-opacity': .28,
+                                  stroke: 'none', 'clip-path': 'url(#rc-dn)' }));
+    svg.appendChild(mk2('line', { x1: pad.l, x2: WW - pad.r, y1: ys(0), y2: ys(0),
+                                  stroke: '#d6d3d1' }));
+    const zt = mk2('text', { x: WW - pad.r + 6, y: ys(0) + 3 });
+    zt.textContent = '0pt'; svg.appendChild(zt);
+
+    // the beta line
+    let dl = ''; open = false;
+    bl.forEach((v, i) => {
+      if (v == null) { open = false; return; }
+      dl += (open ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); open = true;
+    });
+    svg.appendChild(mk2('path', { d: dl, fill: 'none', stroke: '#0c0a09', 'stroke-width': 1.2 }));
+
+    let lastY = null;
+    dt.forEach((s, i) => {
+      const yr = s.slice(0, 4);
+      if (yr !== lastY) { lastY = yr;
+        if (i > 8 && i < m - 20) {
+          svg.appendChild(mk2('line', { x1: x(i), x2: x(i), y1: pad.t, y2: H - pad.b,
+                                        stroke: '#f4f4f3' }));
+          const t = mk2('text', { x: x(i), y: H - 7, 'text-anchor': 'middle' });
+          t.textContent = yr; svg.appendChild(t);
+        }
+      }
+    });
+
+    const cr = mk2('line', { y1: pad.t, y2: H - pad.b, stroke: '#a8a29e',
+                             'stroke-width': .8, opacity: 0 });
+    svg.appendChild(cr);
+    svg.onmousemove = e => {
+      const r = svg.getBoundingClientRect();
+      let i = Math.round((((e.clientX - r.left) * (WW / r.width)) - pad.l) /
+                         (WW - pad.l - pad.r) * (m - 1));
+      i = Math.max(0, Math.min(m - 1, i));
+      cr.setAttribute('x1', x(i)); cr.setAttribute('x2', x(i)); cr.setAttribute('opacity', 1);
+      $('#rro').textContent = dt[i] + '   high/low beta ' +
+        (bl[i] == null ? '—' : bl[i].toFixed(1)) + '   leaders ' +
+        (lb[i] == null ? '—' : lb[i].toFixed(0) + '%') + ' vs index ' +
+        (ab[i] == null ? '—' : ab[i].toFixed(0) + '%') + '   spread ' +
+        (sprd[i] == null ? '—' : (sprd[i] >= 0 ? '+' : '') + sprd[i].toFixed(1) + 'pt');
+    };
+    svg.onmouseleave = () => { cr.setAttribute('opacity', 0); $('#rro').textContent = ''; };
+  }
+  document.querySelectorAll('#rspans button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#rspans button').forEach(o => o.classList.remove('on'));
+      b.classList.add('on'); ryears = +b.dataset.y; drawRisk();
+    });
+  });
+  drawRisk();
+  addEventListener('resize', drawRisk);
+
   // ---------- history chart ----------
   const G = W.gauges, svg = $('#hist'), NS = 'http://www.w3.org/2000/svg';
   let years = 5;
@@ -557,9 +724,9 @@
     };
     svg.onmouseleave = () => { cross.setAttribute('opacity', 0); $('#ro').textContent = ''; };
   }
-  document.querySelectorAll('.spans button').forEach(b => {
+  document.querySelectorAll('#hspans button').forEach(b => {
     b.addEventListener('click', () => {
-      document.querySelectorAll('.spans button').forEach(o => o.classList.remove('on'));
+      document.querySelectorAll('#hspans button').forEach(o => o.classList.remove('on'));
       b.classList.add('on'); years = +b.dataset.y; drawHist();
     });
   });

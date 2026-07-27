@@ -17,6 +17,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from analysis.breadth import (MA_WINDOWS, breadth_series, index_panel,
                               percentile_of_last, ratio_series)
+from analysis.risk import risk_panel
 from analysis.setups import (VOL_WINDOW, counts_through_time, high_tight_flags,
                              volume_edge)
 from analysis.universe import load_prices, scan_universe, sp500_members, us_calendar
@@ -31,10 +32,16 @@ GAUGE_START = "2010-01-01"
 INDEXES = [("spy", "S&P 500"), ("qqq", "Nasdaq-100"), ("rut", "Russell 2000"),
            ("mdy", "S&P Midcap 400"), ("rsp", "S&P 500 Equal Weight")]
 
+# Two different questions, so two sets. The first asks whether a move is the whole
+# market or the top of it; the second asks whether risk is being taken at all.
 RATIOS = [("iwm", "spy", "IWM / SPY", "small caps vs large"),
           ("rsp", "spy", "RSP / SPY", "broad participation vs mega-cap"),
-          ("qqq", "spy", "QQQ / SPY", "tech vs the market"),
-          ("xlp", "spy", "XLP / SPY", "defensives — a risk-off tell")]
+          ("xlp", "spy", "XLP / SPY", "defensives — a risk-off tell"),
+          ("xlu", "spy", "XLU / SPY", "utilities — the other one")]
+
+RISK_RATIOS = [("qqq", "spy", "QQQ / SPY", "tech vs the market"),
+               ("smh", "spy", "SMH / SPY", "semis — the high-beta engine"),
+               ("arkk", "spy", "ARKK / SPY", "long-duration speculation")]
 
 # Coverage books are personal watchlists, not themes; they have their own page.
 NOT_A_THEME = {"mycoverage", "coverage1", "fredcoverage", "fredcoverage1"}
@@ -112,12 +119,17 @@ def build(outdir=REPORTS):
     print(f"universe {len(px)} stocks · as of {as_of.date()}")
 
     # index/ratio/theme series live outside the scan universe, so load them too
-    extra = [sid for sid, _ in INDEXES] + ["iwm", "xlp"] + SECTORS \
+    extra = [sid for sid, _ in INDEXES] + ["iwm", "xlp", "xlu", "smh", "arkk"] + SECTORS \
         + [b for b in BASKETS if b not in NOT_A_THEME]
     market = load_prices([s for s in dict.fromkeys(extra)])
 
     bre = breadth_series(px, cal, members=sp500_members())
     print(f"  breadth: {bre['pct_above_50'].iloc[-1]:.1f}% above the 50-day")
+
+    members = sp500_members()
+    risk, risk_ser = risk_panel(px, cal, members)
+    print("  risk: " + ", ".join(
+        f"{g['id']} {g['value']}{g['unit']} ({g['pct']:.0f}th)" for g in risk))
 
     gauges = counts_through_time(px, cal, start=GAUGE_START)
     print(f"  gauges: {len(gauges)} sessions, {int(gauges['flags'].iloc[-1])} flags today")
@@ -138,6 +150,11 @@ def build(outdir=REPORTS):
         "ratios": [dict(id=f"{a}_{b}", label=lb, note=note, **r)
                    for a, b, lb, note in RATIOS
                    if (r := ratio_series(market, a, b))],
+        "risk_ratios": [dict(id=f"{a}_{b}", label=lb, note=note, **r)
+                        for a, b, lb, note in RISK_RATIOS
+                        if (r := ratio_series(market, a, b))],
+        "risk": risk,
+        "risk_series": risk_ser,
         "themes": th,
         "volume": ve,
         "flags": ht,
