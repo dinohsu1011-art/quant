@@ -322,6 +322,22 @@
     const i = dynAnchorIdx(st.anchor, s);
     return i == null ? null : lvAt(s, i);
   }
+  // Keep the shared x-axis wide enough to contain every selected series' own
+  // anchor. Lines still begin independently at their respective anchor bars.
+  function syncDynamicAnchorWindow(){
+    if (!st.anchor) return false;
+    let earliest = N-1;
+    st.sel.forEach(id => {
+      const item = SER[id];
+      const s = item && item.kind === 'reconame' ? SER[item.src] : item;
+      const i = s ? dynAnchorIdx(st.anchor, s) : null;
+      if (i != null && i < earliest) earliest = i;
+    });
+    const next = Math.min(earliest, N-2);
+    const changed = st.i1 !== next;
+    st.i1 = next; st.i2 = N-1; st.span = null;
+    return changed;
+  }
   // average daily move: mean |daily % change| over [a,b] on the shared calendar
   function avgDailyVol(id, a, b){
     const s = SER[id]; if (!s) return null;
@@ -351,30 +367,35 @@
   // ---------- window series maths ----------
   function windowStats(id){
     const s = SER[id];
-    let a = Math.max(st.i1, s.i0), b = Math.min(st.i2, s.i0 + s.lv.length - 1);
+    const anchorIdx = st.anchor ? dynAnchorIdx(st.anchor, s) : null;
+    if (st.anchor && anchorIdx == null) return null;
+    const drawA = Math.max(st.i1, s.i0);
+    // Stats begin at this series' own anchor. Earlier values remain in `g` so
+    // the renderer can show the lead-in as a ghost line.
+    const a = Math.max(drawA, anchorIdx == null ? drawA : anchorIdx);
+    const b = Math.min(st.i2, s.i0 + s.lv.length - 1);
     if (b <= a) return null;
     // normally the window start; with a dynamic anchor, this series' own extreme,
     // so each line answers "where am I versus my own high/low", not a shared date
-    const base = st.anchor ? anchorBase(s) : lvAt(s,a);
+    const base = anchorIdx == null ? lvAt(s,a) : lvAt(s,anchorIdx);
     if (base == null || !base) return null;
     const g = new Array(st.i2 - st.i1 + 1).fill(null);
-    // peak tracks the window's own running max — starting it at `base` would
-    // measure drawdown from the anchor rather than from the window
-    let peak = -Infinity, mdd = 0, prev = base, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
-    for (let i = a; i <= b; i++){
+    let peak = -Infinity, mdd = 0, prev = null, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
+    for (let i = drawA; i <= b; i++){
       const v = lvAt(s,i); if (v == null) continue;
       g[i - st.i1] = v / base;
+      if (i < a) continue;                 // ghost history is presentation-only
       if (v > peak) peak = v;
       const dd = v/peak - 1; if (dd < mdd) mdd = dd;
-      if (i > a){ const r = v/prev - 1; sum += r; sq += r*r; n++;
-                  if (r > best) best = r; if (r < worst) worst = r; }
+      if (prev != null){ const r = v/prev - 1; sum += r; sq += r*r; n++;
+                         if (r > best) best = r; if (r < worst) worst = r; }
       prev = v;
     }
     const mean = n ? sum/n : 0;
     // one observation carries no dispersion — say so rather than reporting 0%
     const vol = n > 1 ? Math.sqrt((sq/n - mean*mean) * 252) : null;
     const ret = g[b - st.i1] - 1;
-    return { id, s, g, a, b, ret, vol, mdd, best, worst, partial: s.i0 > st.i1,
+    return { id, s, g, a, b, anchorIdx, ret, vol, mdd, best, worst, partial: s.i0 > st.i1,
              lateFull: s.full && s.full > DATES[a] };
   }
 
@@ -401,14 +422,17 @@
     return (ab && eb) ? eb / ab : 1;
   }
   function applyAnchor(w, s, entryIdx){
+    if (!st.anchor || !s) return w;
+    const anchorIdx = dynAnchorIdx(st.anchor, s);
+    if (anchorIdx == null) return w;
     const k = anchorScale(s, entryIdx);
-    if (k === 1) return w;
     const g = w.g.map(v => v == null ? null : v * k);
     let last = null;
     for (let i = g.length - 1; i >= 0; i--) if (g[i] != null){ last = g[i]; break; }
     // `disp` is what the table prints for reco lines — scale it with `ret`,
     // or the row keeps reporting the return since inception
-    return { ...w, g, ret: last == null ? w.ret : last - 1, disp: last };
+    return { ...w, g, anchorIdx, a: Math.max(w.a == null ? st.i1 : w.a, anchorIdx),
+             ret: last == null ? null : last - 1, disp: last };
   }
   function recoStats(id, entryIdx){
     // like windowStats but rebased to the close on entryIdx, drawn from entry on
@@ -704,6 +728,11 @@
   }
 
   function render(){
+    const anchorWindowChanged = syncDynamicAnchorWindow();
+    if (anchorWindowChanged){
+      const startInput = document.getElementById('d1');
+      if (startInput) startInput.value = DATES[st.i1];
+    }
     writeHash();   // keep the URL in sync with the current selection, not just control changes
     const data = transform();
     const W = svg.parentNode.clientWidth, H = Math.max(380, Math.min(560, window.innerHeight - 430));
@@ -769,14 +798,25 @@
     const stride = Math.max(1, Math.ceil((st.i2 - st.i1) / 1400));
     const ends = [];
     const inHeld = (i, wins) => wins.some(([e,x]) => i >= e && (x == null || i <= x));
+    const pathKs = d => {
+      const ks = [];
+      for (let k = 0; k < d.g.length; k += stride) ks.push(k);
+      // Long windows are downsampled, but the ghost/solid handoff must still
+      // land on the exact anchor bar rather than the next sampled session.
+      if (d.anchorIdx != null) ks.push(d.anchorIdx - st.i1);
+      if (d.b != null) ks.push(d.b - st.i1);
+      return [...new Set(ks)].filter(k => k >= 0 && k < d.g.length).sort((a,b) => a-b);
+    };
     data.forEach(d => {
       const dim0 = st.focus && st.focus !== d.id;
       if (d.reco){
         // a single live line, split bold (held) / ghost (idle) at swap boundaries
         let bold = '', ghost = '', prev = null, pxv = null, pyv = null;
-        for (let k = 0; k < d.g.length; k += stride){
+        for (const k of pathKs(d)){
           const v = d.g[k]; if (v == null){ prev = null; pxv = null; continue; }
-          const i = st.i1 + k, x = X(i), y = Y(v), held = inHeld(i, d.windows), seg = held ? 'B' : 'G';
+          const i = st.i1 + k, x = X(i), y = Y(v);
+          const held = (d.anchorIdx == null || i >= d.anchorIdx) && inHeld(i, d.windows);
+          const seg = held ? 'B' : 'G';
           if (seg !== prev){
             if (pxv != null){
               // the regime-crossing segment (prior close -> this close) always
@@ -791,10 +831,10 @@
           } else { const ln = `L${x.toFixed(1)} ${y.toFixed(1)} `; if (held) bold += ln; else ghost += ln; }
           prev = seg; pxv = x.toFixed(1); pyv = y.toFixed(1);
         }
-        g += `<path d="${ghost}" fill="none" stroke="${d.color}" stroke-width="1.3"
+        g += `<path data-id="${esc(d.id)}" data-seg="ghost" d="${ghost}" fill="none" stroke="${d.color}" stroke-width="1.3"
                stroke-dasharray="2 3" stroke-linejoin="round" stroke-linecap="round"
                opacity="${dim0?0.06:0.32}"/>`;
-        g += `<path d="${bold}" fill="none" stroke="${d.color}"
+        g += `<path data-id="${esc(d.id)}" data-seg="solid" d="${bold}" fill="none" stroke="${d.color}"
                stroke-width="${st.focus===d.id?2.6:1.9}" stroke-linejoin="round" stroke-linecap="round"
                opacity="${dim0?0.12:0.95}"/>`;
         const tail = d.g[d.b - st.i1];
@@ -802,17 +842,35 @@
                                       val:label(tail), dim:dim0 });
         return;
       }
-      let path = '', pen = false, lastI = -1;
-      for (let k = 0; k < d.g.length; k += stride){
-        const v = d.g[k]; if (v == null){ pen = false; continue; }
-        const x = X(st.i1 + k), y = Y(v);
-        path += (pen ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
-        pen = true; lastI = k;
+      let solid = '', ghost = '', prev = null, pxv = null, pyv = null, lastI = -1;
+      for (const k of pathKs(d)){
+        const v = d.g[k]; if (v == null){ prev = null; pxv = null; continue; }
+        const i = st.i1 + k, x = X(i), y = Y(v);
+        const seg = d.anchorIdx != null && i < d.anchorIdx ? 'G' : 'S';
+        if (seg !== prev){
+          if (pxv != null){
+            // Carry the dashed lead-in through the anchor point, then begin the
+            // solid path on that same point so the handoff is continuous.
+            ghost += `M${pxv} ${pyv} L${x.toFixed(1)} ${y.toFixed(1)} `;
+            solid += `M${x.toFixed(1)} ${y.toFixed(1)} `;
+          } else {
+            const mv = `M${x.toFixed(1)} ${y.toFixed(1)} `;
+            if (seg === 'G') ghost += mv; else solid += mv;
+          }
+        } else {
+          const ln = `L${x.toFixed(1)} ${y.toFixed(1)} `;
+          if (seg === 'G') ghost += ln; else solid += ln;
+        }
+        prev = seg; pxv = x.toFixed(1); pyv = y.toFixed(1); lastI = k;
       }
       const tail = d.g[d.b - st.i1];
-      if (tail != null && lastI !== d.b - st.i1) path += `L${X(d.b).toFixed(1)} ${Y(tail).toFixed(1)}`;
+      if (tail != null && lastI !== d.b - st.i1)
+        solid += `L${X(d.b).toFixed(1)} ${Y(tail).toFixed(1)}`;
       const dim = st.focus && st.focus !== d.id;
-      g += `<path d="${path}" fill="none" stroke="${d.color}"
+      if (ghost) g += `<path data-id="${esc(d.id)}" data-seg="ghost" d="${ghost}" fill="none"
+             stroke="${d.color}" stroke-width="1.2" stroke-dasharray="2 3"
+             stroke-linejoin="round" stroke-linecap="round" opacity="${dim?0.05:0.28}"/>`;
+      g += `<path data-id="${esc(d.id)}" data-seg="solid" d="${solid}" fill="none" stroke="${d.color}"
              stroke-width="${st.focus===d.id?2.4:1.6}" stroke-linejoin="round" stroke-linecap="round"
              opacity="${dim?0.13:0.92}"/>`;
       if (tail != null) ends.push({ id:d.id, y:Y(tail), color:d.color, label:d.label,
@@ -1135,13 +1193,7 @@
     if (!v){ st.anchor = null; syncCtl(); render(); return; }
     if (v[0] === '@'){
       st.anchor = v.slice(1);
-      // widen the window so every selected line's own anchor bar is on screen
-      let e = N-1;
-      st.sel.forEach(id => {
-        const i = SER[id] ? dynAnchorIdx(st.anchor, SER[id]) : null;
-        if (i != null && i < e) e = i;
-      });
-      st.i1 = Math.min(e, N-2);
+      syncDynamicAnchorWindow();
     } else {
       st.anchor = null;
       st.i1 = idxOnOrAfter(v);
