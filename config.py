@@ -35,6 +35,12 @@ FETCH_END_DATE = ((DATA_THROUGH_DATE + timedelta(days=1)).isoformat()
 # prefixes indices with '^'. They need deeper history than equities to capture
 # old events (e.g. the 1987 crash), so they ingest from INDEX_START_DATE.
 INDEX_SYMBOLS = ["^IXIC", "^GSPC", "^NDX", "QQQ",
+                 # Small/mid caps and equal weight. The weekend review reads the
+                 # market through three indexes (S&P, Nasdaq, Russell 2000), and
+                 # the ratios IWM/SPY and RSP/SPY say whether a move is broad or
+                 # just the mega caps. ^RUT carries history back to 1987; IWM
+                 # (1999), MDY (1995) and RSP (2003) start when they listed.
+                 "^RUT", "IWM", "MDY", "RSP",
                  # international headline indices (own local calendars; standalone
                  # rebased lines, not US-aligned baskets — like the '.T' names)
                  "^N225", "^KS11", "^TWII", "000001.SS", "^HSI", "^FTSE"]

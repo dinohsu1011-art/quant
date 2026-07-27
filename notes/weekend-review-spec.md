@@ -23,7 +23,7 @@ All numbers in this document were measured against data through **2026-07-24**.
 | High volume edge | Works | 13 names over the last 5 sessions; base rate 0.51% of name-sessions ≈ 3/day, ~15/week |
 | High tight flag — as a gauge | Works | Count swings 0 → 12 across regimes (table below) |
 | High tight flag — as a name source | Doesn't work | **1 match** on 628 names. The setup lives in small caps. |
-| IPO cohort | Doesn't work | 11 real names under 252 bars, most already in baskets |
+| IPO cohort | **Dropped** | Not important enough to carry; see below |
 
 The split between the last two rows is the important one. The *count* of flags is a
 market-state reading and it's informative on large caps. The *names* it returns are
@@ -32,18 +32,25 @@ which is usable today.
 
 ---
 
-## Data to add now (cheap)
+## Data added — done
 
-Four symbols, no schema change:
+Four index-level series, no constituents. In `INDEX_SYMBOLS`, so they carry full
+available history, and on the themes rail under Indices:
 
-- `IWM` — Russell 2000 ETF (closes leg 1)
-- `^RUT` — Russell 2000 index, for deeper history than the ETF
-- `RSP` — equal-weight S&P, for cap-weight vs equal-weight leadership
-- `MDY` — mid-cap, fills the gap between R2K and the S&P
+| Series | History | Purpose |
+|---|---|---|
+| `^RUT` | 1987-09-10, 9,791 bars | Russell 2000, closes leg 1 |
+| `IWM` | 2000-05-26, 6,578 bars | the tradeable Russell proxy |
+| `MDY` | 1995-05-04, 7,857 bars | mid-caps, between R2K and the S&P |
+| `RSP` | 2003-05-01, 5,845 bars | equal weight vs cap weight |
 
-Deferred until the universe question is settled: Russell 2000 constituents (~2,000
-tickers, ~550MB, ~6 min of fetch). Note that the wide universe only needs to be
-current on Saturday, so it belongs on a weekly pull, not in `ops/daily.sh`.
+`RUT` and `IWM` are in `validate.py`'s `CORE`, so they fail hard rather than warn if
+they go stale.
+
+**Russell 2000 constituents are not being pulled.** Index level only. The consequence
+is fixed and worth stating plainly: the high tight flag scan stays a market-state
+gauge and never becomes a small-cap name source, because the small caps aren't in the
+database. Leg 3b below is specced against that reality.
 
 ---
 
@@ -90,6 +97,28 @@ looking for *which* part of the market is doing the work:
 
 A rising `XLP/SPY` with a falling `IWM/SPY` is the staples-doing-the-heavy-lifting
 case, stated numerically instead of eyeballed.
+
+Reading as of 2026-07-24, now that the series exist:
+
+| Index | 1W | 1M | 3M | YTD | off 52wH | vs 50dma |
+|---|---|---|---|---|---|---|
+| S&P 500 (SPY) | −0.59% | +0.78% | +4.57% | +8.94% | −2.47% | −0.70% |
+| Nasdaq-100 (QQQ) | −1.60% | −3.71% | +5.15% | +11.64% | −8.20% | −4.69% |
+| Russell 2000 (RUT) | −1.09% | −1.90% | +5.58% | **+18.05%** | −3.12% | −0.01% |
+| Midcap (MDY) | +0.28% | −0.05% | +4.44% | +15.06% | −1.80% | +1.07% |
+| S&P equal weight (RSP) | +0.09% | +1.52% | +5.90% | +12.40% | −0.69% | +1.87% |
+
+| Ratio | 1M | 3M |
+|---|---|---|
+| IWM/SPY | −2.62% | +1.30% |
+| RSP/SPY | +0.73% | +1.27% |
+| QQQ/SPY | −4.46% | +0.56% |
+| XLP/SPY | −1.13% | −2.96% |
+
+Equal weight beating cap weight while the Nasdaq-100 lags by 4.5 points on the month,
+and defensives falling rather than bid. That is money leaving mega-cap tech and
+spreading out, not leaving the market. The panel makes that a two-line read instead of
+an inference from flipping charts.
 
 ---
 
@@ -175,20 +204,18 @@ HPE   +119% in <=40d, 34d flag, 23% pullback, flag volume x0.91, 15% off high
 Loosening the gain threshold gives 13 at +60%, 24 at +40%, 36 at +30% — but those are
 just strong large caps, not the setup. The threshold isn't the problem. The universe is.
 
+**So this leg ships as a gauge, not a screen.** The output is the count and its
+history (leg 4), plus whatever names do match, listed without any pretence that one
+match is a focus list. Revisit only if Russell 2000 constituents are ever pulled.
+
 ---
 
-## Leg 3c — IPO cohort
+## Leg 3c — IPO cohort — dropped
 
-Specced, not buildable. Eleven single stocks have under 252 bars, and most are 2026
-listings already inside the theme baskets (SPCX, INIO, FDXF, XE, FPS, Q, SOLS, FLY,
-AMBQ). That is not a cohort you can read risk appetite from.
-
-When the universe expands, the intended output is:
-
-- an equal-weight index of every name that listed in the last 252 sessions, rebased
-  against SPY — the cohort either holds up or it doesn't
-- % of the cohort above its 50-day average, and above its first-day close
-- the best and worst 10 by return since listing
+Not built. Eleven single stocks have under 252 bars and most are 2026 listings already
+sitting inside the theme baskets, so there was no cohort to read risk appetite from,
+and without Russell 2000 constituents there won't be one. Volume edge and the flag
+count carry the risk-appetite reading instead.
 
 ---
 
@@ -251,4 +278,5 @@ Design direction to be chosen at build time; it must diverge from the themes pag
    limit are mine. Worth setting against how the setup is actually traded.
 2. **Volume dry-up as a filter or a column.** Currently reported. HPE sits at 0.91,
    which is barely a dry-up; a 0.8 cut would have dropped it.
-3. **Universe.** Everything in leg 3b and 3c is gated on this. Nothing else is.
+3. ~~**Universe.**~~ Settled: index level only, no Russell 2000 constituents. Leg 3b
+   is a gauge, leg 3c is dropped.

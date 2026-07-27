@@ -46,6 +46,8 @@ GROUPS = [
     ("Indices", [
         ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
         ("ixic", "Nasdaq Composite"),
+        ("rut", "Russell 2000"), ("iwm", "Russell 2000 · IWM"),
+        ("mdy", "S&P Midcap 400 · MDY"), ("rsp", "S&P 500 Equal Weight · RSP"),
         ("n225", "Nikkei 225 · Japan"), ("ks11", "KOSPI · Korea"),
         ("twii", "TAIEX · Taiwan"), ("ssec", "Shanghai Composite"),
         ("hsi", "Hang Seng · China"), ("ftse", "FTSE 100 · London"),
