@@ -79,6 +79,9 @@
     .mast .sub { font-size:12.5px; color:var(--ash); margin-top:6px; max-width:600px; }
     .mast .asof { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
                   white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .mast .asof .xlink { display:inline-block; margin-top:7px; color:var(--blue-deep);
+                  text-decoration:none; border-bottom:1px solid transparent; }
+    .mast .asof .xlink:hover { border-bottom-color:var(--blue-deep); }
 
     .controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px 26px; padding:14px 0 6px; }
     .cgrp { display:flex; align-items:center; gap:12px; }
@@ -191,7 +194,10 @@
       <div>
         <h1>Theme returns</h1>
       </div>
-      <div class="asof" id="asof"></div>
+      <div class="asof">
+        <div id="asof"></div>
+        <a class="xlink" href="market-lab-weekend.html">Weekend review &rarr;</a>
+      </div>
     </div>
 
     <div class="controls">
