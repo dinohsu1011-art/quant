@@ -240,7 +240,7 @@
 
     <div class="heathd ddhd">
       <span class="lbl">Completed ATH drawdowns</span>
-      <span class="hnote">full history · &gt;20% single names · &gt;5% indices, ETFs &amp; composites · Current = latest close · Current Trough = low since ATH</span>
+      <span class="hnote" title="High-volatility ETF = at least 30% annualized volatility over its full available history">full history · &gt;20% single names, metals &amp; ≥30% vol ETFs · &gt;5% otherwise · Current = latest close · Current Trough = low since ATH</span>
     </div>
     <div class="ddwrap">
       <table id="ddtbl">
@@ -1144,6 +1144,27 @@
       ? { depth, peak:peakIdx, asof:lastIdx, troughDepth, trough:troughIdx }
       : null;
   }
+  const METAL_IDS = new Set(['gold','silver','copper']);
+  const fullVolCache = {};
+  function fullHistoryVol(s){
+    if (!s || !s.lv || s.lv.length < 3) return null;
+    if (s.id in fullVolCache) return fullVolCache[s.id];
+    const rs = [];
+    for (let i = 1; i < s.lv.length; i++){
+      const a = s.lv[i-1], b = s.lv[i];
+      if (a != null && b != null && a > 0 && b > 0) rs.push(b / a - 1);
+    }
+    if (rs.length < 2) return fullVolCache[s.id] = null;
+    const mean = rs.reduce((a,b) => a+b, 0) / rs.length;
+    const variance = rs.reduce((a,b) => a + (b-mean)*(b-mean), 0) / (rs.length-1);
+    return fullVolCache[s.id] = Math.sqrt(variance * 252);
+  }
+  function drawdownFloor(item, s){
+    const single = s.kind === 'stock' || s.kind === 'equity' || item.kind === 'reconame';
+    const metal = METAL_IDS.has(s.id);
+    const highVolEtf = s.kind === 'etf' && s.group !== 'Indices' && fullHistoryVol(s) >= .30;
+    return single || metal || highVolEtf ? .20 : .05;
+  }
   function drawdownCell(value, max, tone, title){
     if (value == null) return `<td class="dd-metric empty ${tone}" title="${esc(title)}">—</td>`;
     const ratio = max > 0 ? Math.min(1, value / max) : 0;
@@ -1160,8 +1181,7 @@
       const item = SER[id]; if (!item) return null;
       const s = item.kind === 'reconame' ? SER[item.src] : item;
       if (!s || !s.lv) return null;
-      const single = s.kind === 'stock' || s.kind === 'equity' || item.kind === 'reconame';
-      const floor = single ? .20 : .05;
+      const floor = drawdownFloor(item, s);
       const events = completedDrawdowns(s, floor);
       const depths = events.map(e => e.depth);
       return { id, label:item.label, group:item.group || s.group || '', color:assign(id),
