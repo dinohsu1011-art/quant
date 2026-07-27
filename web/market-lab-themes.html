@@ -153,7 +153,6 @@
     #ddtbl .th-sub { margin-top:2px; font-size:9px; letter-spacing:.13em; color:var(--steel); }
     #ddtbl th.trough-head { color:#755060; }
     #ddtbl tbody tr { cursor:default; }
-    #ddtbl td.dd-metric { background:var(--dd-heat, transparent); }
     #ddtbl td.dd-metric.trough { box-shadow:inset 2px 0 rgba(117,50,77,.28); }
     #ddtbl td.dd-metric.empty { color:var(--steel); font-weight:400; }
     #ddtbl td.events { text-align:left; padding-top:5px; padding-bottom:5px; }
@@ -1170,11 +1169,9 @@
     const ratio = max > 0 ? Math.min(1, value / max) : 0;
     const spec = tone === 'trough' ? { h:337, s:53 } :
                  tone === 'current' ? { h:12, s:58 } : { h:356, s:49 };
-    const alpha = .025 + .16 * Math.pow(ratio, .85);
     const light = 58 - 18 * ratio;
-    const weight = 500 + Math.round(150 * ratio);
     return `<td class="dd-metric ${tone}" title="${esc(title)}"
-      style="--dd-heat:hsla(${spec.h},${spec.s}%,52%,${alpha.toFixed(3)});color:hsl(${spec.h},${spec.s}%,${light.toFixed(1)}%);font-weight:${weight}">${fmtPct(-value)}</td>`;
+      style="color:hsl(${spec.h},${spec.s}%,${light.toFixed(1)}%)">${fmtPct(-value)}</td>`;
   }
   function renderDrawdowns(){
     const rows = st.sel.map(id => {
