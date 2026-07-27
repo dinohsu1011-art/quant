@@ -139,13 +139,13 @@
     .note b { color:var(--ink); font-weight:600; }
     .ddhd { margin-top:34px; }
     .ddwrap { overflow-x:auto; }
-    #ddtbl { margin-top:0; min-width:900px; table-layout:fixed; }
+    #ddtbl { margin-top:0; min-width:980px; table-layout:fixed; }
     #ddtbl thead th { cursor:default; }
-    #ddtbl thead th:nth-child(1) { width:19%; }
-    #ddtbl thead th:nth-child(2) { width:8%; }
-    #ddtbl thead th:nth-child(3) { width:8%; }
-    #ddtbl thead th:nth-child(4), #ddtbl thead th:nth-child(5) { width:9%; }
-    #ddtbl thead th:nth-child(6) { width:47%; }
+    #ddtbl thead th:nth-child(1) { width:18%; }
+    #ddtbl thead th:nth-child(2), #ddtbl thead th:nth-child(3) { width:7%; }
+    #ddtbl thead th:nth-child(4), #ddtbl thead th:nth-child(5),
+    #ddtbl thead th:nth-child(6) { width:8%; }
+    #ddtbl thead th:nth-child(7) { width:44%; }
     #ddtbl tbody tr { cursor:default; }
     #ddtbl td.events { text-align:left; padding-top:5px; padding-bottom:5px; }
     .dd-events { max-height:132px; overflow-y:auto; }
@@ -239,6 +239,7 @@
           <th>Episodes</th>
           <th>Average</th>
           <th>Median</th>
+          <th>Current</th>
           <th class="l">Peak → trough · next ATH</th>
         </tr></thead>
         <tbody></tbody>
@@ -1111,6 +1112,18 @@
     const a = xs.slice().sort((x,y) => x-y), m = Math.floor(a.length/2);
     return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2;
   }
+  function currentDrawdown(s){
+    let peak = null, peakIdx = null, last = null, lastIdx = null;
+    for (let j = 0; j < s.lv.length; j++){
+      const v = s.lv[j], i = s.i0 + j;
+      if (v == null || v <= 0 || i >= N) continue;
+      if (peak == null || v > peak){ peak = v; peakIdx = i; }
+      last = v; lastIdx = i;
+    }
+    if (peak == null || last == null) return null;
+    const depth = 1 - last / peak;
+    return depth > 1e-9 ? { depth, peak:peakIdx, asof:lastIdx } : null;
+  }
   function renderDrawdowns(){
     const rows = st.sel.map(id => {
       const item = SER[id]; if (!item) return null;
@@ -1122,10 +1135,10 @@
       const depths = events.map(e => e.depth);
       return { id, label:item.label, group:item.group || s.group || '', color:assign(id),
                floor, events, avg:depths.length ? depths.reduce((a,b)=>a+b,0)/depths.length : null,
-               med:median(depths) };
+               med:median(depths), current:currentDrawdown(s) };
     }).filter(Boolean);
     const body = document.querySelector('#ddtbl tbody');
-    if (!rows.length){ body.innerHTML = `<tr><td colspan="6" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
+    if (!rows.length){ body.innerHTML = `<tr><td colspan="7" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
     body.innerHTML = rows.map(r => {
       const events = r.events.slice().sort((a,b) => b.trough - a.trough);
       const detail = events.length ? `<div class="dd-events">${events.map(e =>
@@ -1138,6 +1151,8 @@
         <td>${r.events.length}</td>
         <td style="color:${r.avg == null ? '#a8a29e' : '#b8484f'}">${r.avg == null ? '—' : fmtPct(-r.avg)}</td>
         <td style="color:${r.med == null ? '#a8a29e' : '#b8484f'}">${r.med == null ? '—' : fmtPct(-r.med)}</td>
+        <td title="${r.current ? `ATH ${DATES[r.current.peak]} → ${DATES[r.current.asof]}` : 'Currently at an all-time high'}"
+            style="color:${r.current == null ? '#a8a29e' : '#b8484f'}">${r.current == null ? '—' : fmtPct(-r.current.depth)}</td>
         <td class="events">${detail}</td>
       </tr>`;
     }).join('');
