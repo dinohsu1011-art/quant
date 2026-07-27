@@ -39,6 +39,7 @@ GROUPS = [
         ("coverage1", "Original Coverage"),
     ]),
     ("Fred Coverage", [
+        ("fredcoverage_reco", "Fred Recommended"),
         ("fredcoverage", "Fred Coverage"),
     ]),
     ("Indices", [

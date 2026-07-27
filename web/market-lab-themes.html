@@ -345,9 +345,10 @@
   };
   st.sel.forEach(assign);
   // swap events for the currently-selected reco book (set in transform, drawn in render)
-  let RECO_EVENTS = null;   // swap markers for the selected book
-  let RECO_EXITS = {};      // `${exitDate}|${ticker}` -> realized return at exit
-  const CUR_TIPS = {};      // exitDate -> prebuilt swap-marker tooltip HTML
+  // one entry per selected reco book — two books can be on the chart at once and
+  // can swap on the same day, so markers merge by date instead of overwriting
+  let RECO_BOOKS = [];      // [{id,label,color,events,exits}]
+  const CUR_TIPS = {};      // swapDate -> prebuilt swap-marker tooltip HTML
 
   // ---------- helpers ----------
   const lvAt = (s,i) => { const j = i - s.i0; return (j < 0 || j >= s.lv.length) ? null : s.lv[j]; };
@@ -521,8 +522,8 @@
   }
   function expandReco(s, out){
     const R = s.reco;
-    RECO_EVENTS = R.events;   // markers for render()
-    RECO_EXITS = s._exits || (s._exits = buildExits(R));
+    RECO_BOOKS.push({ id: s.id, label: s.label, color: assign(s.id),   // markers for render()
+                      events: R.events, exits: s._exits || (s._exits = buildExits(R)) });
     // the headline strategy line — rebased to book inception, so it always reads
     // cumulative book P&L (sum of every call's return / 5) regardless of window.
     const strat0 = recoStats(s.id, s.i0);
@@ -540,7 +541,7 @@
   function transform(){
     // returns array of drawable {id,color,label,y[] (growth ratio), stats}
     const out = [];
-    RECO_EVENTS = null; RECO_EXITS = {};
+    RECO_BOOKS = [];
     const bench = st.mode === 'rel' ? windowStats(st.bench) : null;
     st.sel.forEach(id => {
       if (!SER[id]) return;
@@ -946,29 +947,39 @@
     // swap markers — a dated diamond + guide per event, sitting above the hit
     // layer so they catch their own hover (tooltip shows what changed that day)
     let marks = '';
-    (RECO_EVENTS || []).forEach(ev => {
-      const idx = DIDX[ev.d]; if (idx == null || idx < st.i1 || idx > st.i2) return;
+    // merge the books' events by date — one marker per day, whichever books swapped
+    const byDate = {};
+    RECO_BOOKS.forEach(bk => bk.events.forEach(ev =>
+      (byDate[ev.d] || (byDate[ev.d] = [])).push({ bk, ev })));
+    Object.keys(byDate).sort().forEach(d => {
+      const idx = DIDX[d]; if (idx == null || idx < st.i1 || idx > st.i2) return;
       const x = X(idx);
-      // tooltip: date + each swap line, with the exited leg's realized gain/loss
+      // tooltip: date + each swap line, with the exited leg's realized gain/loss.
+      // With more than one book on the chart, each book's swaps get their own heading.
       let hasExit = false;
-      const rows = ev.lines.map(ln => {
-        const j = ln.indexOf('→');                   // "OUT → IN"
-        if (j < 0) return `<div style="opacity:.75">${esc(ln)}</div>`;
-        const o = ln.slice(0, j).trim(), inn = ln.slice(j + 1).trim();
-        const r = RECO_EXITS[`${ev.d}|${o}`];
-        let tag = '';
-        if (r != null){ hasExit = true;
-          tag = `<b style="color:${r >= 0 ? '#3f9d6a' : '#b8484f'}"> ${fmtPct(r)}</b>`; }
-        return `<div><b>${esc(o)}</b>${tag} <span style="opacity:.45">→</span> ${esc(inn)}</div>`;
+      const rows = byDate[d].map(({bk, ev}) => {
+        const head = RECO_BOOKS.length > 1
+          ? `<div style="margin:4px 0 2px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:${bk.color}">${esc(bk.label)}</div>`
+          : '';
+        return head + ev.lines.map(ln => {
+          const j = ln.indexOf('→');                   // "OUT → IN"
+          if (j < 0) return `<div style="opacity:.75">${esc(ln)}</div>`;
+          const o = ln.slice(0, j).trim(), inn = ln.slice(j + 1).trim();
+          const r = bk.exits[`${ev.d}|${o}`];
+          let tag = '';
+          if (r != null){ hasExit = true;
+            tag = `<b style="color:${r >= 0 ? '#3f9d6a' : '#b8484f'}"> ${fmtPct(r)}</b>`; }
+          return `<div><b>${esc(o)}</b>${tag} <span style="opacity:.45">→</span> ${esc(inn)}</div>`;
+        }).join('');
       }).join('');
-      CUR_TIPS[ev.d] = `<div style="font-weight:600;margin-bottom:3px">${ev.d}`
+      CUR_TIPS[d] = `<div style="font-weight:600;margin-bottom:3px">${d}`
         + `${hasExit ? ' <span style="opacity:.5;font-weight:400">· realized at exit</span>' : ''}</div>${rows}`;
       marks += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
                  stroke="#0c0a09" stroke-width="1" stroke-dasharray="1 3" opacity="0.16" pointer-events="none"/>`;
       marks += `<path d="M${x.toFixed(1)} ${(px.y0-7).toFixed(1)} l4.5 4.5 l-4.5 4.5 l-4.5 -4.5 z"
                  fill="#0c0a09" opacity="0.72" pointer-events="none"/>`;
       marks += `<rect x="${(x-6).toFixed(1)}" y="${(px.y0-10).toFixed(1)}" width="12"
-                 height="${(px.y1-px.y0+12).toFixed(1)}" fill="transparent" data-ev="${esc(ev.d)}" style="cursor:help"/>`;
+                 height="${(px.y1-px.y0+12).toFixed(1)}" fill="transparent" data-ev="${esc(d)}" style="cursor:help"/>`;
     });
     svg.innerHTML = `<g id="plot">${g}</g><g id="cross"></g>
       <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
