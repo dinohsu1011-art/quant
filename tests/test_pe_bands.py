@@ -9,10 +9,10 @@ class PeBandExportTests(unittest.TestCase):
         cls.payload = build()
 
     def test_payload_and_exclusions(self):
-        self.assertEqual(len(self.payload["series"]), 51)
+        self.assertEqual(len(self.payload["series"]), 63)
         self.assertEqual(
             set(self.payload["meta"]["excluded"]),
-            {"ASML", "TSM", "NOK", "SNDK"},
+            {"ASML", "TSM", "NOK"},
         )
         self.assertEqual(self.payload["meta"]["method"], "annual consensus vintages")
         self.assertEqual(self.payload["meta"]["aliases"], {"GOOGL": "GOOG"})
@@ -46,6 +46,17 @@ class PeBandExportTests(unittest.TestCase):
         self.assertEqual(fiscal_q3_start(2026, 9), "2026-03-01")
         self.assertIn(["2026-03-01", 2027, 152.737], proxy_schedule(record, 1, 9))
         self.assertIn(["2026-03-01", 2028, 165.542], proxy_schedule(record, 2, 9))
+
+    def test_new_tab_series_are_loaded_and_sandisk_is_standalone(self):
+        self.assertEqual(
+            self.payload["series"]["GEV"]["rows"][-2:],
+            [[2028, "2029-01-28", 34.298, "f"], [2029, "2030-01-28", 43.146, "f"]],
+        )
+        self.assertEqual(
+            self.payload["series"]["SNDK"]["rows"][0],
+            [2025, "2025-08-14", 2.699, "h"],
+        )
+        self.assertNotIn("SNDK", self.payload["meta"]["excluded"])
 
 
 if __name__ == "__main__":

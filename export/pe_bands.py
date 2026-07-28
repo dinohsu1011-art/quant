@@ -27,14 +27,16 @@ FISCAL_START_MONTHS = {
     "4062.T": 4, "5802.T": 4, "5803.T": 4, "6674.T": 4,
     "6857.T": 4, "6981.T": 4, "8035.T": 4,
     "AMAT": 11, "AMD": 1, "AMZN": 1, "ANET": 1, "ARM": 4,
-    "ASML": 1, "AVGO": 11, "BE": 1, "CAT": 1, "COHR": 7,
-    "CRWD": 2, "CSCO": 8, "EME": 1, "FIX": 1, "FLEX": 4,
+    "ASML": 1, "AVGO": 11, "BE": 1, "CAT": 1, "CMI": 1, "COHR": 7,
+    "CRWD": 2, "CSCO": 8, "DELL": 2, "EME": 1, "EMR": 10,
+    "FCX": 1, "FIX": 1, "FLEX": 4,
     "FSLR": 1, "GLW": 1, "GOOG": 1, "HOOD": 1, "INTC": 1,
-    "LITE": 7, "LLY": 1, "META": 1, "MRVL": 3, "MSFT": 7,
-    "MU": 9, "MYRG": 1, "NEM": 1, "NET": 1, "NOK": 1,
-    "NOW": 1, "NVDA": 2, "NXT": 4, "ORCL": 6, "PANW": 8,
-    "RDDT": 1, "STRL": 1, "STX": 7, "TER": 1, "TSM": 1,
-    "WDC": 7,
+    "GEV": 1, "HUBB": 1, "HWM": 1, "LITE": 7, "LLY": 1,
+    "META": 1, "MRVL": 3, "MSFT": 7, "MU": 9, "MYRG": 1,
+    "NEM": 1, "NET": 1, "NOK": 1, "NOW": 1, "NVDA": 2,
+    "NXT": 4, "ORCL": 6, "PANW": 8, "PWR": 1, "RDDT": 1,
+    "SNDK": 8, "STLD": 1, "STRL": 1, "STX": 7, "TER": 1,
+    "TSLA": 1, "TSM": 1, "VRT": 1, "WDC": 7,
 }
 
 
