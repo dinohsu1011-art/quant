@@ -1,6 +1,6 @@
 import unittest
 
-from export.pe_bands import build, proxy_schedule
+from export.pe_bands import build, fiscal_q3_start, proxy_schedule
 
 
 class PeBandExportTests(unittest.TestCase):
@@ -30,11 +30,22 @@ class PeBandExportTests(unittest.TestCase):
         record = self.payload["series"]["4062.T"]
         self.assertIn(["2026-05-11", 2027, 255.826], proxy_schedule(record, 1))
         self.assertIn(["2026-05-11", 2028, 383.823], proxy_schedule(record, 2))
+        self.assertEqual(fiscal_q3_start(2027, 4), "2026-10-01")
+        self.assertIn(
+            ["2026-10-01", 2028, 383.823],
+            proxy_schedule(record, 1, 4),
+        )
 
     def test_non_positive_eps_creates_gap(self):
         record = self.payload["series"]["MU"]
         fy1 = proxy_schedule(record, 1)
         self.assertNotIn(["2022-09-29", 2023, -4.544], fy1)
+
+    def test_mu_rolls_forward_at_q3_of_its_fiscal_year(self):
+        record = self.payload["series"]["MU"]
+        self.assertEqual(fiscal_q3_start(2026, 9), "2026-03-01")
+        self.assertIn(["2026-03-01", 2027, 152.737], proxy_schedule(record, 1, 9))
+        self.assertIn(["2026-03-01", 2028, 165.542], proxy_schedule(record, 2, 9))
 
 
 if __name__ == "__main__":
