@@ -974,7 +974,11 @@
 
   function renderPe(ctx){
     const proxy = peProxy(ctx, st.peBasis);
-    const multiples = proxy.multiple.filter(Number.isFinite);
+    // The valuation regime should match the interval the user is studying.
+    // Recompute every percentile from the visible window instead of pinning the
+    // bands to the stock's full-history distribution; this also keeps the band
+    // ladder relevant to where the price is trading now on shorter windows.
+    const multiples = proxy.multiple.slice(st.i1, st.i2 + 1).filter(Number.isFinite);
     const specs = [
       {q:.10, name:'10th', color:'#c1e1f7'},
       {q:.30, name:'30th', color:'#79bfea'},
@@ -1093,6 +1097,7 @@
       <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
             fill="transparent" id="hit"/>`;
     const note = `${ctx.item.label} · FY+${st.peBasis} annual consensus vintages`
+      + ` · bands from ${DATES[st.i1]} → ${DATES[st.i2]}`
       + (endIndex==null?'':` · FY${proxy.fy[endIndex]} EPS ${proxy.eps[endIndex].toFixed(2)}`
           + ` · ${proxy.multiple[endIndex].toFixed(1)}x`);
     geom={kind:'pe',px,X,Y,W,H,ctx,proxy,bands,priceFmt,note,data:[]};
