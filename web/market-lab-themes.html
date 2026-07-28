@@ -106,6 +106,9 @@
     .pe-note { display:none; margin:8px 2px 0; color:var(--ash); font-family:var(--mono);
                font-size:10.5px; line-height:1.45; }
     .pe-note.on { display:block; }
+    .pe-why { align-self:center; color:#b8484f; font-family:var(--mono); font-size:10px;
+              max-width:320px; line-height:1.35; }
+    .cgrp button:disabled { color:var(--steel); cursor:not-allowed; border-bottom-color:transparent; }
     .cgrp.disabled { opacity:.28; pointer-events:none; }
     .empty { padding:90px 0; text-align:center; color:var(--steel); font-size:13px; }
 
@@ -215,6 +218,7 @@
     </div>
     <div class="controls" style="padding-top:2px">
       <div class="cgrp" id="modes"><span class="lbl">Measure</span></div>
+      <span class="pe-why" id="pewhy" hidden></span>
       <div class="cgrp" id="benchwrap"><span class="lbl">vs</span><select id="bench"></select></div>
       <div class="cgrp" id="pebasis" hidden><span class="lbl">Earnings</span></div>
       <div class="cgrp" id="scales"><span class="lbl">Scale</span></div>
@@ -224,7 +228,7 @@
     <div class="chartwrap">
       <svg id="chart" role="img" aria-label="Theme return comparison"></svg>
     </div>
-    <div class="pe-note" id="penote">Annual consensus vintages · FY N consensus is applied from the FY N−1 annual report · estimates step at each annual rollover.</div>
+    <div class="pe-note" id="penote">Annual consensus vintages · FY N consensus is applied from the FY N−1 annual report · bands use the visible-window log median and robust dispersion, widened to contain current P/E.</div>
 
     <div class="heathd">
       <span class="lbl">Period returns</span>
@@ -436,6 +440,20 @@
     const anchors = rows.filter(r => r[3] !== 'f' && byFy[r[0]+1] && byFy[r[0]+2]);
     return anchors.length ? { id, item, s, rec, rows, byFy, anchors } : null;
   }
+  function peCandidate(){
+    if (st.sel.length !== 1) return null;
+    const item = SER[st.sel[0]]; if (!item || !['stock','equity','reconame'].includes(item.kind)) return null;
+    return { item, id:item.kind === 'reconame' ? item.src : item.id };
+  }
+  function peUnavailableReason(candidate){
+    if (!candidate) return '';
+    const excluded = PE.meta.excluded && PE.meta.excluded[candidate.id];
+    if (excluded) return `P/E unavailable · ${excluded}`;
+    const rec = PE.series && PE.series[candidate.id];
+    if (!rec) return 'P/E unavailable · no annual consensus EPS history in the source workbook';
+    if (!SER[candidate.id]?.p0) return 'P/E unavailable · no compatible price history';
+    return 'P/E unavailable · no completed historical consensus vintage yet';
+  }
   function peProxy(ctx, basis){
     const changes = ctx.anchors.map(a => {
       const target = ctx.byFy[a[0] + basis];
@@ -459,9 +477,19 @@
     return { changes, eps, fy, price, multiple };
   }
   function syncPeAvailability(){
+    const candidate = peCandidate();
     const ctx = peContext();
     const button = document.querySelector('#modes button[data-mode="pe"]');
-    if (button) button.hidden = !ctx;
+    const why = document.getElementById('pewhy');
+    if (button){
+      button.hidden = !candidate;
+      button.disabled = !!candidate && !ctx;
+      button.title = ctx ? 'Show historical forward P/E bands' : peUnavailableReason(candidate);
+    }
+    if (why){
+      why.hidden = !candidate || !!ctx;
+      why.textContent = candidate && !ctx ? peUnavailableReason(candidate) : '';
+    }
     if (st.mode === 'pe' && !ctx){
       st.mode = 'cum';
       document.querySelectorAll('#modes button').forEach(b =>
@@ -974,18 +1002,32 @@
 
   function renderPe(ctx){
     const proxy = peProxy(ctx, st.peBasis);
-    // The valuation regime should match the interval the user is studying.
-    // Recompute every percentile from the visible window instead of pinning the
-    // bands to the stock's full-history distribution; this also keeps the band
-    // ladder relevant to where the price is trading now on shorter windows.
+    // Build a robust, positive band ladder in log-P/E space. A percentile ladder
+    // can be dominated by a cyclical trough denominator (MU's FY2024 $1.226 EPS
+    // produced a mathematically-correct but useless 93x 90th-percentile band).
+    // The visible-window median remains the centre; the central 40% absolute
+    // log deviation sets the spacing, widened only when needed to contain the
+    // current P/E. Keeping the spread inside the median makes it resistant to a
+    // full year of trough-cycle P/Es without hard-capping legitimate growth names.
     const multiples = proxy.multiple.slice(st.i1, st.i2 + 1).filter(Number.isFinite);
+    const logs = multiples.filter(v => v > 0).map(Math.log);
+    const center = quantile(logs,.5);
+    const logSpread = center == null ? null : quantile(logs.map(v => Math.abs(v-center)),.4);
+    const endIndex = (() => {
+      for(let i=st.i2;i>=st.i1;i--) if(proxy.eps[i]>0&&proxy.price[i]>0)return i;
+      return null;
+    })();
+    const currentPe = endIndex == null ? null : proxy.multiple[endIndex];
+    const currentSpread = center == null || !(currentPe > 0)
+      ? 0 : Math.abs(Math.log(currentPe)-center)/2*1.06;
+    const bandStep = Math.max(logSpread || 0, currentSpread, .06);
     const specs = [
-      {q:.10, name:'10th', color:'#c1e1f7'},
-      {q:.30, name:'30th', color:'#79bfea'},
-      {q:.50, name:'Median', color:'#1d7fc4'},
-      {q:.70, name:'70th', color:'#5f7183'},
-      {q:.90, name:'90th', color:'#2f3f4f'}
-    ].map(x => ({...x, multiple:quantile(multiples,x.q)}))
+      {offset:-2, name:'Low', color:'#c1e1f7'},
+      {offset:-1, name:'Lower', color:'#79bfea'},
+      {offset:0, name:'Median', color:'#1d7fc4', median:true},
+      {offset:1, name:'Upper', color:'#5f7183'},
+      {offset:2, name:'High', color:'#2f3f4f'}
+    ].map(x => ({...x, multiple:center == null ? null : Math.exp(center+x.offset*bandStep)}))
       .filter(x => x.multiple != null && x.multiple > 0);
     const bands = specs.map(spec => ({
       ...spec,
@@ -1069,12 +1111,11 @@
     });
     bands.forEach(b => {
       g += `<path d="${linePath(b.values,true)}" fill="none" stroke="${b.color}"
-             stroke-width="${b.q===.5?1.8:1.15}" opacity="${b.q===.5?.95:.72}"/>`;
+             stroke-width="${b.median ? 1.8 : 1.15}" opacity="${b.median ? .95 : .72}"/>`;
     });
     const stride=Math.max(1,Math.ceil((st.i2-st.i1)/1600));
     g += `<path d="${linePath(proxy.price,false,stride)}" fill="none" stroke="#0c0a09"
            stroke-width="2.1" stroke-linejoin="round" stroke-linecap="round"/>`;
-    const endIndex = (() => { for(let i=st.i2;i>=st.i1;i--) if(proxy.eps[i]>0&&proxy.price[i]>0)return i; return null; })();
     if(endIndex!=null){
       const labels = bands.map(b => ({...b,y:Y(b.values[endIndex])}))
         .sort((a,b)=>a.y-b.y);
@@ -1087,7 +1128,7 @@
       }
       labels.forEach(b => {
         g += `<text x="${px.x1+8}" y="${(b.y+3.5).toFixed(1)}" font-size="10.5"
-               fill="${b.color}" font-weight="${b.q===.5?600:500}">${b.name} · ${b.multiple.toFixed(1)}x</text>`;
+               fill="${b.color}" font-weight="${b.median?600:500}">${b.name} · ${b.multiple.toFixed(1)}x</text>`;
       });
       const py=Y(proxy.price[endIndex]);
       g += `<text x="${px.x1+8}" y="${Math.max(px.y0+10,Math.min(px.y1,py)+3.5).toFixed(1)}"
