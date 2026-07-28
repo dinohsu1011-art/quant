@@ -288,6 +288,7 @@
 
   const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const PE = window.QUANT_PE_BANDS || {meta:{},series:{}};
+  const peEpsId = id => (PE.meta.aliases && PE.meta.aliases[id]) || id;
   const DATES = D.dates, N = DATES.length;
   const SER = {}, IDS = [];
   D.series.forEach(s => { SER[s.id] = s; IDS.push(s.id); });
@@ -433,12 +434,13 @@
     const item = SER[st.sel[0]]; if (!item) return null;
     if (!['stock','equity','reconame'].includes(item.kind)) return null;
     const id = item.kind === 'reconame' ? item.src : item.id;
-    const s = SER[id], rec = PE.series && PE.series[id];
-    if (!s || !s.p0 || !rec || (PE.meta.excluded && PE.meta.excluded[id])) return null;
+    const epsId = peEpsId(id);
+    const s = SER[id], rec = PE.series && PE.series[epsId];
+    if (!s || !s.p0 || !rec || (PE.meta.excluded && PE.meta.excluded[epsId])) return null;
     const rows = rec.rows || [], byFy = {};
     rows.forEach(r => byFy[r[0]] = r);
     const anchors = rows.filter(r => r[3] !== 'f' && byFy[r[0]+1] && byFy[r[0]+2]);
-    return anchors.length ? { id, item, s, rec, rows, byFy, anchors } : null;
+    return anchors.length ? { id, epsId, item, s, rec, rows, byFy, anchors } : null;
   }
   function peCandidate(){
     if (st.sel.length !== 1) return null;
@@ -447,9 +449,10 @@
   }
   function peUnavailableReason(candidate){
     if (!candidate) return '';
-    const excluded = PE.meta.excluded && PE.meta.excluded[candidate.id];
+    const epsId = peEpsId(candidate.id);
+    const excluded = PE.meta.excluded && PE.meta.excluded[epsId];
     if (excluded) return `P/E unavailable · ${excluded}`;
-    const rec = PE.series && PE.series[candidate.id];
+    const rec = PE.series && PE.series[epsId];
     if (!rec) return 'P/E unavailable · no annual consensus EPS history in the source workbook';
     if (!SER[candidate.id]?.p0) return 'P/E unavailable · no compatible price history';
     return 'P/E unavailable · no completed historical consensus vintage yet';

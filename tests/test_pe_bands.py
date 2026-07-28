@@ -15,6 +15,7 @@ class PeBandExportTests(unittest.TestCase):
             {"ASML", "TSM", "NOK", "SNDK"},
         )
         self.assertEqual(self.payload["meta"]["method"], "annual consensus vintages")
+        self.assertEqual(self.payload["meta"]["aliases"], {"GOOGL": "GOOG"})
 
     def test_us_fy1_and_fy2_roll_at_prior_report(self):
         record = self.payload["series"]["AMAT"]

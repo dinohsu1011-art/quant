@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 SOURCE = ROOT / "data" / "eps" / "annual_eps.json"
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
+TICKER_ALIASES = {"GOOGL": "GOOG"}
 
 
 def proxy_schedule(record, basis=1):
@@ -74,6 +75,7 @@ def build():
             "observed after the FY N-1 report."
         ),
         "excluded": excluded,
+        "aliases": TICKER_ALIASES,
         "eligible": len(eligible),
     }
     return payload

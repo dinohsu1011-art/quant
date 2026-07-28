@@ -32,3 +32,4 @@ This is an annual step series rather than a daily analyst-revision history.
 - `ASML`, `TSM`, and `NOK` are excluded until their EPS is converted into the
   same currency and ADR/share basis as the stored US price series.
 - `GOOG` historical rows contain estimates only, not reported/comparable EPS.
+- `GOOGL` uses the same consolidated per-share EPS series as `GOOG`.
