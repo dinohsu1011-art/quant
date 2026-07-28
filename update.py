@@ -7,10 +7,11 @@ One-command refresh pipeline, in strict order:
   2. rebuild baskets (levels compound full history, so they MUST follow a fetch)
   3. regenerate the offline cube
   4. regenerate the theme return series (market-lab-themes.html)
-  5. regenerate the macro regime masks (market-lab-heatmaps.html)
-  6. regenerate the trader-profile data bundle
-  7. sync the site copies into web/ and docs/
-  8. validate (exits non-zero on any integrity failure)
+  5. regenerate the annual consensus EPS vintages (P/E bands)
+  6. regenerate the macro regime masks (market-lab-heatmaps.html)
+  7. regenerate the trader-profile data bundle
+  8. sync the site copies into web/ and docs/
+  9. validate (exits non-zero on any integrity failure)
 
     ./.venv/bin/python update.py
 
@@ -81,6 +82,9 @@ REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html",
               "market-lab-drawdowns.html", "market-lab-themes.html",
               "market-lab-heatmaps.html", "market-lab-weekend.html"]
+# Theme Returns is maintained as tracked application source. The other legacy
+# Market Lab pages still originate in the Obsidian reports folder.
+TRACKED_PAGE_SOURCES = {"market-lab-themes.html"}
 
 
 def sync_site():
@@ -98,7 +102,7 @@ def sync_site():
     for cf in sorted((REPORTS / "cube").glob("*.js")):
         h.update(cf.read_bytes())
     stamp = (m.group(1) if m else "0").replace("-", "") + "-" + h.hexdigest()[:8]
-    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes|regimes|weekend)\.js)(?:\?v=[^"]*)?"')
+    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes|pe-bands|regimes|weekend)\.js)(?:\?v=[^"]*)?"')
     web, docs = ROOT / "web", ROOT / "docs"
     for d in (web, docs):
         d.mkdir(exist_ok=True)
@@ -107,14 +111,14 @@ def sync_site():
             shutil.copy2(REPORTS / p, web / p)
             shutil.copy2(REPORTS / p, docs / p)
             continue
-        f = REPORTS / p
+        f = (web / p) if p in TRACKED_PAGE_SOURCES else (REPORTS / p)
         # web/ keeps the canonical unstamped page, so the tracked backup only
         # changes when the page itself changes — not on every daily refresh
         raw = pat.sub(r'src="\1"', f.read_text())
         stamped = pat.sub(rf'src="\1?v={stamp}"', raw)
         (web / p).write_text(raw)
         (docs / p).write_text(stamped)
-        f.write_text(stamped)
+        (REPORTS / p).write_text(stamped)
     cube_dst = ROOT / "docs" / "cube"
     cube_dst.mkdir(exist_ok=True)
     for f in (REPORTS / "cube").glob("*.js"):
@@ -123,15 +127,18 @@ def sync_site():
           "(push to GitHub to refresh the Pages site)")
 
 
+TOTAL_STEPS = 11
+
+
 def step(i, name, fn):
     t0 = time.time()
-    print(f"\n=== [{i}/9] {name} ===", flush=True)
+    print(f"\n=== [{i}/{TOTAL_STEPS}] {name} ===", flush=True)
     try:
         fn()
     except Exception as e:
-        print(f"*** PIPELINE STOPPED at [{i}/9] {name}: {e}")
+        print(f"*** PIPELINE STOPPED at [{i}/{TOTAL_STEPS}] {name}: {e}")
         sys.exit(1)
-    print(f"=== [{i}/9] {name} done in {time.time() - t0:.0f}s ===", flush=True)
+    print(f"=== [{i}/{TOTAL_STEPS}] {name} done in {time.time() - t0:.0f}s ===", flush=True)
 
 
 if __name__ == "__main__":
@@ -140,9 +147,10 @@ if __name__ == "__main__":
     step(3, "rebuild reco books (mark open calls to latest close)", build_recos)
     step(4, "regenerate cube", lambda: sub("export.cube"))
     step(5, "regenerate theme return series", lambda: sub("export.themes"))
-    step(6, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
-    step(7, "regenerate macro regime masks", lambda: sub("export.regimes"))
-    step(8, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(9, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(10, "validate", lambda: sub("validate.py"))
+    step(6, "regenerate annual consensus EPS vintages", lambda: sub("export.pe_bands"))
+    step(7, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
+    step(8, "regenerate macro regime masks", lambda: sub("export.regimes"))
+    step(9, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(10, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(11, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")

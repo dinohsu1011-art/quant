@@ -23,13 +23,18 @@ an interactive panel embedded in the Obsidian trader profile.
 | `analysis/betas.py` | Builds `data/betas/stock_betas.parquet` / `.csv`: SPX beta, correlation, R², vol, and returns by window |
 | `export/cube.py` | Pre-computes ~90k event-study combos → `trader-profile-cube.js` (offline panel data) |
 | `export/themes.py` | Daily rebased index levels for all theme/sector/ETF/single-name rail series → `cube/themes.js` (powers `market-lab-themes.html`) |
+| `data/eps/annual_eps.json` | Normalized annual consensus EPS vintages used by Theme Returns FY+1 / FY+2 P/E bands |
+| `export/pe_bands.py` | Validates and exports annual EPS vintages → `cube/pe-bands.js` |
 | `export/trader_profile.py` | Static regime charts → `trader-profile-data.js` |
 | `serve.py` | Optional localhost backend: serves the reports dir + live `/api/event` (all stored series, arbitrary params) |
 | `validate.py` | Integrity scan (staleness, dup dates, bad bars, gaps, collisions, as_of drift). Exit 1 on failure |
-| `update.py` | **The one command to refresh everything** (fetch → baskets → cube → themes → bundle → sync → validate) |
+| `update.py` | **The one command to refresh everything** (fetch → baskets → cube → themes → P/E bands → bundle → sync → validate) |
 | `ops/` | Guarded refresh + `gh-pages` publish. See [`ops/README.md`](ops/README.md) |
 
 Outputs land in `~/Desktop/Obsidian/trading-brain/reports/` next to `trader-profile.html`.
+Theme Returns shows P/E Bands only when one eligible ticker is selected. The
+earnings denominator is an annual step series: consensus EPS labelled FY N is
+applied from the FY N-1 annual report date.
 
 ## Usage
 

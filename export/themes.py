@@ -28,6 +28,7 @@ from ingestion.recos import LEDGER, walk, held_windows
 
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 START = "2000-01-01"  # calendar floor; individual series start when they start
+PE_INPUT = Path(__file__).parent.parent / "data" / "eps" / "annual_eps.json"
 
 # id -> (label, group). Order within a group drives the rail order, and the
 # order of the groups here drives the rail top-to-bottom: broad market context
@@ -168,11 +169,16 @@ def member_full_date(conn, tickers):
 
 def rebase(s, cal, pos):
     """Reindex onto the shared calendar, forward-fill, trim to first real bar,
-    and rebase to 100 there. Returns (i0, lv-list)."""
+    and rebase to 100 there. Returns (i0, lv-list, raw-first-price)."""
     s = s.reindex(cal).ffill()
     s = s[s.first_valid_index():]
+    p0 = float(s.iloc[0])
     lv = (s / s.iloc[0] * 100).round(3)
-    return pos[s.index[0]], [None if pd.isna(v) else float(v) for v in lv.values]
+    return (
+        pos[s.index[0]],
+        [None if pd.isna(v) else float(v) for v in lv.values],
+        p0,
+    )
 
 
 def reco_meta():
@@ -191,9 +197,25 @@ def reco_meta():
     return out
 
 
+def pe_tickers():
+    """Ticker -> display label for usable EPS names, including names that sit in
+    no basket. Orphans are shipped as visible rail equities so their P/E chart
+    is reachable from Theme Returns."""
+    if not PE_INPUT.exists():
+        return {}
+    payload = json.loads(PE_INPUT.read_text())
+    excluded = payload.get("meta", {}).get("excluded", {})
+    return {
+        ticker: record.get("label") or ticker
+        for ticker, record in payload.get("series", {}).items()
+        if ticker not in excluded
+    }
+
+
 def build():
     conn = db.connect()
     RECO = reco_meta()
+    PE_TICKERS = pe_tickers()
     # tickers named anywhere in a reco book must ship a price line even if they
     # sit in no basket (a call can reach outside current coverage).
     reco_tickers = {n["t"] for r in RECO.values() for n in r["names"]}
@@ -216,7 +238,8 @@ def build():
     # constituent lines use a lower floor than the 30-session rail floor so a
     # fresh IPO (e.g. SPCX, listed weeks ago) draws its drill-down line as soon
     # as it has ~3 weeks of history instead of waiting out a full 30 sessions.
-    members = sorted({t for ts in BASKETS.values() for t in ts} | reco_tickers)
+    listed_members = {t for ts in BASKETS.values() for t in ts} | reco_tickers
+    members = sorted(listed_members | set(PE_TICKERS))
     stock_raw = {}
     for t in members:
         s = close_series(conn, _view(t))
@@ -234,8 +257,11 @@ def build():
         for sid, label in items:
             if sid not in raw:
                 continue
-            i0, lv = rebase(raw[sid], cal, pos)
-            rec = {"id": sid, "label": label, "group": group, "i0": i0, "lv": lv}
+            i0, lv, p0 = rebase(raw[sid], cal, pos)
+            rec = {
+                "id": sid, "label": label, "group": group,
+                "i0": i0, "lv": lv, "p0": p0,
+            }
             if sid.endswith("_reco") and sid[:-5] in RECO:
                 rec["kind"] = "reco"
                 r = RECO[sid[:-5]]
@@ -271,14 +297,17 @@ def build():
                                       "switch": h["switch"], "prevId": h["prev"]}
             series.append(rec)
 
-    n_rail = len(series)
     # constituent stock lines — hidden from the rail, revealed per basket on demand
     for t in members:
         if t not in stock_raw:
             continue
-        i0, lv = rebase(stock_raw[t], cal, pos)
-        series.append({"id": t, "label": t, "group": "", "kind": "stock",
-                       "i0": i0, "lv": lv})
+        i0, lv, p0 = rebase(stock_raw[t], cal, pos)
+        orphan = t not in listed_members
+        series.append({"id": t, "label": PE_TICKERS.get(t, t),
+                       "group": "P/E bands" if orphan else "",
+                       "kind": "equity" if orphan else "stock",
+                       "i0": i0, "lv": lv, "p0": p0})
+    n_rail = sum(s["kind"] != "stock" for s in series)
 
     payload = {
         "meta": {
@@ -286,7 +315,7 @@ def build():
             "start": cal[0].strftime("%Y-%m-%d"),
             "n_dates": len(cal),
             "n_series": n_rail,
-            "n_members": len(series) - n_rail,
+            "n_members": sum(s["kind"] == "stock" for s in series),
             "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "missing": missing,
         },
