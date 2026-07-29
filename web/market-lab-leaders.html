@@ -586,8 +586,9 @@
       ctx.stroke();
     }
 
-    // Engraved hachures and branching ridges give the mountain the etched,
-    // tactile weight of the reference while remaining procedural.
+    // Short downhill hachures give the mountain the etched weight of the
+    // reference. They begin just inside the silhouette and terminate downhill,
+    // so no texture can escape above the climbers or ridgeline.
     ctx.strokeStyle='rgba(87,83,78,.29)'; ctx.lineWidth=.62;
     for (let i=0;i<115;i++){
       const x=plotLeft+terrainRandom()*span;
@@ -601,20 +602,6 @@
       ctx.lineTo(ex-downhill*5,face+len*.66);
       ctx.lineTo(ex,ey); ctx.stroke();
     }
-    const branchEnds=[.11,.23,.36,.49,.60,.71,.93,.98];
-    ctx.strokeStyle='rgba(68,64,60,.45)'; ctx.lineWidth=.85;
-    branchEnds.forEach((end,i) => {
-      const ex=plotLeft+span*end, ey=surfaceY(ex)+8;
-      ctx.beginPath(); ctx.moveTo(summitX,summitY+3);
-      const mx=(summitX+ex)/2+(terrainRandom()-.5)*35;
-      const my=(summitY+ey)/2+25+terrainRandom()*38;
-      ctx.lineTo(mx,my); ctx.lineTo(ex,ey); ctx.stroke();
-      if (i%2===0){
-        ctx.beginPath(); ctx.moveTo(mx,my);
-        ctx.lineTo(mx+(end<.82?-1:1)*(18+terrainRandom()*30),my+35+terrainRandom()*35);
-        ctx.stroke();
-      }
-    });
     ctx.beginPath(); ctx.moveTo(ridge[0].x,ridge[0].y);
     ridge.slice(1).forEach(p => ctx.lineTo(p.x,p.y));
     ctx.strokeStyle='#8f8a83'; ctx.lineWidth=1.05; ctx.stroke();

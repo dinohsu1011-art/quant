@@ -47,7 +47,8 @@ class LeadersPageTests(unittest.TestCase):
         self.assertIn('id="reroute"', self.html)
         self.assertIn("drawPennant", self.script)
         self.assertIn("Dashed switchbacks", self.script)
-        self.assertIn("Engraved hachures", self.script)
+        self.assertIn("Short downhill hachures", self.script)
+        self.assertNotIn("branchEnds", self.script)
 
 
 if __name__ == "__main__":
