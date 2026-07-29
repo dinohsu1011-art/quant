@@ -49,7 +49,7 @@ class LeadersPageTests(unittest.TestCase):
         self.assertIn("Dashed switchbacks", self.script)
         self.assertIn("Short downhill hachures", self.script)
         self.assertIn("SECTOR · pennant notch", self.script)
-        self.assertIn("Median baseline", self.script)
+        self.assertNotIn("Median baseline", self.script)
         self.assertIn("const sub=fmtP", self.script)
         self.assertNotIn("branchEnds", self.script)
 

@@ -607,24 +607,14 @@
     ridge.slice(1).forEach(p => ctx.lineTo(p.x,p.y));
     ctx.strokeStyle='#8f8a83'; ctx.lineWidth=1.05; ctx.stroke();
 
-    // Altitude is the selected return (or loss severity in Worst mode), with
-    // the filtered median retained as the blue base reference from the concept.
+    // Altitude is the selected return (or loss severity in Worst mode).
     const score = r => st.dir<0 ? r.r[win] : -r.r[win];
     const unscore = v => st.dir<0 ? v : -v;
     const scores=cohort.map(score).filter(Number.isFinite);
-    const filteredMedian=median(pool.map(r=>r.r[win]));
-    const medianScore=st.dir<0 ? filteredMedian : -filteredMedian;
-    let lo=Math.min(medianScore,...scores), hi=Math.max(...scores);
+    let lo=Math.min(0,...scores), hi=Math.max(0,...scores);
     const spread=Math.max(1,hi-lo);
     lo-=spread*.05; hi+=spread*.08;
     const yScore = v => baseY-8-(v-lo)/(hi-lo)*(baseY-summitY-22);
-
-    ctx.strokeStyle='#1d7fc4'; ctx.lineWidth=1.15; ctx.setLineDash([6,4]);
-    const medianY=Math.max(summitY+12,Math.min(baseY-5,yScore(medianScore)));
-    ctx.beginPath(); ctx.moveTo(plotLeft,medianY); ctx.lineTo(axisX-8,medianY); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle='#1d7fc4'; ctx.font='9.5px ui-monospace, "SF Mono", Menlo, monospace';
-    ctx.textAlign='left'; ctx.fillText(`MEDIAN ${fmtP(filteredMedian)}`,plotLeft+2,medianY-9);
 
     ctx.strokeStyle='#78716c'; ctx.lineWidth=.8;
     ctx.beginPath(); ctx.moveTo(axisX,summitY); ctx.lineTo(axisX,baseY); ctx.stroke();
@@ -707,7 +697,7 @@
       if (i%showEvery===0 || p.rank<=3 || p.rank===cohort.length) drawPennant(p);
     });
 
-    // Compact key from the original concept: first explain the five visual
+    // Compact key from the original concept: first explain the four visual
     // encodings, then map the live cohort's sectors to pennant-notch colours.
     ctx.strokeStyle='#78716c'; ctx.lineWidth=.8;
     ctx.beginPath(); ctx.moveTo(16,legendTop); ctx.lineTo(width-16,legendTop); ctx.stroke();
@@ -721,8 +711,7 @@
       ['pennant','Rank + ticker'],
       ['path','Mountain path'],
       ['point','Checkpoint'],
-      ['altitude','Altitude'],
-      ['baseline','Median baseline']
+      ['altitude','Altitude']
     ];
     keyItems.forEach(([kind,text],i) => {
       const x=keyLeft+(i+.5)*keyWidth/keyItems.length, y=legendTop+46;
@@ -746,9 +735,6 @@
       } else if (kind==='altitude'){
         ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
         ctx.fillText('+14.9%',x,y);
-      } else {
-        ctx.strokeStyle='#1d7fc4'; ctx.setLineDash([6,4]);
-        ctx.beginPath(); ctx.moveTo(x-27,y); ctx.lineTo(x+27,y); ctx.stroke(); ctx.setLineDash([]);
       }
       ctx.fillStyle='#57534e'; ctx.font='8.5px ui-sans-serif, system-ui, sans-serif';
       ctx.fillText(text,x,legendTop+72);
@@ -771,8 +757,8 @@
       ctx.fillText(sector.length>23 ? sector.slice(0,22)+'…' : sector,x+13,y);
     });
     vizDesc.textContent = `${cohort.length} ranked tickers climb an etched mountain from left `
-      + `to right over ${win}. The bottom legend explains route, checkpoint, altitude, median `
-      + `baseline and the sector colour used on each pennant notch.`;
+      + `to right over ${win}. The bottom legend explains route, checkpoint, altitude and `
+      + `the sector colour used on each pennant notch.`;
   }
 
   function drawViz(pool,cohort){
