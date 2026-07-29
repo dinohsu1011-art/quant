@@ -183,11 +183,11 @@
   // sortK/sortDir start as the ranking itself, and Best/Worst resets them to it.
   // Otherwise flipping to Worst renumbers the ranks but leaves the table sorted
   // best-first, so the bottom 10 sits at the bottom of a 500-row table.
-  const st = { win:'YTD', uni:'sp', dir:-1, top:10, q:'', sector:'', theme:'',
+  const st = { win:'YTD', uni:'all', dir:-1, top:10, q:'', sector:'', theme:'',
                minAdv:0, sortK:'win', sortDir:-1 };
   const sortByRank = () => { st.sortK = 'win'; st.sortDir = st.dir; };
 
-  const UNIS = [['sp','S&P 500'], ['all','All tracked'], ['reco','My coverage']];
+  const UNIS = [['all','All tracked'], ['sp','S&P 500'], ['reco','My coverage']];
   const DIRS = [[-1,'Best'], [1,'Worst']];
   const TOPS = [10, 25, 50, 100];
   const LIQ  = [[0,'—'], [50,'50M'], [250,'250M'], [1000,'1B']];
@@ -364,12 +364,14 @@
     drawTable(p, n);
 
     document.getElementById('foot').innerHTML =
-      `<b>${M.n}</b> tracked single stocks, <b>${M.n_sp500}</b> of them S&amp;P 500 members, `
+      `<b>${M.n}</b> tracked single stocks — every basket constituent and coverage name, `
+      + `not only the <b>${M.n_sp500}</b> that are S&amp;P 500 members — `
       + `priced to ${M.as_of}. Returns are price only — no dividends. A window is blank `
       + `when the stock has not traded long enough to fill it, so a 2025 listing is absent `
-      + `from the 3Y ranking rather than ranked off a partial history. Sector and industry `
-      + `come from the S&amp;P membership table, so names tracked outside the index carry no `
-      + `sector; theme tags come from this repo's own baskets and a name can hold several. `
+      + `from the 3Y ranking rather than ranked off a partial history. Sectors are GICS for `
+      + `index members and Yahoo's own taxonomy mapped onto GICS for everything else — `
+      + `close enough to count together, not close enough to argue over one name. Theme `
+      + `tags come from this repo's own baskets, and a name can hold several. `
       + `Group medians are over every filtered name in that group, not over the cohort — a `
       + `sector can own the cohort on one outlier while its median goes nowhere.`
       + (M.n_stale ? ` ${M.n_stale} names with a stale feed are excluded.` : '');

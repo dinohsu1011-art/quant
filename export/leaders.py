@@ -20,6 +20,7 @@ one computed from its first day would put it at the top of every ranking.
     python -m export.leaders [/some/dir]
 """
 import json
+import re
 import sys
 from collections import Counter
 from datetime import datetime
@@ -32,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from analysis.universe import load_prices, scan_universe
 from ingestion.baskets import BASKETS
 from ingestion.recos import LEDGER, reco_tickers
+from ingestion.meta import load_meta
 from ingestion.tickers import load_ticker_meta
 from config import file_stem
 
@@ -58,6 +60,22 @@ THEME_LABEL = {
     "robotics": "Robotics", "miners": "Miners", "materials": "Materials",
     "gas": "Gas power", "japan": "Japan",
 }
+
+
+# Yahoo returns the full legal name; the screen has one column for it. Only the
+# corporate-form tail is trimmed — nothing that distinguishes two companies.
+_TAIL = re.compile(
+    r"[\s,]*\b(?:the\s+)?(?:inc|inc\.|incorporated|corp|corp\.|corporation|co|co\.|"
+    r"company|companies|ltd|ltd\.|limited|plc|llc|lp|nv|n\.v\.|sa|s\.a\.|ag|se|oyj|"
+    r"abp|holding|holdings|group|kk|k\.k\.)\.?$", re.I)
+
+
+def tidy(name: str) -> str:
+    prev = None
+    while name and name != prev:
+        prev = name
+        name = _TAIL.sub("", name).strip(" ,.")
+    return name or prev or ""
 
 
 def theme_tags():
@@ -130,10 +148,10 @@ def row(stem, df):
 def build():
     stems = scan_universe()
     px = load_prices(stems, columns=("close", "volume"))
-    meta = load_ticker_meta()
-    # meta is keyed by the raw ticker (BRK-B); the price files by stem
-    meta.index = [file_stem(t) for t in meta.index]
-    sp = set(meta.index)
+    # every tracked name gets a label, not just the index members — an unlabelled
+    # stock still takes a slot in the cohort, so it has to be countable
+    meta = load_meta()
+    sp = {file_stem(t) for t in load_ticker_meta().index}
     tags = theme_tags()
     reco = {file_stem(t) for t in reco_tickers()}
 
@@ -146,7 +164,7 @@ def build():
         if r is None:
             continue
         m = meta.loc[stem] if stem in meta.index else None
-        r["n"] = (m["name"] if m is not None else "") or stem
+        r["n"] = tidy(m["name"] if m is not None else "") or stem
         r["s"] = (m["sector"] if m is not None else "") or "—"
         r["i"] = (m["industry"] if m is not None else "") or ""
         r["sp"] = stem in sp

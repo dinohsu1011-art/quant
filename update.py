@@ -128,7 +128,7 @@ def sync_site():
           "(push to GitHub to refresh the Pages site)")
 
 
-TOTAL_STEPS = 12
+TOTAL_STEPS = 13
 
 
 def step(i, name, fn):
@@ -150,9 +150,10 @@ if __name__ == "__main__":
     step(5, "regenerate theme return series", lambda: sub("export.themes"))
     step(6, "regenerate annual consensus EPS vintages", lambda: sub("export.pe_bands"))
     step(7, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
-    step(8, "regenerate single-stock leaders screen", lambda: sub("export.leaders"))
-    step(9, "regenerate macro regime masks", lambda: sub("export.regimes"))
-    step(10, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(11, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(12, "validate", lambda: sub("validate.py"))
+    step(8, "top up company/sector labels for new names", lambda: sub("ingestion.meta"))
+    step(9, "regenerate single-stock leaders screen", lambda: sub("export.leaders"))
+    step(10, "regenerate macro regime masks", lambda: sub("export.regimes"))
+    step(11, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(12, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(13, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")
