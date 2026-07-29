@@ -180,8 +180,12 @@
   // ---------- state ----------
   // `top` is the cohort size the composition panel reads. It is the whole point
   // of the page: a rank is only interesting once you ask what the top N share.
+  // sortK/sortDir start as the ranking itself, and Best/Worst resets them to it.
+  // Otherwise flipping to Worst renumbers the ranks but leaves the table sorted
+  // best-first, so the bottom 10 sits at the bottom of a 500-row table.
   const st = { win:'YTD', uni:'sp', dir:-1, top:10, q:'', sector:'', theme:'',
                minAdv:0, sortK:'win', sortDir:-1 };
+  const sortByRank = () => { st.sortK = 'win'; st.sortDir = st.dir; };
 
   const UNIS = [['sp','S&P 500'], ['all','All tracked'], ['reco','My coverage']];
   const DIRS = [[-1,'Best'], [1,'Worst']];
@@ -382,7 +386,7 @@
   }
   mkBtns(document.getElementById('wins'), WINDOWS.map(w => [w, w]), v => st.win = v);
   mkBtns(document.getElementById('unis'), UNIS, v => st.uni = v);
-  mkBtns(document.getElementById('dirs'), DIRS, v => st.dir = +v);
+  mkBtns(document.getElementById('dirs'), DIRS, v => { st.dir = +v; sortByRank(); });
   mkBtns(document.getElementById('tops'), TOPS.map(t => [t, 'Top ' + t]), v => st.top = +v);
   mkBtns(document.getElementById('liq'),  LIQ,  v => st.minAdv = +v);
 
@@ -418,7 +422,7 @@
     const [w, u, d, t, adv, sec, thm] = h.split('|').map(decodeURIComponent);
     if (WINDOWS.includes(w)) st.win = w;
     if (UNIS.some(x => x[0] === u)) st.uni = u;
-    if (d === 'best' || d === 'worst') st.dir = d === 'best' ? -1 : 1;
+    if (d === 'best' || d === 'worst'){ st.dir = d === 'best' ? -1 : 1; sortByRank(); }
     if (TOPS.includes(+t)) st.top = +t;
     if (LIQ.some(x => x[0] === +adv)) st.minAdv = +adv;
     if (M.sectors.includes(sec)) st.sector = sec;
