@@ -53,6 +53,8 @@ class LeadersPageTests(unittest.TestCase):
         self.assertNotIn("Median baseline", self.script)
         self.assertIn("const sub=fmtP", self.script)
         self.assertIn("Every flag trails left", self.script)
+        self.assertNotIn("const keyItems", self.script)
+        self.assertNotIn("Rank + ticker", self.script)
         self.assertNotIn("p.x>plotLeft+span*.63", self.script)
         self.assertNotIn("branchEnds", self.script)
 
