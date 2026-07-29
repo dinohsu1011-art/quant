@@ -658,7 +658,8 @@
     ctx.setLineDash([]);
 
     function drawPennant(p){
-      const side=p.x>plotLeft+span*.63 ? -1 : 1;
+      // Every flag trails left from its checkpoint. A single direction keeps
+      // neighboring pennants in separate horizontal lanes and clears the axis.
       const poleTop=Math.max(20,p.y-44);
       const fh=30;
       ctx.strokeStyle='#292524'; ctx.lineWidth=1.1;
@@ -669,24 +670,19 @@
       ctx.font='600 8px ui-monospace, "SF Mono", Menlo, monospace';
       const sub=fmtP(p.r.r[win]), subWidth=ctx.measureText(sub).width;
       const fw=Math.max(62,textWidth+18,subWidth+18);
-      const fy=poleTop, fx=side>0 ? p.x+1 : p.x-fw-1;
+      const fy=poleTop, fx=p.x-fw-1;
       ctx.beginPath();
-      if (side>0){
-        ctx.moveTo(fx,fy); ctx.lineTo(fx+fw,fy); ctx.lineTo(fx+fw-7,fy+fh/2);
-        ctx.lineTo(fx+fw,fy+fh); ctx.lineTo(fx,fy+fh);
-      } else {
-        ctx.moveTo(fx+fw,fy); ctx.lineTo(fx,fy); ctx.lineTo(fx+7,fy+fh/2);
-        ctx.lineTo(fx,fy+fh); ctx.lineTo(fx+fw,fy+fh);
-      }
+      ctx.moveTo(fx+fw,fy); ctx.lineTo(fx,fy); ctx.lineTo(fx+7,fy+fh/2);
+      ctx.lineTo(fx,fy+fh); ctx.lineTo(fx+fw,fy+fh);
       ctx.closePath(); ctx.fillStyle='rgba(255,255,255,.96)'; ctx.fill();
       ctx.strokeStyle='#292524'; ctx.lineWidth=.9; ctx.stroke();
       ctx.fillStyle=colourOf(p.r);
-      ctx.fillRect(side>0?fx+2:fx+fw-5,fy+2,3,fh-4);
-      ctx.fillStyle='#0c0a09'; ctx.textAlign=side>0?'left':'right';
+      ctx.fillRect(fx+fw-5,fy+2,3,fh-4);
+      ctx.fillStyle='#0c0a09'; ctx.textAlign='right';
       ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
-      ctx.fillText(text,side>0?fx+9:fx+fw-9,fy+10);
+      ctx.fillText(text,fx+fw-9,fy+10);
       ctx.fillStyle='#78716c'; ctx.font='600 8px ui-monospace, "SF Mono", Menlo, monospace';
-      ctx.fillText(sub,side>0?fx+9:fx+fw-9,fy+21.5);
+      ctx.fillText(sub,fx+fw-9,fy+21.5);
     }
 
     const showEvery=cohort.length<=12 ? 1 : Math.ceil(cohort.length/12);
@@ -719,10 +715,10 @@
       ctx.textAlign='center';
       if (kind==='pennant'){
         const fw=54,fh=25,fx=x-fw/2,fy=y-fh/2;
-        ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx+fw,fy);
-        ctx.lineTo(fx+fw-7,fy+fh/2); ctx.lineTo(fx+fw,fy+fh);
-        ctx.lineTo(fx,fy+fh); ctx.closePath(); ctx.fillStyle='#ffffff'; ctx.fill(); ctx.stroke();
-        ctx.fillStyle='#b8484f'; ctx.fillRect(fx+2,fy+2,3,fh-4);
+        ctx.beginPath(); ctx.moveTo(fx+fw,fy); ctx.lineTo(fx,fy);
+        ctx.lineTo(fx+7,fy+fh/2); ctx.lineTo(fx,fy+fh);
+        ctx.lineTo(fx+fw,fy+fh); ctx.closePath(); ctx.fillStyle='#ffffff'; ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#b8484f'; ctx.fillRect(fx+fw-5,fy+2,3,fh-4);
         ctx.fillStyle='#292524'; ctx.font='600 8.5px ui-monospace, "SF Mono", Menlo, monospace';
         ctx.fillText('# TICKER',x,y-4);
         ctx.fillStyle='#78716c'; ctx.font='600 7px ui-monospace, "SF Mono", Menlo, monospace';
