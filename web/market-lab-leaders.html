@@ -669,13 +669,16 @@
 
     function drawPennant(p){
       const side=p.x>plotLeft+span*.63 ? -1 : 1;
-      const poleTop=Math.max(24,p.y-34);
-      const fh=20;
+      const poleTop=Math.max(20,p.y-44);
+      const fh=30;
       ctx.strokeStyle='#292524'; ctx.lineWidth=1.1;
       ctx.beginPath(); ctx.moveTo(p.x,p.y-3); ctx.lineTo(p.x,poleTop); ctx.stroke();
       ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
       const text=`${p.rank}  ${p.r.t}`;
-      const fw=Math.max(58,ctx.measureText(text).width+18);
+      const textWidth=ctx.measureText(text).width;
+      ctx.font='600 8px ui-monospace, "SF Mono", Menlo, monospace';
+      const sub=fmtP(p.r.r[win]), subWidth=ctx.measureText(sub).width;
+      const fw=Math.max(62,textWidth+18,subWidth+18);
       const fy=poleTop, fx=side>0 ? p.x+1 : p.x-fw-1;
       ctx.beginPath();
       if (side>0){
@@ -690,10 +693,10 @@
       ctx.fillStyle=colourOf(p.r);
       ctx.fillRect(side>0?fx+2:fx+fw-5,fy+2,3,fh-4);
       ctx.fillStyle='#0c0a09'; ctx.textAlign=side>0?'left':'right';
-      ctx.fillText(text,side>0?fx+9:fx+fw-9,fy+fh/2+.5);
       ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
-      ctx.textAlign=side>0?'left':'right';
-      ctx.fillText(fmtP(p.r.r[win]),side>0?fx+fw+7:fx-7,fy+fh/2+.5);
+      ctx.fillText(text,side>0?fx+9:fx+fw-9,fy+10);
+      ctx.fillStyle='#78716c'; ctx.font='600 8px ui-monospace, "SF Mono", Menlo, monospace';
+      ctx.fillText(sub,side>0?fx+9:fx+fw-9,fy+21.5);
     }
 
     const showEvery=cohort.length<=12 ? 1 : Math.ceil(cohort.length/12);
@@ -726,13 +729,15 @@
       ctx.strokeStyle='#292524'; ctx.fillStyle='#292524'; ctx.lineWidth=1.1;
       ctx.textAlign='center';
       if (kind==='pennant'){
-        const fw=54,fh=17,fx=x-fw/2,fy=y-fh/2;
+        const fw=54,fh=25,fx=x-fw/2,fy=y-fh/2;
         ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx+fw,fy);
         ctx.lineTo(fx+fw-7,fy+fh/2); ctx.lineTo(fx+fw,fy+fh);
         ctx.lineTo(fx,fy+fh); ctx.closePath(); ctx.fillStyle='#ffffff'; ctx.fill(); ctx.stroke();
         ctx.fillStyle='#b8484f'; ctx.fillRect(fx+2,fy+2,3,fh-4);
         ctx.fillStyle='#292524'; ctx.font='600 8.5px ui-monospace, "SF Mono", Menlo, monospace';
-        ctx.fillText('# TICKER',x,y+.5);
+        ctx.fillText('# TICKER',x,y-4);
+        ctx.fillStyle='#78716c'; ctx.font='600 7px ui-monospace, "SF Mono", Menlo, monospace';
+        ctx.fillText('+14.9%',x,y+6);
       } else if (kind==='path'){
         ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(x-27,y); ctx.lineTo(x+27,y); ctx.stroke();
         ctx.setLineDash([]);
