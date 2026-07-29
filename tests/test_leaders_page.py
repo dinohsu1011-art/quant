@@ -48,6 +48,8 @@ class LeadersPageTests(unittest.TestCase):
         self.assertIn("drawPennant", self.script)
         self.assertIn("Dashed switchbacks", self.script)
         self.assertIn("Short downhill hachures", self.script)
+        self.assertIn("SECTOR · pennant notch", self.script)
+        self.assertIn("Median baseline", self.script)
         self.assertNotIn("branchEnds", self.script)
 
 

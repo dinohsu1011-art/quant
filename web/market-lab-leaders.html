@@ -393,7 +393,7 @@
     'Health Care':'#2d928f', 'Financials':'#4f8b51', 'Consumer Discretionary':'#a55a7c',
     'Consumer Staples':'#8b7336', 'Communication Services':'#597e9b',
     'Energy':'#9a5e2e', 'Utilities':'#6e8174', 'Real Estate':'#9b6b62',
-    'Aerospace & Defense':'#566f9e'
+    'Aerospace & Defense':'#566f9e', '—':'#8c8c8c'
   };
   const hash32 = s => {
     let h = 2166136261;
@@ -529,7 +529,8 @@
   function drawSummit(pool, cohort){
     viz.hidden = false; vizEmpty.hidden = true;
     const win = rankWin();
-    const height = cohort.length > 50 ? 690 : 590;
+    const legendH = 112;
+    const height = cohort.length > 50 ? 802 : 698;
     const {ctx,width,height:h} = canvasContext(height,'#fffdf8');
     const baseSignature = [win,st.uni,st.dir,st.top,st.sector,st.theme,st.minAdv,
       cohort.map(r=>r.t).join(',')].join('|');
@@ -537,7 +538,7 @@
     const routeSeed = hash32(baseSignature + '|' + st.route);
     const terrainRandom = rng32(mountainSeed), routeRandom = rng32(routeSeed);
     const axisX = width-26, plotLeft = 22, plotRight = width-66;
-    const baseY = h-48, summitY = 58;
+    const legendTop = h-legendH, baseY = legendTop-22, summitY = 58;
     const span = plotRight-plotLeft, summitX = plotLeft+span*.82;
 
     // A real mountain silhouette: foothills, shoulders, false peaks and one
@@ -566,8 +567,8 @@
 
     ctx.beginPath(); ctx.moveTo(plotLeft-10,baseY+8);
     ridge.forEach(p => ctx.lineTo(p.x,p.y));
-    ctx.lineTo(plotRight+8,baseY+8); ctx.lineTo(plotRight+8,h-12);
-    ctx.lineTo(plotLeft-10,h-12); ctx.closePath();
+    ctx.lineTo(plotRight+8,baseY+8); ctx.lineTo(plotRight+8,baseY+16);
+    ctx.lineTo(plotLeft-10,baseY+16); ctx.closePath();
     ctx.fillStyle='#faf8f3'; ctx.fill();
 
     // Fine contour bands follow the face of the mountain instead of floating
@@ -702,8 +703,71 @@
       vizHits.push({x:p.x,y:p.y,r:p.r,rank:p.rank,win});
       if (i%showEvery===0 || p.rank<=3 || p.rank===cohort.length) drawPennant(p);
     });
+
+    // Compact key from the original concept: first explain the five visual
+    // encodings, then map the live cohort's sectors to pennant-notch colours.
+    ctx.strokeStyle='#78716c'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.moveTo(16,legendTop); ctx.lineTo(width-16,legendTop); ctx.stroke();
+    ctx.fillStyle='#292524'; ctx.font='600 9.5px ui-sans-serif, system-ui, sans-serif';
+    ctx.textAlign='left'; ctx.fillText('LEGEND',18,legendTop+16);
+
+    const keyLeft=width<900 ? 18 : 150;
+    const sectorLeft=Math.max(width*.64,500);
+    const keyWidth=sectorLeft-keyLeft-24;
+    const keyItems=[
+      ['pennant','Rank + ticker'],
+      ['path','Mountain path'],
+      ['point','Checkpoint'],
+      ['altitude','Altitude'],
+      ['baseline','Median baseline']
+    ];
+    keyItems.forEach(([kind,text],i) => {
+      const x=keyLeft+(i+.5)*keyWidth/keyItems.length, y=legendTop+46;
+      ctx.strokeStyle='#292524'; ctx.fillStyle='#292524'; ctx.lineWidth=1.1;
+      ctx.textAlign='center';
+      if (kind==='pennant'){
+        const fw=54,fh=17,fx=x-fw/2,fy=y-fh/2;
+        ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx+fw,fy);
+        ctx.lineTo(fx+fw-7,fy+fh/2); ctx.lineTo(fx+fw,fy+fh);
+        ctx.lineTo(fx,fy+fh); ctx.closePath(); ctx.fillStyle='#ffffff'; ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#b8484f'; ctx.fillRect(fx+2,fy+2,3,fh-4);
+        ctx.fillStyle='#292524'; ctx.font='600 8.5px ui-monospace, "SF Mono", Menlo, monospace';
+        ctx.fillText('# TICKER',x,y+.5);
+      } else if (kind==='path'){
+        ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(x-27,y); ctx.lineTo(x+27,y); ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (kind==='point'){
+        ctx.fillStyle='#fffdf8'; ctx.beginPath(); ctx.arc(x,y,4.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      } else if (kind==='altitude'){
+        ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
+        ctx.fillText('+14.9%',x,y);
+      } else {
+        ctx.strokeStyle='#1d7fc4'; ctx.setLineDash([6,4]);
+        ctx.beginPath(); ctx.moveTo(x-27,y); ctx.lineTo(x+27,y); ctx.stroke(); ctx.setLineDash([]);
+      }
+      ctx.fillStyle='#57534e'; ctx.font='8.5px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillText(text,x,legendTop+72);
+    });
+
+    ctx.strokeStyle='#d6d3d1'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.moveTo(sectorLeft-14,legendTop+12); ctx.lineTo(sectorLeft-14,h-12); ctx.stroke();
+    ctx.fillStyle='#292524'; ctx.font='600 9.5px ui-sans-serif, system-ui, sans-serif';
+    ctx.textAlign='left'; ctx.fillText('SECTOR · pennant notch',sectorLeft,legendTop+16);
+    const sectors=[...new Set(cohort.map(r => r.s==='—' ? 'Other' : r.s))].sort();
+    const sectorCols=sectors.length>10 ? 3 : sectors.length>5 ? 2 : 1;
+    const sectorRows=Math.ceil(sectors.length/sectorCols);
+    const sectorColW=(width-sectorLeft-18)/sectorCols;
+    sectors.forEach((sector,i) => {
+      const col=Math.floor(i/sectorRows), row=i%sectorRows;
+      const x=sectorLeft+col*sectorColW, y=legendTop+39+row*14;
+      ctx.fillStyle=colourOf({s:sector==='Other'?'—':sector,t:sector});
+      ctx.fillRect(x,y-4,8,8);
+      ctx.fillStyle='#57534e'; ctx.font='8.5px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillText(sector.length>23 ? sector.slice(0,22)+'…' : sector,x+13,y);
+    });
     vizDesc.textContent = `${cohort.length} ranked tickers climb an etched mountain from left `
-      + `to right over ${win}. Pennant notches show sector and altitude encodes return.`;
+      + `to right over ${win}. The bottom legend explains route, checkpoint, altitude, median `
+      + `baseline and the sector colour used on each pennant notch.`;
   }
 
   function drawViz(pool,cohort){
