@@ -26,7 +26,6 @@
     .kicker a:hover { color:var(--blue-deep); }
     .mast h1 { font-family:var(--serif); font-size:40px; line-height:1.05; font-weight:600;
                margin:4px 0 0; letter-spacing:-.02em; }
-    .mast .sub { font-size:12.5px; color:var(--ash); margin-top:6px; max-width:640px; }
     .mast .asof { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
                   white-space:nowrap; font-variant-numeric:tabular-nums; }
     .mast .asof .xlink { display:block; margin-top:7px; color:var(--blue-deep);
@@ -41,6 +40,9 @@
                    font-size:12.5px; color:var(--ash); border-bottom:1.5px solid transparent; }
     .cgrp button:hover { color:var(--ink); }
     .cgrp button.on { color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
+    .cgrp button:focus-visible { outline:1px solid var(--blue); outline-offset:3px; }
+    .cgrp button.route { color:var(--blue-deep); font-family:var(--mono); }
+    .cgrp button.route[hidden] { display:none; }
     .cgrp input[type=search] { font-family:var(--sans); font-size:12.5px; padding:4px 9px;
                     border:1px solid var(--stone); border-radius:8px; background:var(--white);
                     color:var(--ink); width:190px; }
@@ -53,7 +55,7 @@
             background:var(--white); border:1px solid var(--stone); border-radius:4px;
             padding:16px 20px 18px; margin-top:16px; }
     .comp h3 { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel);
-               font-weight:600; margin:0 0 9px; }
+               font-weight:600; margin:0 0 9px; display:flex; gap:8px; align-items:baseline; }
     .comp h3 em { font-style:normal; color:var(--ash); letter-spacing:0; text-transform:none;
                   font-size:10.5px; }
     .crow { display:grid; grid-template-columns:150px minmax(0,1fr) 40px 60px; align-items:center;
@@ -69,10 +71,24 @@
     .crow .cn { color:var(--ink); }
     .cempty { font-size:12px; color:var(--steel); padding:4px 0; }
 
-    .verdict { font-size:13.5px; color:var(--ink); margin:16px 2px 0; max-width:900px;
-               line-height:1.6; }
+    .verdict { font-family:var(--mono); font-size:10.5px; color:var(--ash); margin:13px 2px 0;
+               line-height:1.5; font-variant-numeric:tabular-nums; }
     .verdict b { font-weight:650; }
-    .verdict span.q { color:var(--ash); }
+
+    /* ---------- alternate rank views ---------- */
+    .vizwrap { position:relative; overflow:auto; margin-top:18px; background:var(--white);
+               border:1px solid var(--stone); border-radius:4px; min-height:420px; }
+    .vizwrap canvas { display:block; width:100%; min-width:760px; }
+    .vizwrap canvas[hidden], .vizempty[hidden] { display:none; }
+    .viztip { position:absolute; z-index:4; pointer-events:none; opacity:0; transform:translate(10px,-50%);
+              padding:5px 7px; border:1px solid var(--platinum); border-radius:3px;
+              background:rgba(255,255,255,.96); box-shadow:0 2px 10px rgba(12,10,9,.06);
+              color:var(--ink); font:10.5px/1.35 var(--mono); white-space:nowrap; }
+    .viztip.on { opacity:1; }
+    .vizempty { min-height:420px; display:grid; place-items:center; color:var(--steel);
+                font:11px var(--mono); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+               clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 
     /* ---------- table ---------- */
     .tablewrap { overflow-x:auto; margin-top:22px; }
@@ -101,11 +117,11 @@
     .rk { color:var(--steel); font-size:11px; }
     .bar { display:inline-block; height:8px; background:var(--sky); border-radius:1px;
            vertical-align:middle; }
-    .note { font-size:12px; color:var(--ash); margin-top:26px; max-width:820px; line-height:1.65; }
+    .note { font:10.5px/1.6 var(--mono); color:var(--steel); margin-top:18px; max-width:980px; }
     .note b { color:var(--ink); font-weight:600; }
     .empty { padding:80px 0; text-align:center; color:var(--steel); font-size:13px; }
     @media (max-width:900px){ .main{padding:20px 14px 60px;} .mast h1{font-size:30px;}
-      .comp{grid-template-columns:1fr; gap:18px;} }
+      .comp{grid-template-columns:1fr; gap:18px;} .vizwrap{margin-top:14px;} }
   </style>
 </head>
 <body>
@@ -114,9 +130,6 @@
     <div>
       <div class="kicker"><a href="market-lab.html">&larr; Market Lab</a></div>
       <h1>Leaders</h1>
-      <div class="sub">Every tracked single stock ranked over one window, with the
-        sector and theme labels attached — so a ranking answers what the leaders
-        have in common, not just who they are.</div>
     </div>
     <div class="asof">
       <div id="asof"></div>
@@ -130,6 +143,8 @@
     <div class="cgrp" id="unis"><span class="lbl">Universe</span></div>
     <div class="cgrp" id="dirs"><span class="lbl">Rank</span></div>
     <div class="cgrp" id="tops"><span class="lbl">Cohort</span></div>
+    <div class="cgrp" id="views"><span class="lbl">View</span></div>
+    <div class="cgrp"><button class="route" id="reroute" hidden aria-label="Draw another summit route">↻ route</button></div>
   </div>
   <div class="controls">
     <div class="cgrp"><span class="lbl">Filter</span>
@@ -143,16 +158,23 @@
 
   <div class="comp">
     <div>
-      <h3>Sectors in the cohort <em id="ch1"></em></h3>
+      <h3>Sectors <em id="ch1"></em></h3>
       <div id="csec"></div>
     </div>
     <div>
-      <h3>Themes in the cohort <em id="ch2"></em></h3>
+      <h3>Themes <em id="ch2"></em></h3>
       <div id="cthm"></div>
     </div>
   </div>
 
   <p class="verdict" id="verdict"></p>
+
+  <div class="vizwrap" id="vizwrap" hidden>
+    <canvas id="viz" role="img" aria-describedby="vizdesc"></canvas>
+    <div class="viztip" id="viztip"></div>
+    <div class="vizempty" id="vizempty" hidden>Choose two windows.</div>
+    <div class="sr-only" id="vizdesc"></div>
+  </div>
 
   <div class="tablewrap">
     <table id="tbl">
@@ -183,14 +205,44 @@
   // sortK/sortDir start as the ranking itself, and Best/Worst resets them to it.
   // Otherwise flipping to Worst renumbers the ranks but leaves the table sorted
   // best-first, so the bottom 10 sits at the bottom of a 500-row table.
-  const st = { win:'YTD', uni:'all', dir:-1, top:10, q:'', sector:'', theme:'',
-               minAdv:0, sortK:'win', sortDir:-1 };
+  const st = { windows:['YTD'], view:'table', uni:'all', dir:-1, top:10, q:'',
+               sector:'', theme:'', minAdv:0, sortK:'win', sortDir:-1, route:0 };
   const sortByRank = () => { st.sortK = 'win'; st.sortDir = st.dir; };
 
   const UNIS = [['all','All tracked'], ['sp','S&P 500'], ['reco','My coverage']];
   const DIRS = [[-1,'Best'], [1,'Worst']];
   const TOPS = [10, 25, 50, 100];
   const LIQ  = [[0,'—'], [50,'50M'], [250,'250M'], [1000,'1B']];
+  const VIEWS = [['table','Table'], ['loom','Loom'], ['summit','Summit']];
+  const WIN_POS = Object.fromEntries(WINDOWS.map((w,i) => [w,i]));
+  const selectedWindows = () => st.windows.slice().sort((a,b) => WIN_POS[b] - WIN_POS[a]);
+  // The shorter window starts later, so it belongs on the right side of the
+  // loom and defines the currently displayed cohort.
+  const rankWin = () => selectedWindows().at(-1);
+  const pickCompanion = w => {
+    const i = WIN_POS[w];
+    return i < WINDOWS.length-1 ? WINDOWS[i+1] : WINDOWS[Math.max(0,i-1)];
+  };
+  const addWindow = w => {
+    if (st.view !== 'loom') { st.windows = [w]; return; }
+    const at = st.windows.indexOf(w);
+    if (at >= 0) {
+      if (st.windows.length > 1) st.windows.splice(at, 1);
+      return;
+    }
+    st.windows.push(w);
+    if (st.windows.length > 2) st.windows.shift();
+  };
+  const setView = v => {
+    st.view = v;
+    if (v === 'loom' && st.windows.length < 2) {
+      const w = st.windows[0];
+      const other = pickCompanion(w);
+      st.windows = other === w ? [w] : [w, other];
+    } else if (v !== 'loom' && st.windows.length > 1) {
+      st.windows = [rankWin()];
+    }
+  };
 
   const fmtP = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
   const cls  = v => v == null ? '' : v >= 0 ? 'pos' : 'neg';
@@ -212,12 +264,15 @@
         const q = st.q.toLowerCase();
         if (!r.t.toLowerCase().includes(q) && !r.n.toLowerCase().includes(q)) return false;
       }
-      return r.r[st.win] != null;
+      return r.r[rankWin()] != null;
     });
   }
   // Rank is always by the chosen window, whatever the table is sorted on. The
   // cohort has to mean one thing, or "top 10" stops being comparable to itself.
-  const ranked = p => p.slice().sort((a,b) => st.dir * (a.r[st.win] - b.r[st.win]));
+  const ranked = p => {
+    const win = rankWin();
+    return p.slice().sort((a,b) => st.dir * (a.r[win] - b.r[win]));
+  };
 
   const median = xs => {
     const s = xs.filter(v => v != null).sort((a,b) => a-b);
@@ -231,6 +286,7 @@
   // median return. A sector can own the cohort on one big name while its median
   // sits flat — that is a different market from a sector moving as a block.
   function composition(cohort, all, key, labelOf){
+    const win = rankWin();
     const inC = new Map(), inAll = new Map();
     const push = (m, k, r) => { if (!m.has(k)) m.set(k, []); m.get(k).push(r); };
     for (const r of cohort) for (const k of key(r)) push(inC, k, r);
@@ -239,7 +295,7 @@
     for (const [k, members] of inC){
       const universe = inAll.get(k) || [];
       out.push({ k, label: labelOf(k), n: members.length, of: universe.length,
-                 med: median(universe.map(r => r.r[st.win])) });
+                 med: median(universe.map(r => r.r[win])) });
     }
     return out.sort((a,b) => b.n - a.n || (b.med ?? -1e9) - (a.med ?? -1e9));
   }
@@ -260,7 +316,9 @@
   }
 
   // ---------- table ----------
-  const COLS = () => [
+  const COLS = () => {
+    const win = rankWin();
+    return [
     {k:'rank', l:'#',        cls:'rk',  get:(r,i)=>String(i+1)},
     {k:'t',    l:'Ticker',   left:true, get:r=>`<span class="tk">${esc(r.t)}</span>`
                  + `<span class="co">${esc(r.n)}</span>`},
@@ -268,15 +326,16 @@
     {k:'th',   l:'Themes',   left:true, nosort:true, get:r=> r.th.map(t =>
                  `<span class="tag${t === st.theme ? ' hot' : ''}">${esc(THEMES[t] || t)}</span>`).join('')
                  + (r.rc ? '<span class="tag rc">coverage</span>' : '')},
-    {k:'win',  l:st.win,     key:true,  get:r=>fmtP(r.r[st.win]), v:r=>r.r[st.win], colour:true},
-    ...WINDOWS.filter(w => w !== st.win).map(w =>
+    {k:'win',  l:win,        key:true,  get:r=>fmtP(r.r[win]), v:r=>r.r[win], colour:true},
+    ...WINDOWS.filter(w => w !== win).map(w =>
     ({k:'w:'+w, l:w, get:r=>fmtP(r.r[w]), v:r=>r.r[w], colour:true})),
     {k:'off52',l:'off 52wH', get:r=>fmtP(r.off52), v:r=>r.off52, colour:true},
     {k:'ma50', l:'vs 50d',   get:r=>fmtP(r.ma50),  v:r=>r.ma50,  colour:true},
     {k:'ma200',l:'vs 200d',  get:r=>fmtP(r.ma200), v:r=>r.ma200, colour:true},
     {k:'vol',  l:'ann vol',  get:r=>r.vol == null ? '—' : r.vol.toFixed(0) + '%', v:r=>r.vol},
     {k:'adv',  l:'$ vol',    get:r=>fmtM(r.adv), v:r=>r.adv},
-  ];
+    ];
+  };
 
   function drawTable(list, cohortN){
     const cols = COLS();
@@ -318,6 +377,260 @@
     return sorted.length;
   }
 
+  // ---------- loom + summit ----------
+  // Canvas keeps the two views light enough to redraw on every cohort change,
+  // while the normal table remains the exact, accessible default.
+  const viz = document.getElementById('viz');
+  const vizWrap = document.getElementById('vizwrap');
+  const vizTip = document.getElementById('viztip');
+  const vizEmpty = document.getElementById('vizempty');
+  const vizDesc = document.getElementById('vizdesc');
+  let vizHits = [];
+  let lastViz = null;
+
+  const SECTOR_COLOURS = {
+    'Materials':'#287fbd', 'Industrials':'#d4871d', 'Information Technology':'#6550a4',
+    'Health Care':'#2d928f', 'Financials':'#4f8b51', 'Consumer Discretionary':'#a55a7c',
+    'Consumer Staples':'#8b7336', 'Communication Services':'#597e9b',
+    'Energy':'#9a5e2e', 'Utilities':'#6e8174', 'Real Estate':'#9b6b62',
+    'Aerospace & Defense':'#566f9e'
+  };
+  const hash32 = s => {
+    let h = 2166136261;
+    for (let i=0; i<s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  };
+  const rng32 = seed => () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  const colourOf = r => SECTOR_COLOURS[r.s]
+    || `hsl(${hash32(r.s || r.t) % 300 + 20} 38% 44%)`;
+
+  function canvasContext(height){
+    const width = Math.max(760, vizWrap.clientWidth || 760);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    viz.style.width = width + 'px';
+    viz.style.height = height + 'px';
+    viz.width = Math.round(width * dpr);
+    viz.height = Math.round(height * dpr);
+    const ctx = viz.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,width,height);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,width,height);
+    ctx.textBaseline = 'middle';
+    vizHits = [];
+    return {ctx, width, height};
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    const rr = Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr,y); ctx.arcTo(x+w,y,x+w,y+h,rr);
+    ctx.arcTo(x+w,y+h,x,y+h,rr); ctx.arcTo(x,y+h,x,y,rr);
+    ctx.arcTo(x,y,x+w,y,rr); ctx.closePath();
+  }
+  function rankMap(pool, win){
+    const rows = pool.filter(r => r.r[win] != null)
+      .sort((a,b) => st.dir * (a.r[win] - b.r[win]));
+    return new Map(rows.map((r,i) => [r.t,i+1]));
+  }
+  function label(ctx, x, y, align, r, rank, win){
+    ctx.textAlign = align;
+    ctx.fillStyle = '#0c0a09';
+    ctx.font = '600 11px ui-monospace, "SF Mono", Menlo, monospace';
+    const value = fmtP(r.r[win]);
+    ctx.fillText(`#${rank ?? '—'}  ${r.t}  ${value}`,x,y);
+  }
+
+  function drawLoom(pool, cohort){
+    const wins = selectedWindows();
+    if (wins.length !== 2){
+      viz.hidden = true; vizEmpty.hidden = false; vizDesc.textContent = 'Choose exactly two windows.';
+      return;
+    }
+    viz.hidden = false; vizEmpty.hidden = true;
+    const [leftWin,rightWin] = wins;
+    const rowH = cohort.length > 50 ? 19 : 24;
+    const height = Math.max(430, 78 + cohort.length * rowH);
+    const {ctx,width,height:h} = canvasContext(height);
+    const top = 58, bottom = h - 34;
+    const leftRank = rankMap(pool,leftWin), rightRank = rankMap(pool,rightWin);
+    const leftRows = cohort.slice().sort((a,b) => {
+      const av=a.r[leftWin], bv=b.r[leftWin];
+      if (av == null) return 1; if (bv == null) return -1;
+      return st.dir * (av-bv);
+    });
+    const rightRows = cohort.slice().sort((a,b) =>
+      (rightRank.get(a.t) ?? 1e9) - (rightRank.get(b.t) ?? 1e9));
+    const yFor = (i,n) => n < 2 ? (top+bottom)/2 : top + (bottom-top)*i/(n-1);
+    const ly = new Map(leftRows.map((r,i) => [r.t,yFor(i,leftRows.length)]));
+    const ry = new Map(rightRows.map((r,i) => [r.t,yFor(i,rightRows.length)]));
+    const labelW = width < 900 ? 128 : 168;
+    const x0 = labelW, x1 = width-labelW;
+    const cx = width/2, loomW = Math.min(184,width*.24);
+    const loomL = cx-loomW/2, loomR = cx+loomW/2;
+    const seed = hash32([leftWin,rightWin,cohort.map(r=>r.t).join(','),st.route].join('|'));
+    const random = rng32(seed);
+
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0,34); ctx.lineTo(x1,34); ctx.stroke();
+    ctx.fillStyle = '#78716c'; ctx.font = '10px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign = 'left'; ctx.fillText(`${leftWin}  ·  earlier start`,18,22);
+    ctx.textAlign = 'right'; ctx.fillText(`${rightWin}  ·  later start`,width-18,22);
+
+    // The paths enter a framed loom, pass through alternating heddles, and fan
+    // back out in the second ranking order.
+    for (const r of cohort){
+      const a = ly.get(r.t), b = ry.get(r.t);
+      const route = (hash32(r.t + seed) % 5) - 2;
+      const mid = (a+b)/2;
+      const h1 = Math.max(top,Math.min(bottom,mid + route*5 + (random()-.5)*8));
+      const h2 = Math.max(top,Math.min(bottom,mid - route*7 + (random()-.5)*8));
+      ctx.beginPath(); ctx.moveTo(x0,a);
+      ctx.bezierCurveTo(x0+46,a,loomL-34,h1,loomL,h1);
+      ctx.bezierCurveTo(cx-54,h1,cx-28,h2,cx,h2);
+      ctx.bezierCurveTo(cx+28,h2,cx+54,h1,loomR,h1);
+      ctx.bezierCurveTo(loomR+34,h1,x1-46,b,x1,b);
+      ctx.strokeStyle = colourOf(r); ctx.globalAlpha = .76; ctx.lineWidth = cohort.length > 50 ? 1 : 1.35;
+      ctx.stroke(); ctx.globalAlpha = 1;
+      vizHits.push({x:x0,y:a,r,rank:leftRank.get(r.t),win:leftWin});
+      vizHits.push({x:x1,y:b,r,rank:rightRank.get(r.t),win:rightWin});
+    }
+
+    // Frame, heddles, reed and shuttle: enough structure to read as an actual
+    // loom without turning the chart into an illustration.
+    ctx.strokeStyle = '#0c0a09'; ctx.lineWidth = 1.4;
+    roundRect(ctx,loomL-8,top-25,loomW+16,bottom-top+50,4); ctx.stroke();
+    ctx.strokeStyle = '#a8a29e'; ctx.lineWidth = .7;
+    for (let x=cx-38; x<=cx+38; x+=19){
+      ctx.beginPath(); ctx.moveTo(x,top-12); ctx.lineTo(x,bottom+12); ctx.stroke();
+    }
+    ctx.strokeStyle = '#0c0a09'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(loomL-10,top-21); ctx.lineTo(loomR+10,top-21);
+    ctx.moveTo(loomL-10,bottom+21); ctx.lineTo(loomR+10,bottom+21); ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(loomL-4,top-19); ctx.lineTo(loomL-4,bottom+19);
+    ctx.moveTo(loomR+4,top-19); ctx.lineTo(loomR+4,bottom+19); ctx.stroke();
+    ctx.fillStyle = '#0c0a09';
+    roundRect(ctx,cx-35,(top+bottom)/2-4,70,8,4); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.font = '8px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign = 'center'; ctx.fillText('REROUTE',cx,(top+bottom)/2+.5);
+
+    for (const r of leftRows) label(ctx,18,ly.get(r.t),'left',r,leftRank.get(r.t),leftWin);
+    for (const r of rightRows) label(ctx,width-18,ry.get(r.t),'right',r,rightRank.get(r.t),rightWin);
+    vizDesc.textContent = `${cohort.length} ticker threads compare ${leftWin} ranks on the left `
+      + `with ${rightWin} ranks on the right. Each thread is coloured by sector.`;
+  }
+
+  function drawSummit(pool, cohort){
+    viz.hidden = false; vizEmpty.hidden = true;
+    const win = rankWin();
+    const height = cohort.length > 50 ? 620 : 520;
+    const {ctx,width,height:h} = canvasContext(height);
+    const signature = [win,st.uni,st.dir,st.top,st.sector,st.theme,st.minAdv,
+      cohort.map(r=>r.t).join(','),st.route].join('|');
+    const seed = hash32(signature), random = rng32(seed);
+    const base = h-42, summitY = 55, left = 58, right = width-62;
+
+    // Procedural ridge. The seed includes the entire cohort and filters, so a
+    // changed cohort yields a changed mountain while identical state stays put.
+    const ridge = [];
+    for (let i=0;i<=30;i++){
+      const p=i/30, x=18+p*(width-36);
+      const trend = base - (base-summitY)*Math.pow(Math.min(1,p/.92),1.03);
+      const noise = (Math.sin(p*17+random()*3)+Math.sin(p*39+random()*5)*.4)
+        * (20*(1-p)+4);
+      ridge.push([x,trend+noise]);
+    }
+    ridge.push([width-8,base+8]);
+    ctx.beginPath(); ctx.moveTo(8,base+8);
+    for (const [x,y] of ridge) ctx.lineTo(x,y);
+    ctx.lineTo(width-8,h-8); ctx.lineTo(8,h-8); ctx.closePath();
+    ctx.fillStyle = '#fafaf9'; ctx.fill();
+    ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 1; ctx.stroke();
+
+    // Sparse contours borrow the page's hairline grammar.
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = .8;
+    for (let c=1;c<=6;c++){
+      ctx.beginPath();
+      ridge.slice(0,-1).forEach(([x,y],i) => {
+        const yy = Math.min(base+7,y+c*18+Math.sin(i*.8+c)*3);
+        if (!i) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+      });
+      ctx.stroke();
+    }
+
+    const ascent = cohort.slice().reverse();
+    const points = [];
+    let prevX = left-1, prevY = base;
+    ascent.forEach((r,i) => {
+      const p = ascent.length < 2 ? 1 : i/(ascent.length-1);
+      let x = left + p*(right-left) + (random()-.5)*Math.min(20,(right-left)/ascent.length);
+      let y = base - (base-summitY-12)*Math.pow(p,.92)
+        + Math.sin(p*(10 + seed%7)+seed%13)*(11*(1-p));
+      x = Math.max(prevX+2,x);
+      y = Math.min(prevY-1.5,y);
+      points.push({x,y,r,rank:cohort.indexOf(r)+1});
+      prevX=x; prevY=y;
+    });
+
+    const preset = seed % 5;
+    ctx.beginPath(); ctx.moveTo(left-26,base+5);
+    let a = {x:left-26,y:base+5};
+    points.forEach((b,i) => {
+      const dx=b.x-a.x;
+      const swing=((i+preset)%2 ? 1:-1) * (8 + preset*2) * (1-i/Math.max(1,points.length));
+      ctx.bezierCurveTo(a.x+dx*.32,a.y+swing,b.x-dx*.32,b.y-swing,b.x,b.y);
+      a=b;
+    });
+    ctx.strokeStyle = '#1d7fc4'; ctx.lineWidth = 2.2; ctx.setLineDash([7,5]); ctx.stroke();
+    ctx.setLineDash([]);
+
+    const every = cohort.length <= 25 ? 1 : Math.ceil(cohort.length/18);
+    points.forEach((p,i) => {
+      const c=colourOf(p.r);
+      ctx.fillStyle='#ffffff'; ctx.strokeStyle=c; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(p.x,p.y,4.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      vizHits.push({x:p.x,y:p.y,r:p.r,rank:p.rank,win});
+      if (i % every && p.rank > 3) return;
+      const above = i%2===0;
+      const text=`#${p.rank} ${p.r.t} ${fmtP(p.r.r[win])}`;
+      ctx.font='600 10.5px ui-monospace, "SF Mono", Menlo, monospace';
+      const tw=ctx.measureText(text).width;
+      let lx=Math.max(8,Math.min(width-tw-20,p.x-tw/2));
+      let ly=p.y+(above?-22:22);
+      ctx.fillStyle='rgba(255,255,255,.94)'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1;
+      roundRect(ctx,lx,ly-9,tw+12,18,3); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#0c0a09'; ctx.textAlign='left'; ctx.fillText(text,lx+6,ly+.5);
+    });
+    ctx.fillStyle='#a8a29e'; ctx.font='9.5px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign='left'; ctx.fillText(`BASE  #${cohort.length}`,18,base+19);
+    ctx.textAlign='right'; ctx.fillText(`SUMMIT  #1 · ${win}`,width-18,25);
+    vizDesc.textContent = `${cohort.length} ranked tickers climb from left to right over ${win}. `
+      + `The procedural route changes with the cohort, timeframe and filters.`;
+  }
+
+  function drawViz(pool,cohort){
+    lastViz={pool,cohort};
+    if (st.view === 'loom') drawLoom(pool,cohort);
+    else if (st.view === 'summit') drawSummit(pool,cohort);
+  }
+  viz.addEventListener('mousemove', e => {
+    const box=viz.getBoundingClientRect(), x=e.clientX-box.left, y=e.clientY-box.top;
+    let hit=null, best=14;
+    for (const h of vizHits){
+      const d=Math.hypot(h.x-x,h.y-y);
+      if (d<best){best=d;hit=h;}
+    }
+    if (!hit){vizTip.classList.remove('on');return;}
+    vizTip.textContent=`#${hit.rank ?? '—'} ${hit.r.t} · ${fmtP(hit.r.r[hit.win])} · ${hit.r.s}`;
+    vizTip.style.left=x+'px'; vizTip.style.top=y+'px'; vizTip.classList.add('on');
+  });
+  viz.addEventListener('mouseleave',() => vizTip.classList.remove('on'));
+
   // The verdict sentence is built inline in render(): it needs the cohort, both
   // compositions and the filtered median, and pulling it out only moved the
   // argument list around.
@@ -329,52 +642,39 @@
     const rk = ranked(p);
     const n = Math.min(st.top, rk.length);
     const cohort = rk.slice(0, n);
+    const win = rankWin();
 
     const secs = composition(cohort, p, r => r.s === '—' ? [] : [r.s], k => k);
     const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);
-    document.getElementById('ch1').textContent =
-      `— ${cohort.length} names, count / sector total, group median ${st.win}`;
-    document.getElementById('ch2').textContent =
-      `— tagged names only, count / theme total, group median ${st.win}`;
+    document.getElementById('ch1').textContent = `${cohort.length} names · group median ${win}`;
+    document.getElementById('ch2').textContent = `tagged names · group median ${win}`;
     drawComp('csec', secs, st.sector, k => { st.sector = k; syncCtl(); render(); });
     drawComp('cthm', thms, st.theme, k => { st.theme  = k; syncCtl(); render(); });
 
-    const med = median(p.map(r => r.r[st.win]));
+    const med = median(p.map(r => r.r[win]));
     const uni = UNIS.find(u => u[0] === st.uni)[1];
-    const word = st.dir < 0 ? 'best' : 'worst';
-    // the lone-name themes are the interesting part — but not when the leading
-    // theme is itself a single name, or the sentence names it twice
-    const solo = thms.slice(1).filter(t => t.n === 1).slice(0, 4);
-    let v = '';
-    if (cohort.length){
-      v = `<b>${word === 'best' ? 'Top' : 'Bottom'} ${cohort.length}</b> ${uni} over ${st.win}: `;
-      v += secs[0] ? `<b>${esc(secs[0].label)}</b> holds ${secs[0].n}` : 'no sector labels';
-      if (secs[1]) v += `, ${esc(secs[1].label)} ${secs[1].n}`;
-      v += '. ';
-      if (thms.length){
-        v += `By theme, <b>${esc(thms[0].label)}</b> with ${thms[0].n}`;
-        if (solo.length) v += `; ${solo.map(t => esc(t.label)).join(', ')} `
-                            + `${solo.length > 1 ? 'each get one name' : 'gets a single name'}`;
-        v += '. ';
-      }
-      v += `<span class="q">Median ${st.win} across the ${p.length} filtered names: ${fmtP(med)}.</span>`;
-    }
-    document.getElementById('verdict').innerHTML = v;
+    document.getElementById('verdict').innerHTML = cohort.length
+      ? `<b>${st.dir < 0 ? 'Top' : 'Bottom'} ${cohort.length}</b> · ${esc(uni)} · ${win}`
+        + ` · ${p.length} filtered · median ${fmtP(med)}`
+      : '';
 
-    drawTable(p, n);
+    const tableWrap = document.querySelector('.tablewrap');
+    tableWrap.hidden = st.view !== 'table';
+    vizWrap.hidden = st.view === 'table';
+    document.getElementById('empty').hidden = true;
+    if (st.view === 'table') {
+      drawTable(p, n);
+    } else if (!cohort.length) {
+      viz.hidden = true; vizEmpty.hidden = false;
+      vizEmpty.textContent = 'Nothing matches these filters.';
+    } else {
+      requestAnimationFrame(() => drawViz(p,cohort));
+    }
+    document.getElementById('reroute').hidden = st.view !== 'summit';
 
     document.getElementById('foot').innerHTML =
-      `<b>${M.n}</b> tracked single stocks — every basket constituent and coverage name, `
-      + `not only the <b>${M.n_sp500}</b> that are S&amp;P 500 members — `
-      + `priced to ${M.as_of}. Returns are price only — no dividends. A window is blank `
-      + `when the stock has not traded long enough to fill it, so a 2025 listing is absent `
-      + `from the 3Y ranking rather than ranked off a partial history. Sectors are GICS for `
-      + `index members and Yahoo's own taxonomy mapped onto GICS for everything else — `
-      + `close enough to count together, not close enough to argue over one name. Theme `
-      + `tags come from this repo's own baskets, and a name can hold several. `
-      + `Group medians are over every filtered name in that group, not over the cohort — a `
-      + `sector can own the cohort on one outlier while its median goes nowhere.`
-      + (M.n_stale ? ` ${M.n_stale} names with a stale feed are excluded.` : '');
+      `<b>${M.n}</b> tracked names · price returns · no dividends · ${M.as_of}`
+      + (M.n_stale ? ` · ${M.n_stale} stale feeds excluded` : '');
   }
 
   // ---------- controls ----------
@@ -386,11 +686,13 @@
       el.appendChild(b);
     });
   }
-  mkBtns(document.getElementById('wins'), WINDOWS.map(w => [w, w]), v => st.win = v);
+  mkBtns(document.getElementById('wins'), WINDOWS.map(w => [w, w]), v => addWindow(v));
   mkBtns(document.getElementById('unis'), UNIS, v => st.uni = v);
   mkBtns(document.getElementById('dirs'), DIRS, v => { st.dir = +v; sortByRank(); });
   mkBtns(document.getElementById('tops'), TOPS.map(t => [t, 'Top ' + t]), v => st.top = +v);
+  mkBtns(document.getElementById('views'), VIEWS, v => setView(v));
   mkBtns(document.getElementById('liq'),  LIQ,  v => st.minAdv = +v);
+  document.getElementById('reroute').onclick = () => { st.route++; render(); };
 
   const secSel = document.getElementById('sector'), thmSel = document.getElementById('theme');
   secSel.innerHTML = '<option value="">All sectors</option>'
@@ -408,30 +710,50 @@
 
   function syncCtl(){
     const on = (id, v) => document.querySelectorAll('#' + id + ' button').forEach(b =>
-      b.classList.toggle('on', b.dataset.v == v));
-    on('wins', st.win); on('unis', st.uni); on('dirs', st.dir);
-    on('tops', st.top); on('liq', st.minAdv);
+      { const yes = b.dataset.v == v; b.classList.toggle('on', yes); b.setAttribute('aria-pressed',yes); });
+    document.querySelectorAll('#wins button').forEach(b => {
+      const yes=st.windows.includes(b.dataset.v);
+      b.classList.toggle('on',yes); b.setAttribute('aria-pressed',yes);
+    });
+    on('unis', st.uni); on('dirs', st.dir); on('tops', st.top);
+    on('views', st.view); on('liq', st.minAdv);
     secSel.value = st.sector; thmSel.value = st.theme;
   }
 
   // ---------- hash ----------
   function writeHash(){
-    history.replaceState(null, '', '#' + [st.win, st.uni, st.dir < 0 ? 'best' : 'worst',
-      st.top, st.minAdv, st.sector, st.theme].map(encodeURIComponent).join('|'));
+    history.replaceState(null, '', '#' + [rankWin(), st.uni, st.dir < 0 ? 'best' : 'worst',
+      st.top, st.minAdv, st.sector, st.theme, st.view, st.windows.join(','), st.route]
+      .map(encodeURIComponent).join('|'));
   }
   function readHash(){
     const h = location.hash.slice(1); if (!h) return;
-    const [w, u, d, t, adv, sec, thm] = h.split('|').map(decodeURIComponent);
-    if (WINDOWS.includes(w)) st.win = w;
+    const [w, u, d, t, adv, sec, thm, view, wins, route] =
+      h.split('|').map(decodeURIComponent);
+    if (WINDOWS.includes(w)) st.windows = [w];
     if (UNIS.some(x => x[0] === u)) st.uni = u;
     if (d === 'best' || d === 'worst'){ st.dir = d === 'best' ? -1 : 1; sortByRank(); }
     if (TOPS.includes(+t)) st.top = +t;
     if (LIQ.some(x => x[0] === +adv)) st.minAdv = +adv;
     if (M.sectors.includes(sec)) st.sector = sec;
     if (thm in THEMES) st.theme = thm;
+    if (VIEWS.some(x => x[0] === view)) st.view = view;
+    if (wins){
+      const parsed=wins.split(',').filter(x => WINDOWS.includes(x)).slice(-2);
+      if (parsed.length) st.windows=parsed;
+    }
+    if (st.view !== 'loom' && st.windows.length > 1) st.windows=[rankWin()];
+    if (Number.isFinite(+route)) st.route=+route;
   }
 
   document.getElementById('asof').textContent = 'as of ' + M.as_of;
+  let resizeTimer;
+  window.addEventListener('resize',() => {
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(() => {
+      if (st.view !== 'table' && lastViz) drawViz(lastViz.pool,lastViz.cohort);
+    },120);
+  });
   readHash(); syncCtl(); render();
 })();
 </script>
