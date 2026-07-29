@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leaders — Market Lab</title>
+  <style>
+    :root {
+      --white:#ffffff; --fog:#fafaf9; --ink:#0c0a09; --ash:#78716c;
+      --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
+      --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7;
+      --up:#3f9d6a; --down:#b8484f; --rose:#e3b9bc;
+      --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      --serif:ui-serif,"Iowan Old Style","Charter","Palatino",Georgia,serif;
+      --mono:ui-monospace,"SF Mono","JetBrains Mono","Menlo",monospace;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--fog); color:var(--ink); font-family:var(--sans);
+           line-height:1.5; -webkit-font-smoothing:antialiased; }
+    .main { padding:26px 34px 80px; max-width:1460px; margin:0 auto; }
+
+    .mast { display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+            border-bottom:1px solid var(--stone); padding-bottom:14px; }
+    .kicker { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
+    .kicker a { color:var(--steel); text-decoration:none; }
+    .kicker a:hover { color:var(--blue-deep); }
+    .mast h1 { font-family:var(--serif); font-size:40px; line-height:1.05; font-weight:600;
+               margin:4px 0 0; letter-spacing:-.02em; }
+    .mast .sub { font-size:12.5px; color:var(--ash); margin-top:6px; max-width:640px; }
+    .mast .asof { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
+                  white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .mast .asof .xlink { display:block; margin-top:7px; color:var(--blue-deep);
+                  text-decoration:none; border-bottom:1px solid transparent; }
+    .mast .asof .xlink:hover { border-bottom-color:var(--blue-deep); }
+
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:9px 26px; padding:14px 0 4px; }
+    .cgrp { display:flex; align-items:center; gap:11px; }
+    .cgrp .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
+    .cgrp .sep { width:1px; height:11px; background:var(--stone); margin:0 -3px; }
+    .cgrp button { background:none; border:none; padding:2px 0; cursor:pointer; font-family:var(--sans);
+                   font-size:12.5px; color:var(--ash); border-bottom:1.5px solid transparent; }
+    .cgrp button:hover { color:var(--ink); }
+    .cgrp button.on { color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
+    .cgrp input[type=search] { font-family:var(--sans); font-size:12.5px; padding:4px 9px;
+                    border:1px solid var(--stone); border-radius:8px; background:var(--white);
+                    color:var(--ink); width:190px; }
+    .cgrp input[type=search]:focus { outline:none; border-color:var(--blue); }
+    .cgrp select { font-family:var(--sans); font-size:12.5px; padding:3px 4px; border:none;
+                   border-bottom:1px solid var(--stone); background:none; color:var(--ink); }
+
+    /* ---------- composition ---------- */
+    .comp { display:grid; grid-template-columns:1fr 1fr; gap:0 40px;
+            background:var(--white); border:1px solid var(--stone); border-radius:4px;
+            padding:16px 20px 18px; margin-top:16px; }
+    .comp h3 { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel);
+               font-weight:600; margin:0 0 9px; }
+    .comp h3 em { font-style:normal; color:var(--ash); letter-spacing:0; text-transform:none;
+                  font-size:10.5px; }
+    .crow { display:grid; grid-template-columns:150px minmax(0,1fr) 40px 60px; align-items:center;
+            gap:10px; padding:2px 0; cursor:pointer; }
+    .crow:hover .cl { color:var(--blue-deep); }
+    .crow.on .cl { font-weight:650; }
+    .crow .cl { font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .crow .cb { height:9px; background:var(--fog); position:relative; border-radius:1px; }
+    .crow .cb i { position:absolute; left:0; top:0; bottom:0; background:var(--blue-deep);
+                  border-radius:1px; }
+    .crow .cn, .crow .cm { font-family:var(--mono); font-size:11px; text-align:right;
+                           font-variant-numeric:tabular-nums; color:var(--ash); }
+    .crow .cn { color:var(--ink); }
+    .cempty { font-size:12px; color:var(--steel); padding:4px 0; }
+
+    .verdict { font-size:13.5px; color:var(--ink); margin:16px 2px 0; max-width:900px;
+               line-height:1.6; }
+    .verdict b { font-weight:650; }
+    .verdict span.q { color:var(--ash); }
+
+    /* ---------- table ---------- */
+    .tablewrap { overflow-x:auto; margin-top:22px; }
+    table { width:100%; border-collapse:collapse; min-width:1180px; }
+    thead th { font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--steel);
+               font-weight:600; text-align:right; padding:0 9px 7px; border-bottom:1px solid var(--stone);
+               cursor:pointer; white-space:nowrap; }
+    thead th.l { text-align:left; }
+    thead th:hover { color:var(--ash); }
+    thead th.sorted { color:var(--ink); }
+    tbody td { padding:6px 9px; border-bottom:1px solid var(--fog); font-size:12.5px; text-align:right;
+               font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    tbody td.l { text-align:left; font-family:var(--sans); }
+    tbody tr:hover td { background:var(--fog); }
+    tbody tr.cut td { border-bottom:1px solid var(--platinum); }
+    tbody td .tk { font-family:var(--mono); font-weight:600; font-size:12.5px; }
+    tbody td .co { color:var(--ash); font-size:11.5px; margin-left:8px; }
+    tbody td .sec { color:var(--ash); font-size:11px; }
+    .tag { display:inline-block; font-size:10px; letter-spacing:.02em; padding:1px 5px;
+           border:1px solid var(--stone); border-radius:3px; color:var(--ash); margin-right:3px;
+           background:var(--white); }
+    .tag.hot { border-color:var(--blue-deep); color:var(--blue-deep); }
+    .tag.rc { border-color:var(--platinum); color:var(--ink); background:var(--fog); }
+    td.key { font-size:13px; font-weight:600; }
+    .pos { color:var(--up); } .neg { color:var(--down); }
+    .rk { color:var(--steel); font-size:11px; }
+    .bar { display:inline-block; height:8px; background:var(--sky); border-radius:1px;
+           vertical-align:middle; }
+    .note { font-size:12px; color:var(--ash); margin-top:26px; max-width:820px; line-height:1.65; }
+    .note b { color:var(--ink); font-weight:600; }
+    .empty { padding:80px 0; text-align:center; color:var(--steel); font-size:13px; }
+    @media (max-width:900px){ .main{padding:20px 14px 60px;} .mast h1{font-size:30px;}
+      .comp{grid-template-columns:1fr; gap:18px;} }
+  </style>
+</head>
+<body>
+<main class="main">
+  <div class="mast">
+    <div>
+      <div class="kicker"><a href="market-lab.html">&larr; Market Lab</a></div>
+      <h1>Leaders</h1>
+      <div class="sub">Every tracked single stock ranked over one window, with the
+        sector and theme labels attached — so a ranking answers what the leaders
+        have in common, not just who they are.</div>
+    </div>
+    <div class="asof">
+      <div id="asof"></div>
+      <a class="xlink" href="market-lab-themes.html">Theme returns &rarr;</a>
+      <a class="xlink" href="market-lab-weekend.html">Weekend review &rarr;</a>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="cgrp" id="wins"><span class="lbl">Window</span></div>
+    <div class="cgrp" id="unis"><span class="lbl">Universe</span></div>
+    <div class="cgrp" id="dirs"><span class="lbl">Rank</span></div>
+    <div class="cgrp" id="tops"><span class="lbl">Cohort</span></div>
+  </div>
+  <div class="controls">
+    <div class="cgrp"><span class="lbl">Filter</span>
+      <input id="q" type="search" placeholder="Ticker or company…" autocomplete="off" />
+      <select id="sector"></select>
+      <select id="theme"></select>
+    </div>
+    <div class="cgrp" id="liq"><span class="lbl">Min $ vol</span></div>
+    <div class="cgrp" id="clearwrap"><button id="clear">Clear filters</button></div>
+  </div>
+
+  <div class="comp">
+    <div>
+      <h3>Sectors in the cohort <em id="ch1"></em></h3>
+      <div id="csec"></div>
+    </div>
+    <div>
+      <h3>Themes in the cohort <em id="ch2"></em></h3>
+      <div id="cthm"></div>
+    </div>
+  </div>
+
+  <p class="verdict" id="verdict"></p>
+
+  <div class="tablewrap">
+    <table id="tbl">
+      <thead><tr id="head"></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="empty" id="empty" hidden>Nothing matches these filters.</div>
+
+  <p class="note" id="foot"></p>
+</main>
+
+<script src="cube/leaders.js"></script>
+<script>
+(() => {
+  const D = window.QUANT_LEADERS;
+  if (!D) { document.getElementById('tbl').outerHTML =
+    '<p class="empty">cube/leaders.js not found — run <code>python -m export.leaders</code>.</p>';
+    return; }
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ROWS = D.rows, M = D.meta, THEMES = M.themes;
+  const WINDOWS = M.windows;
+
+  // ---------- state ----------
+  // `top` is the cohort size the composition panel reads. It is the whole point
+  // of the page: a rank is only interesting once you ask what the top N share.
+  const st = { win:'YTD', uni:'sp', dir:-1, top:10, q:'', sector:'', theme:'',
+               minAdv:0, sortK:'win', sortDir:-1 };
+
+  const UNIS = [['sp','S&P 500'], ['all','All tracked'], ['reco','My coverage']];
+  const DIRS = [[-1,'Best'], [1,'Worst']];
+  const TOPS = [10, 25, 50, 100];
+  const LIQ  = [[0,'—'], [50,'50M'], [250,'250M'], [1000,'1B']];
+
+  const fmtP = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const cls  = v => v == null ? '' : v >= 0 ? 'pos' : 'neg';
+  const fmtM = v => v == null ? '—' : v >= 1000 ? (v/1000).toFixed(1) + 'B' : v.toFixed(0) + 'M';
+
+  // ---------- selection ----------
+  // Universe first, then the free filters. The cohort is drawn from the filtered
+  // set, so filtering to one sector and asking for the top 10 gives that sector's
+  // top 10 — which is the other question this page gets asked.
+  function pool(){
+    return ROWS.filter(r => {
+      if (r.stale) return false;
+      if (st.uni === 'sp' && !r.sp) return false;
+      if (st.uni === 'reco' && !r.rc) return false;
+      if (st.minAdv && (r.adv == null || r.adv < st.minAdv)) return false;
+      if (st.sector && r.s !== st.sector) return false;
+      if (st.theme && !r.th.includes(st.theme)) return false;
+      if (st.q){
+        const q = st.q.toLowerCase();
+        if (!r.t.toLowerCase().includes(q) && !r.n.toLowerCase().includes(q)) return false;
+      }
+      return r.r[st.win] != null;
+    });
+  }
+  // Rank is always by the chosen window, whatever the table is sorted on. The
+  // cohort has to mean one thing, or "top 10" stops being comparable to itself.
+  const ranked = p => p.slice().sort((a,b) => st.dir * (a.r[st.win] - b.r[st.win]));
+
+  const median = xs => {
+    const s = xs.filter(v => v != null).sort((a,b) => a-b);
+    if (!s.length) return null;
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+  };
+
+  // ---------- composition ----------
+  // Two counts per group: how many of the cohort it holds, and the group's own
+  // median return. A sector can own the cohort on one big name while its median
+  // sits flat — that is a different market from a sector moving as a block.
+  function composition(cohort, all, key, labelOf){
+    const inC = new Map(), inAll = new Map();
+    const push = (m, k, r) => { if (!m.has(k)) m.set(k, []); m.get(k).push(r); };
+    for (const r of cohort) for (const k of key(r)) push(inC, k, r);
+    for (const r of all)    for (const k of key(r)) push(inAll, k, r);
+    const out = [];
+    for (const [k, members] of inC){
+      const universe = inAll.get(k) || [];
+      out.push({ k, label: labelOf(k), n: members.length, of: universe.length,
+                 med: median(universe.map(r => r.r[st.win])) });
+    }
+    return out.sort((a,b) => b.n - a.n || (b.med ?? -1e9) - (a.med ?? -1e9));
+  }
+
+  function drawComp(id, items, active, onPick){
+    const el = document.getElementById(id);
+    if (!items.length){ el.innerHTML = '<div class="cempty">No labels on this cohort.</div>'; return; }
+    const max = items[0].n;
+    el.innerHTML = items.map(it => `
+      <div class="crow${it.k === active ? ' on' : ''}" data-k="${esc(it.k)}">
+        <span class="cl">${esc(it.label)}</span>
+        <span class="cb"><i style="width:${(it.n/max*100).toFixed(1)}%"></i></span>
+        <span class="cn">${it.n}<span style="color:var(--steel)">/${it.of}</span></span>
+        <span class="cm ${cls(it.med)}">${fmtP(it.med)}</span>
+      </div>`).join('');
+    el.querySelectorAll('.crow').forEach(row =>
+      row.onclick = () => onPick(row.dataset.k === active ? '' : row.dataset.k));
+  }
+
+  // ---------- table ----------
+  const COLS = () => [
+    {k:'rank', l:'#',        cls:'rk',  get:(r,i)=>String(i+1)},
+    {k:'t',    l:'Ticker',   left:true, get:r=>`<span class="tk">${esc(r.t)}</span>`
+                 + `<span class="co">${esc(r.n)}</span>`},
+    {k:'s',    l:'Sector',   left:true, get:r=>`<span class="sec">${esc(r.s)}</span>`},
+    {k:'th',   l:'Themes',   left:true, nosort:true, get:r=> r.th.map(t =>
+                 `<span class="tag${t === st.theme ? ' hot' : ''}">${esc(THEMES[t] || t)}</span>`).join('')
+                 + (r.rc ? '<span class="tag rc">coverage</span>' : '')},
+    {k:'win',  l:st.win,     key:true,  get:r=>fmtP(r.r[st.win]), v:r=>r.r[st.win], colour:true},
+    ...WINDOWS.filter(w => w !== st.win).map(w =>
+    ({k:'w:'+w, l:w, get:r=>fmtP(r.r[w]), v:r=>r.r[w], colour:true})),
+    {k:'off52',l:'off 52wH', get:r=>fmtP(r.off52), v:r=>r.off52, colour:true},
+    {k:'ma50', l:'vs 50d',   get:r=>fmtP(r.ma50),  v:r=>r.ma50,  colour:true},
+    {k:'ma200',l:'vs 200d',  get:r=>fmtP(r.ma200), v:r=>r.ma200, colour:true},
+    {k:'vol',  l:'ann vol',  get:r=>r.vol == null ? '—' : r.vol.toFixed(0) + '%', v:r=>r.vol},
+    {k:'adv',  l:'$ vol',    get:r=>fmtM(r.adv), v:r=>r.adv},
+  ];
+
+  function drawTable(list, cohortN){
+    const cols = COLS();
+    document.getElementById('head').innerHTML = cols.map(c =>
+      `<th class="${c.left ? 'l' : ''}${st.sortK === c.k ? ' sorted' : ''}" data-k="${c.k}">`
+      + esc(c.l) + '</th>').join('');
+    document.querySelectorAll('#head th').forEach(th => th.onclick = () => {
+      const k = th.dataset.k;
+      if (k === 'rank' || cols.find(c => c.k === k).nosort) return;
+      st.sortDir = st.sortK === k ? -st.sortDir : -1;
+      st.sortK = k; render();
+    });
+
+    const sorted = list.slice();
+    const col = cols.find(c => c.k === st.sortK);
+    if (col && col.v)
+      sorted.sort((a,b) => {
+        const x = col.v(a), y = col.v(b);
+        if (x == null) return 1; if (y == null) return -1;
+        return st.sortDir * (x - y);
+      });
+    else if (col && col.left)
+      sorted.sort((a,b) => st.sortDir * String(col.get(a)).localeCompare(String(col.get(b))));
+
+    // rank number always reflects the window ranking, not the current sort
+    const rankOf = new Map(ranked(list).map((r,i) => [r.t, i+1]));
+    const body = sorted.slice(0, 300).map(r => {
+      const rk = rankOf.get(r.t);
+      return `<tr${rk === cohortN ? ' class="cut"' : ''}>` + cols.map(c => {
+        const raw = c.k === 'rank' ? String(rk) : c.get(r);
+        const v = c.v ? c.v(r) : null;
+        return `<td class="${c.left ? 'l' : ''} ${c.cls || ''} ${c.key ? 'key' : ''} `
+             + `${c.colour ? cls(v) : ''}">${raw}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+    document.querySelector('#tbl tbody').innerHTML = body;
+    document.getElementById('empty').hidden = sorted.length > 0;
+    document.getElementById('tbl').style.display = sorted.length ? '' : 'none';
+    return sorted.length;
+  }
+
+  // The verdict sentence is built inline in render(): it needs the cohort, both
+  // compositions and the filtered median, and pulling it out only moved the
+  // argument list around.
+
+  // ---------- render ----------
+  function render(){
+    writeHash();
+    const p = pool();
+    const rk = ranked(p);
+    const n = Math.min(st.top, rk.length);
+    const cohort = rk.slice(0, n);
+
+    const secs = composition(cohort, p, r => r.s === '—' ? [] : [r.s], k => k);
+    const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);
+    document.getElementById('ch1').textContent =
+      `— ${cohort.length} names, count / sector total, group median ${st.win}`;
+    document.getElementById('ch2').textContent =
+      `— tagged names only, count / theme total, group median ${st.win}`;
+    drawComp('csec', secs, st.sector, k => { st.sector = k; syncCtl(); render(); });
+    drawComp('cthm', thms, st.theme, k => { st.theme  = k; syncCtl(); render(); });
+
+    const med = median(p.map(r => r.r[st.win]));
+    const uni = UNIS.find(u => u[0] === st.uni)[1];
+    const word = st.dir < 0 ? 'best' : 'worst';
+    // the lone-name themes are the interesting part — but not when the leading
+    // theme is itself a single name, or the sentence names it twice
+    const solo = thms.slice(1).filter(t => t.n === 1).slice(0, 4);
+    let v = '';
+    if (cohort.length){
+      v = `<b>${word === 'best' ? 'Top' : 'Bottom'} ${cohort.length}</b> ${uni} over ${st.win}: `;
+      v += secs[0] ? `<b>${esc(secs[0].label)}</b> holds ${secs[0].n}` : 'no sector labels';
+      if (secs[1]) v += `, ${esc(secs[1].label)} ${secs[1].n}`;
+      v += '. ';
+      if (thms.length){
+        v += `By theme, <b>${esc(thms[0].label)}</b> with ${thms[0].n}`;
+        if (solo.length) v += `; ${solo.map(t => esc(t.label)).join(', ')} `
+                            + `${solo.length > 1 ? 'each get one name' : 'gets a single name'}`;
+        v += '. ';
+      }
+      v += `<span class="q">Median ${st.win} across the ${p.length} filtered names: ${fmtP(med)}.</span>`;
+    }
+    document.getElementById('verdict').innerHTML = v;
+
+    drawTable(p, n);
+
+    document.getElementById('foot').innerHTML =
+      `<b>${M.n}</b> tracked single stocks, <b>${M.n_sp500}</b> of them S&amp;P 500 members, `
+      + `priced to ${M.as_of}. Returns are price only — no dividends. A window is blank `
+      + `when the stock has not traded long enough to fill it, so a 2025 listing is absent `
+      + `from the 3Y ranking rather than ranked off a partial history. Sector and industry `
+      + `come from the S&amp;P membership table, so names tracked outside the index carry no `
+      + `sector; theme tags come from this repo's own baskets and a name can hold several. `
+      + `Group medians are over every filtered name in that group, not over the cohort — a `
+      + `sector can own the cohort on one outlier while its median goes nowhere.`
+      + (M.n_stale ? ` ${M.n_stale} names with a stale feed are excluded.` : '');
+  }
+
+  // ---------- controls ----------
+  function mkBtns(el, items, set){
+    items.forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.textContent = label; b.dataset.v = v;
+      b.onclick = () => { set(v); syncCtl(); render(); };
+      el.appendChild(b);
+    });
+  }
+  mkBtns(document.getElementById('wins'), WINDOWS.map(w => [w, w]), v => st.win = v);
+  mkBtns(document.getElementById('unis'), UNIS, v => st.uni = v);
+  mkBtns(document.getElementById('dirs'), DIRS, v => st.dir = +v);
+  mkBtns(document.getElementById('tops'), TOPS.map(t => [t, 'Top ' + t]), v => st.top = +v);
+  mkBtns(document.getElementById('liq'),  LIQ,  v => st.minAdv = +v);
+
+  const secSel = document.getElementById('sector'), thmSel = document.getElementById('theme');
+  secSel.innerHTML = '<option value="">All sectors</option>'
+    + M.sectors.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  thmSel.innerHTML = '<option value="">All themes</option>'
+    + Object.entries(THEMES).map(([k,v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('');
+  secSel.onchange = () => { st.sector = secSel.value; render(); };
+  thmSel.onchange = () => { st.theme  = thmSel.value; render(); };
+  const qEl = document.getElementById('q');
+  qEl.oninput = () => { st.q = qEl.value.trim(); render(); };
+  document.getElementById('clear').onclick = () => {
+    st.q = ''; st.sector = ''; st.theme = ''; st.minAdv = 0;
+    qEl.value = ''; syncCtl(); render();
+  };
+
+  function syncCtl(){
+    const on = (id, v) => document.querySelectorAll('#' + id + ' button').forEach(b =>
+      b.classList.toggle('on', b.dataset.v == v));
+    on('wins', st.win); on('unis', st.uni); on('dirs', st.dir);
+    on('tops', st.top); on('liq', st.minAdv);
+    secSel.value = st.sector; thmSel.value = st.theme;
+  }
+
+  // ---------- hash ----------
+  function writeHash(){
+    history.replaceState(null, '', '#' + [st.win, st.uni, st.dir < 0 ? 'best' : 'worst',
+      st.top, st.minAdv, st.sector, st.theme].map(encodeURIComponent).join('|'));
+  }
+  function readHash(){
+    const h = location.hash.slice(1); if (!h) return;
+    const [w, u, d, t, adv, sec, thm] = h.split('|').map(decodeURIComponent);
+    if (WINDOWS.includes(w)) st.win = w;
+    if (UNIS.some(x => x[0] === u)) st.uni = u;
+    if (d === 'best' || d === 'worst') st.dir = d === 'best' ? -1 : 1;
+    if (TOPS.includes(+t)) st.top = +t;
+    if (LIQ.some(x => x[0] === +adv)) st.minAdv = +adv;
+    if (M.sectors.includes(sec)) st.sector = sec;
+    if (thm in THEMES) st.theme = thm;
+  }
+
+  document.getElementById('asof').textContent = 'as of ' + M.as_of;
+  readHash(); syncCtl(); render();
+})();
+</script>
+</body>
+</html>

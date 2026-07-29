@@ -81,10 +81,11 @@ def sub(target):
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 SITE_PAGES = ["market-lab.html", "market-lab.js", "market-lab-baskets.html",
               "market-lab-drawdowns.html", "market-lab-themes.html",
-              "market-lab-heatmaps.html", "market-lab-weekend.html"]
-# Theme Returns is maintained as tracked application source. The other legacy
+              "market-lab-heatmaps.html", "market-lab-weekend.html",
+              "market-lab-leaders.html"]
+# Theme Returns and Leaders are maintained as tracked application source. The other legacy
 # Market Lab pages still originate in the Obsidian reports folder.
-TRACKED_PAGE_SOURCES = {"market-lab-themes.html"}
+TRACKED_PAGE_SOURCES = {"market-lab-themes.html", "market-lab-leaders.html"}
 
 
 def sync_site():
@@ -102,7 +103,7 @@ def sync_site():
     for cf in sorted((REPORTS / "cube").glob("*.js")):
         h.update(cf.read_bytes())
     stamp = (m.group(1) if m else "0").replace("-", "") + "-" + h.hexdigest()[:8]
-    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes|pe-bands|regimes|weekend)\.js)(?:\?v=[^"]*)?"')
+    pat = re.compile(r'src="(market-lab\.js|cube/(?:index|baskets|drawdowns|themes|pe-bands|regimes|weekend|leaders)\.js)(?:\?v=[^"]*)?"')
     web, docs = ROOT / "web", ROOT / "docs"
     for d in (web, docs):
         d.mkdir(exist_ok=True)
@@ -127,7 +128,7 @@ def sync_site():
           "(push to GitHub to refresh the Pages site)")
 
 
-TOTAL_STEPS = 11
+TOTAL_STEPS = 12
 
 
 def step(i, name, fn):
@@ -149,8 +150,9 @@ if __name__ == "__main__":
     step(5, "regenerate theme return series", lambda: sub("export.themes"))
     step(6, "regenerate annual consensus EPS vintages", lambda: sub("export.pe_bands"))
     step(7, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
-    step(8, "regenerate macro regime masks", lambda: sub("export.regimes"))
-    step(9, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(10, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(11, "validate", lambda: sub("validate.py"))
+    step(8, "regenerate single-stock leaders screen", lambda: sub("export.leaders"))
+    step(9, "regenerate macro regime masks", lambda: sub("export.regimes"))
+    step(10, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(11, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(12, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")
