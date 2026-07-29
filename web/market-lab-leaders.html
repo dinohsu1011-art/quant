@@ -216,8 +216,8 @@
   const VIEWS = [['table','Table'], ['loom','Loom'], ['summit','Summit']];
   const WIN_POS = Object.fromEntries(WINDOWS.map((w,i) => [w,i]));
   const selectedWindows = () => st.windows.slice().sort((a,b) => WIN_POS[b] - WIN_POS[a]);
-  // The shorter window starts later, so it belongs on the right side of the
-  // loom and defines the currently displayed cohort.
+  // The shorter window starts later and defines the currently displayed cohort.
+  // In the loom it is shown on the left, so the comparison reads newest first.
   const rankWin = () => selectedWindows().at(-1);
   const pickCompanion = w => {
     const i = WIN_POS[w];
@@ -409,7 +409,7 @@
   const colourOf = r => SECTOR_COLOURS[r.s]
     || `hsl(${hash32(r.s || r.t) % 300 + 20} 38% 44%)`;
 
-  function canvasContext(height){
+  function canvasContext(height, background='#ffffff'){
     const width = Math.max(760, vizWrap.clientWidth || 760);
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     viz.style.width = width + 'px';
@@ -419,7 +419,7 @@
     const ctx = viz.getContext('2d');
     ctx.setTransform(dpr,0,0,dpr,0,0);
     ctx.clearRect(0,0,width,height);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = background;
     ctx.fillRect(0,0,width,height);
     ctx.textBaseline = 'middle';
     vizHits = [];
@@ -452,7 +452,8 @@
       return;
     }
     viz.hidden = false; vizEmpty.hidden = true;
-    const [leftWin,rightWin] = wins;
+    const [olderWin,newerWin] = wins;
+    const leftWin = newerWin, rightWin = olderWin;
     const rowH = cohort.length > 50 ? 19 : 24;
     const height = Math.max(430, 78 + cohort.length * rowH);
     const {ctx,width,height:h} = canvasContext(height);
@@ -478,8 +479,8 @@
     ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(x0,34); ctx.lineTo(x1,34); ctx.stroke();
     ctx.fillStyle = '#78716c'; ctx.font = '10px ui-monospace, "SF Mono", Menlo, monospace';
-    ctx.textAlign = 'left'; ctx.fillText(`${leftWin}  ·  earlier start`,18,22);
-    ctx.textAlign = 'right'; ctx.fillText(`${rightWin}  ·  later start`,width-18,22);
+    ctx.textAlign = 'left'; ctx.fillText(`${leftWin}  ·  newer`,18,22);
+    ctx.textAlign = 'right'; ctx.fillText(`${rightWin}  ·  older`,width-18,22);
 
     // The paths enter a framed loom, pass through alternating heddles, and fan
     // back out in the second ranking order.
@@ -521,96 +522,201 @@
 
     for (const r of leftRows) label(ctx,18,ly.get(r.t),'left',r,leftRank.get(r.t),leftWin);
     for (const r of rightRows) label(ctx,width-18,ry.get(r.t),'right',r,rightRank.get(r.t),rightWin);
-    vizDesc.textContent = `${cohort.length} ticker threads compare ${leftWin} ranks on the left `
-      + `with ${rightWin} ranks on the right. Each thread is coloured by sector.`;
+    vizDesc.textContent = `${cohort.length} ticker threads compare the newer ${leftWin} ranks `
+      + `on the left with the older ${rightWin} ranks on the right. Each thread is coloured by sector.`;
   }
 
   function drawSummit(pool, cohort){
     viz.hidden = false; vizEmpty.hidden = true;
     const win = rankWin();
-    const height = cohort.length > 50 ? 620 : 520;
-    const {ctx,width,height:h} = canvasContext(height);
-    const signature = [win,st.uni,st.dir,st.top,st.sector,st.theme,st.minAdv,
-      cohort.map(r=>r.t).join(','),st.route].join('|');
-    const seed = hash32(signature), random = rng32(seed);
-    const base = h-42, summitY = 55, left = 58, right = width-62;
+    const height = cohort.length > 50 ? 690 : 590;
+    const {ctx,width,height:h} = canvasContext(height,'#fffdf8');
+    const baseSignature = [win,st.uni,st.dir,st.top,st.sector,st.theme,st.minAdv,
+      cohort.map(r=>r.t).join(',')].join('|');
+    const mountainSeed = hash32(baseSignature);
+    const routeSeed = hash32(baseSignature + '|' + st.route);
+    const terrainRandom = rng32(mountainSeed), routeRandom = rng32(routeSeed);
+    const axisX = width-26, plotLeft = 22, plotRight = width-66;
+    const baseY = h-48, summitY = 58;
+    const span = plotRight-plotLeft, summitX = plotLeft+span*.82;
 
-    // Procedural ridge. The seed includes the entire cohort and filters, so a
-    // changed cohort yields a changed mountain while identical state stays put.
-    const ridge = [];
-    for (let i=0;i<=30;i++){
-      const p=i/30, x=18+p*(width-36);
-      const trend = base - (base-summitY)*Math.pow(Math.min(1,p/.92),1.03);
-      const noise = (Math.sin(p*17+random()*3)+Math.sin(p*39+random()*5)*.4)
-        * (20*(1-p)+4);
-      ridge.push([x,trend+noise]);
-    }
-    ridge.push([width-8,base+8]);
-    ctx.beginPath(); ctx.moveTo(8,base+8);
-    for (const [x,y] of ridge) ctx.lineTo(x,y);
-    ctx.lineTo(width-8,h-8); ctx.lineTo(8,h-8); ctx.closePath();
-    ctx.fillStyle = '#fafaf9'; ctx.fill();
-    ctx.strokeStyle = '#d6d3d1'; ctx.lineWidth = 1; ctx.stroke();
+    // A real mountain silhouette: foothills, shoulders, false peaks and one
+    // dominant summit. It is mirrored from the concept art so the climb reads
+    // left-to-right.
+    const ridgeSpec = [
+      [0,0], [.07,.05], [.13,.13], [.19,.10], [.27,.25], [.34,.20],
+      [.42,.36], [.49,.31], [.57,.50], [.63,.44], [.69,.64], [.74,.58],
+      [.82,1], [.86,.74], [.91,.43], [.96,.19], [1,0]
+    ];
+    const ridge = ridgeSpec.map(([px,py],i) => {
+      const isPeak=i===12 || i===0 || i===ridgeSpec.length-1;
+      const jitter=isPeak ? 0 : (terrainRandom()-.5)*24*(1-py);
+      return {x:plotLeft+px*span,y:baseY-py*(baseY-summitY)+jitter};
+    });
+    const surfaceY = x => {
+      if (x<=ridge[0].x) return ridge[0].y;
+      for (let i=1;i<ridge.length;i++){
+        if (x<=ridge[i].x){
+          const a=ridge[i-1],b=ridge[i],p=(x-a.x)/(b.x-a.x);
+          return a.y+(b.y-a.y)*p;
+        }
+      }
+      return ridge.at(-1).y;
+    };
 
-    // Sparse contours borrow the page's hairline grammar.
-    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = .8;
-    for (let c=1;c<=6;c++){
+    ctx.beginPath(); ctx.moveTo(plotLeft-10,baseY+8);
+    ridge.forEach(p => ctx.lineTo(p.x,p.y));
+    ctx.lineTo(plotRight+8,baseY+8); ctx.lineTo(plotRight+8,h-12);
+    ctx.lineTo(plotLeft-10,h-12); ctx.closePath();
+    ctx.fillStyle='#faf8f3'; ctx.fill();
+
+    // Fine contour bands follow the face of the mountain instead of floating
+    // as generic chart gridlines.
+    ctx.strokeStyle='rgba(120,113,108,.28)'; ctx.lineWidth=.65;
+    for (let band=1;band<=30;band++){
+      const depth=band/32;
       ctx.beginPath();
-      ridge.slice(0,-1).forEach(([x,y],i) => {
-        const yy = Math.min(base+7,y+c*18+Math.sin(i*.8+c)*3);
-        if (!i) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
-      });
+      for (let i=0;i<=110;i++){
+        const x=plotLeft+i/110*span;
+        const face=surfaceY(x);
+        const wave=Math.sin(i*.29+band*.83)*2.2*(1-depth);
+        const y=Math.min(baseY+3,face+(baseY-face)*depth+wave);
+        if (!i) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
       ctx.stroke();
     }
 
-    const ascent = cohort.slice().reverse();
-    const points = [];
-    let prevX = left-1, prevY = base;
+    // Engraved hachures and branching ridges give the mountain the etched,
+    // tactile weight of the reference while remaining procedural.
+    ctx.strokeStyle='rgba(87,83,78,.29)'; ctx.lineWidth=.62;
+    for (let i=0;i<115;i++){
+      const x=plotLeft+terrainRandom()*span;
+      const face=surfaceY(x);
+      const downhill=x<summitX ? -1 : 1;
+      const len=24+terrainRandom()*105;
+      const ex=Math.max(plotLeft,Math.min(plotRight,x+downhill*(8+terrainRandom()*38)));
+      const ey=Math.min(baseY,face+len);
+      ctx.beginPath(); ctx.moveTo(x,face+3);
+      ctx.lineTo(x+downhill*7,face+len*.28);
+      ctx.lineTo(ex-downhill*5,face+len*.66);
+      ctx.lineTo(ex,ey); ctx.stroke();
+    }
+    const branchEnds=[.11,.23,.36,.49,.60,.71,.93,.98];
+    ctx.strokeStyle='rgba(68,64,60,.45)'; ctx.lineWidth=.85;
+    branchEnds.forEach((end,i) => {
+      const ex=plotLeft+span*end, ey=surfaceY(ex)+8;
+      ctx.beginPath(); ctx.moveTo(summitX,summitY+3);
+      const mx=(summitX+ex)/2+(terrainRandom()-.5)*35;
+      const my=(summitY+ey)/2+25+terrainRandom()*38;
+      ctx.lineTo(mx,my); ctx.lineTo(ex,ey); ctx.stroke();
+      if (i%2===0){
+        ctx.beginPath(); ctx.moveTo(mx,my);
+        ctx.lineTo(mx+(end<.82?-1:1)*(18+terrainRandom()*30),my+35+terrainRandom()*35);
+        ctx.stroke();
+      }
+    });
+    ctx.beginPath(); ctx.moveTo(ridge[0].x,ridge[0].y);
+    ridge.slice(1).forEach(p => ctx.lineTo(p.x,p.y));
+    ctx.strokeStyle='#8f8a83'; ctx.lineWidth=1.05; ctx.stroke();
+
+    // Altitude is the selected return (or loss severity in Worst mode), with
+    // the filtered median retained as the blue base reference from the concept.
+    const score = r => st.dir<0 ? r.r[win] : -r.r[win];
+    const unscore = v => st.dir<0 ? v : -v;
+    const scores=cohort.map(score).filter(Number.isFinite);
+    const filteredMedian=median(pool.map(r=>r.r[win]));
+    const medianScore=st.dir<0 ? filteredMedian : -filteredMedian;
+    let lo=Math.min(medianScore,...scores), hi=Math.max(...scores);
+    const spread=Math.max(1,hi-lo);
+    lo-=spread*.05; hi+=spread*.08;
+    const yScore = v => baseY-8-(v-lo)/(hi-lo)*(baseY-summitY-22);
+
+    ctx.strokeStyle='#1d7fc4'; ctx.lineWidth=1.15; ctx.setLineDash([6,4]);
+    const medianY=Math.max(summitY+12,Math.min(baseY-5,yScore(medianScore)));
+    ctx.beginPath(); ctx.moveTo(plotLeft,medianY); ctx.lineTo(axisX-8,medianY); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#1d7fc4'; ctx.font='9.5px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign='left'; ctx.fillText(`MEDIAN ${fmtP(filteredMedian)}`,plotLeft+2,medianY-9);
+
+    ctx.strokeStyle='#78716c'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.moveTo(axisX,summitY); ctx.lineTo(axisX,baseY); ctx.stroke();
+    ctx.fillStyle='#57534e'; ctx.font='9px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign='right'; ctx.fillText(`${win} ${st.dir<0?'RETURN':'LOSS'} (%)`,width-8,18);
+    for (let i=0;i<=5;i++){
+      const s=lo+(hi-lo)*i/5, y=yScore(s);
+      ctx.beginPath(); ctx.moveTo(axisX-4,y); ctx.lineTo(axisX+4,y); ctx.stroke();
+      ctx.textAlign='right'; ctx.fillText(unscore(s).toFixed(0),width-7,y);
+    }
+
+    const ascent=cohort.slice().reverse();
+    const points=[];
+    let previousX=plotLeft+span*.08;
     ascent.forEach((r,i) => {
-      const p = ascent.length < 2 ? 1 : i/(ascent.length-1);
-      let x = left + p*(right-left) + (random()-.5)*Math.min(20,(right-left)/ascent.length);
-      let y = base - (base-summitY-12)*Math.pow(p,.92)
-        + Math.sin(p*(10 + seed%7)+seed%13)*(11*(1-p));
-      x = Math.max(prevX+2,x);
-      y = Math.min(prevY-1.5,y);
+      const p=ascent.length<2 ? 1 : i/(ascent.length-1);
+      let x=plotLeft+span*(.10+.72*p)+(routeRandom()-.5)*Math.min(16,span/ascent.length*.25);
+      x=Math.max(previousX+3,x);
+      let y=yScore(score(r));
+      y=Math.max(y,surfaceY(x)+11);
+      if (i===ascent.length-1){x=summitX;y=summitY+8;}
       points.push({x,y,r,rank:cohort.indexOf(r)+1});
-      prevX=x; prevY=y;
+      previousX=x;
     });
 
-    const preset = seed % 5;
-    ctx.beginPath(); ctx.moveTo(left-26,base+5);
-    let a = {x:left-26,y:base+5};
+    // Dashed switchbacks remain directionally progressive: every checkpoint is
+    // farther right even as the route bends around the etched terrain.
+    const routeStart={x:plotLeft+12,y:baseY-9};
+    ctx.beginPath(); ctx.moveTo(routeStart.x,routeStart.y);
+    let a=routeStart;
+    const preset=routeSeed%5;
     points.forEach((b,i) => {
-      const dx=b.x-a.x;
-      const swing=((i+preset)%2 ? 1:-1) * (8 + preset*2) * (1-i/Math.max(1,points.length));
-      ctx.bezierCurveTo(a.x+dx*.32,a.y+swing,b.x-dx*.32,b.y-swing,b.x,b.y);
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const swing=((i+preset)%2 ? 1:-1)*(10+(routeSeed%4)*3)*(1-i/Math.max(1,points.length));
+      ctx.lineTo(a.x+dx*.38,a.y+dy*.22+swing);
+      ctx.lineTo(a.x+dx*.62,a.y+dy*.72-swing*.5);
+      ctx.lineTo(b.x,b.y);
       a=b;
     });
-    ctx.strokeStyle = '#1d7fc4'; ctx.lineWidth = 2.2; ctx.setLineDash([7,5]); ctx.stroke();
+    ctx.strokeStyle='#292524'; ctx.lineWidth=1.8; ctx.setLineDash([6,4]); ctx.stroke();
     ctx.setLineDash([]);
 
-    const every = cohort.length <= 25 ? 1 : Math.ceil(cohort.length/18);
+    function drawPennant(p){
+      const side=p.x>plotLeft+span*.63 ? -1 : 1;
+      const poleTop=Math.max(24,p.y-34);
+      const fh=20;
+      ctx.strokeStyle='#292524'; ctx.lineWidth=1.1;
+      ctx.beginPath(); ctx.moveTo(p.x,p.y-3); ctx.lineTo(p.x,poleTop); ctx.stroke();
+      ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
+      const text=`${p.rank}  ${p.r.t}`;
+      const fw=Math.max(58,ctx.measureText(text).width+18);
+      const fy=poleTop, fx=side>0 ? p.x+1 : p.x-fw-1;
+      ctx.beginPath();
+      if (side>0){
+        ctx.moveTo(fx,fy); ctx.lineTo(fx+fw,fy); ctx.lineTo(fx+fw-7,fy+fh/2);
+        ctx.lineTo(fx+fw,fy+fh); ctx.lineTo(fx,fy+fh);
+      } else {
+        ctx.moveTo(fx+fw,fy); ctx.lineTo(fx,fy); ctx.lineTo(fx+7,fy+fh/2);
+        ctx.lineTo(fx,fy+fh); ctx.lineTo(fx+fw,fy+fh);
+      }
+      ctx.closePath(); ctx.fillStyle='rgba(255,255,255,.96)'; ctx.fill();
+      ctx.strokeStyle='#292524'; ctx.lineWidth=.9; ctx.stroke();
+      ctx.fillStyle=colourOf(p.r);
+      ctx.fillRect(side>0?fx+2:fx+fw-5,fy+2,3,fh-4);
+      ctx.fillStyle='#0c0a09'; ctx.textAlign=side>0?'left':'right';
+      ctx.fillText(text,side>0?fx+9:fx+fw-9,fy+fh/2+.5);
+      ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
+      ctx.textAlign=side>0?'left':'right';
+      ctx.fillText(fmtP(p.r.r[win]),side>0?fx+fw+7:fx-7,fy+fh/2+.5);
+    }
+
+    const showEvery=cohort.length<=12 ? 1 : Math.ceil(cohort.length/12);
     points.forEach((p,i) => {
-      const c=colourOf(p.r);
-      ctx.fillStyle='#ffffff'; ctx.strokeStyle=c; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(p.x,p.y,4.5,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fffdf8'; ctx.strokeStyle='#292524'; ctx.lineWidth=1.45;
+      ctx.beginPath(); ctx.arc(p.x,p.y,4.3,0,Math.PI*2); ctx.fill(); ctx.stroke();
       vizHits.push({x:p.x,y:p.y,r:p.r,rank:p.rank,win});
-      if (i % every && p.rank > 3) return;
-      const above = i%2===0;
-      const text=`#${p.rank} ${p.r.t} ${fmtP(p.r.r[win])}`;
-      ctx.font='600 10.5px ui-monospace, "SF Mono", Menlo, monospace';
-      const tw=ctx.measureText(text).width;
-      let lx=Math.max(8,Math.min(width-tw-20,p.x-tw/2));
-      let ly=p.y+(above?-22:22);
-      ctx.fillStyle='rgba(255,255,255,.94)'; ctx.strokeStyle='#e5e7eb'; ctx.lineWidth=1;
-      roundRect(ctx,lx,ly-9,tw+12,18,3); ctx.fill(); ctx.stroke();
-      ctx.fillStyle='#0c0a09'; ctx.textAlign='left'; ctx.fillText(text,lx+6,ly+.5);
+      if (i%showEvery===0 || p.rank<=3 || p.rank===cohort.length) drawPennant(p);
     });
-    ctx.fillStyle='#a8a29e'; ctx.font='9.5px ui-monospace, "SF Mono", Menlo, monospace';
-    ctx.textAlign='left'; ctx.fillText(`BASE  #${cohort.length}`,18,base+19);
-    ctx.textAlign='right'; ctx.fillText(`SUMMIT  #1 · ${win}`,width-18,25);
-    vizDesc.textContent = `${cohort.length} ranked tickers climb from left to right over ${win}. `
-      + `The procedural route changes with the cohort, timeframe and filters.`;
+    vizDesc.textContent = `${cohort.length} ranked tickers climb an etched mountain from left `
+      + `to right over ${win}. Pennant notches show sector and altitude encodes return.`;
   }
 
   function drawViz(pool,cohort){

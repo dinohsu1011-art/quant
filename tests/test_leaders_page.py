@@ -37,13 +37,17 @@ class LeadersPageTests(unittest.TestCase):
     def test_loom_is_limited_to_two_windows(self):
         self.assertIn("if (st.windows.length > 2) st.windows.shift()", self.script)
         self.assertIn("if (wins.length !== 2)", self.script)
-        self.assertIn("earlier start", self.script)
-        self.assertIn("later start", self.script)
+        self.assertIn("const leftWin = newerWin, rightWin = olderWin", self.script)
+        self.assertIn("newer", self.script)
+        self.assertIn("older", self.script)
 
     def test_summit_route_depends_on_cohort_and_can_be_redrawn(self):
         self.assertIn("cohort.map(r=>r.t).join(',')", self.script)
         self.assertIn("st.route", self.script)
         self.assertIn('id="reroute"', self.html)
+        self.assertIn("drawPennant", self.script)
+        self.assertIn("Dashed switchbacks", self.script)
+        self.assertIn("Engraved hachures", self.script)
 
 
 if __name__ == "__main__":
