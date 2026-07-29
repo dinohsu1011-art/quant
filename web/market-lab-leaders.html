@@ -587,22 +587,6 @@
       ctx.stroke();
     }
 
-    // Short downhill hachures give the mountain the etched weight of the
-    // reference. They begin just inside the silhouette and terminate downhill,
-    // so no texture can escape above the climbers or ridgeline.
-    ctx.strokeStyle='rgba(87,83,78,.29)'; ctx.lineWidth=.62;
-    for (let i=0;i<115;i++){
-      const x=plotLeft+terrainRandom()*span;
-      const face=surfaceY(x);
-      const downhill=x<summitX ? -1 : 1;
-      const len=24+terrainRandom()*105;
-      const ex=Math.max(plotLeft,Math.min(plotRight,x+downhill*(8+terrainRandom()*38)));
-      const ey=Math.min(baseY,face+len);
-      ctx.beginPath(); ctx.moveTo(x,face+3);
-      ctx.lineTo(x+downhill*7,face+len*.28);
-      ctx.lineTo(ex-downhill*5,face+len*.66);
-      ctx.lineTo(ex,ey); ctx.stroke();
-    }
     ctx.beginPath(); ctx.moveTo(ridge[0].x,ridge[0].y);
     ridge.slice(1).forEach(p => ctx.lineTo(p.x,p.y));
     ctx.strokeStyle='#8f8a83'; ctx.lineWidth=1.05; ctx.stroke();
