@@ -9,7 +9,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pandas as pd
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -27,6 +27,10 @@ SCHEMA = pa.schema([
 ])
 
 PRICE_COLS = ["open", "high", "low", "close", "adj_close"]
+MARKET_SESSIONS = {
+    ".T": ("Asia/Tokyo", (15, 35)),
+    ".KS": ("Asia/Seoul", (15, 35)),
+}
 
 
 def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -40,7 +44,11 @@ def _flatten_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def normalize(df: pd.DataFrame, ticker: str) -> pd.DataFrame | None:
+def normalize(
+    df: pd.DataFrame,
+    ticker: str,
+    now_utc: datetime | None = None,
+) -> pd.DataFrame | None:
     """Clean and convert a raw yfinance DataFrame to int64 prices."""
     df = df.copy()
     df = _flatten_columns(df)
@@ -85,12 +93,19 @@ def normalize(df: pd.DataFrame, ticker: str) -> pd.DataFrame | None:
     if DATA_THROUGH_DATE is not None:
         df = df[df["date"] <= DATA_THROUGH_DATE]
 
-    # Drop a same-day partial bar: while the US session is open, yfinance returns
-    # a live intraday row for today — storing it would put a half-day bar in the
-    # history. Keep today's row only after the close (16:05 ET).
-    now_et = datetime.now(ZoneInfo("America/New_York"))
-    if (now_et.hour, now_et.minute) < (16, 5):
-        df = df[df["date"] < now_et.date()]
+    # Drop a same-day partial bar using the listing exchange's clock. Applying
+    # New York time to every symbol discards completed Tokyo/Seoul sessions
+    # while the US market is still open.
+    zone, close = ("America/New_York", (16, 5))
+    for suffix, session in MARKET_SESSIONS.items():
+        if ticker.endswith(suffix):
+            zone, close = session
+            break
+    clock = (now_utc or datetime.now(timezone.utc)).astimezone(ZoneInfo(zone))
+    if (clock.hour, clock.minute) < close:
+        df = df[df["date"] < clock.date()]
+    else:
+        df = df[df["date"] <= clock.date()]
 
     # Convert prices to int64
     for col in PRICE_COLS:

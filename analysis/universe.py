@@ -12,6 +12,7 @@ ever pointed at. 628 names today.
     from analysis.universe import scan_universe, load_prices
 """
 import sys
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -74,7 +75,12 @@ def us_calendar(px):
     out of breadth, where a name that simply wasn't open would otherwise read as
     a name that failed to participate.
     """
-    last = max(d.index[-1] for d in px.values())
+    # The dominant latest date is the US session. A small number of Tokyo or
+    # Seoul listings can already have tomorrow's close while New York is still
+    # on the prior session, so the absolute maximum date is not a US calendar.
+    last_counts = Counter(d.index[-1] for d in px.values())
+    dominant = max(last_counts.values())
+    last = max(d for d, count in last_counts.items() if count == dominant)
     us = [s for s in px if px[s].index[-1] == last]
     ref = max((px[s] for s in us), key=lambda d: len(d)).index
     return ref, us

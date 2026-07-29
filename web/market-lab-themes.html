@@ -1482,6 +1482,7 @@
   }
 
   // ---------- table ----------
+  let tableClickTimer = null;
   function drawTable(data, cur){
     const rows = data.map(d => ({
       id:d.id, color:d.color, label:d.label,
@@ -1519,7 +1520,22 @@
         <td>${fmtPct(r.worst)}</td>
       </tr>`).join('');
     document.querySelectorAll('#tbl tbody tr').forEach(tr => {
-      tr.onclick = () => { st.focus = st.focus === tr.dataset.id ? null : tr.dataset.id; render(); };
+      tr.onclick = e => {
+        if (e.detail > 1) return;
+        clearTimeout(tableClickTimer);
+        const id = tr.dataset.id;
+        tableClickTimer = setTimeout(() => {
+          tableClickTimer = null;
+          st.focus = st.focus === id ? null : id;
+          render();
+        }, 280);
+      };
+      tr.ondblclick = e => {
+        e.preventDefault();
+        clearTimeout(tableClickTimer);
+        tableClickTimer = null;
+        toggle(tr.dataset.id);
+      };
     });
     document.querySelectorAll('#tbl thead th').forEach(th => {
       th.classList.toggle('sorted', th.dataset.k === st.sortK);
@@ -1743,6 +1759,24 @@
     if (snapToBook()){ anchorSel.value = ''; syncCtl(); }
     syncRail(); render();
   }
+  function selectSearchTicker(query){
+    const key = query.trim().toUpperCase();
+    if (!key) return false;
+    const aliases = {
+      '005930': 'kr005930', '005930.KS': 'kr005930',
+      '000660': 'kr000660', '000660.KS': 'kr000660',
+      'ENR.DE': 'siemens_energy'
+    };
+    const id = aliases[key] || Object.keys(SER).find(id => id.toUpperCase() === key);
+    if (!id) return false;
+    if (!st.sel.includes(id)){
+      st.sel = st.sel.concat([id]);
+      assign(id);
+      if (snapToBook()){ anchorSel.value = ''; syncCtl(); }
+      syncRail(); render();
+    }
+    return true;
+  }
   function syncRail(){
     document.querySelectorAll('.row').forEach(r => {
       const on = st.sel.includes(r.dataset.id);
@@ -1751,7 +1785,12 @@
       if (!on) r.querySelector('.rr').textContent = '';
     });
   }
-  document.getElementById('q').addEventListener('input', e => {
+  const searchInput = document.getElementById('q');
+  searchInput.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (selectSearchTicker(e.currentTarget.value)) e.preventDefault();
+  });
+  searchInput.addEventListener('input', e => {
     const q = e.target.value.trim().toLowerCase();
     document.querySelectorAll('.gsec').forEach(sec => {
       let vis = 0;
