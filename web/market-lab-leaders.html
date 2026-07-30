@@ -54,6 +54,7 @@
     .comp { display:grid; grid-template-columns:1fr 1fr; gap:0 40px;
             background:var(--white); border:1px solid var(--stone); border-radius:4px;
             padding:16px 20px 18px; margin-top:16px; }
+    .comp[hidden] { display:none; }
     .comp h3 { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel);
                font-weight:600; margin:0 0 9px; display:flex; gap:8px; align-items:baseline; }
     .comp h3 em { font-style:normal; color:var(--ash); letter-spacing:0; text-transform:none;
@@ -386,6 +387,7 @@
   const vizEmpty = document.getElementById('vizempty');
   const vizDesc = document.getElementById('vizdesc');
   let vizHits = [];
+  let vizFilterHits = [];
   let lastViz = null;
 
   const SECTOR_COLOURS = {
@@ -423,6 +425,7 @@
     ctx.fillRect(0,0,width,height);
     ctx.textBaseline = 'middle';
     vizHits = [];
+    vizFilterHits = [];
     return {ctx, width, height};
   }
   function roundRect(ctx,x,y,w,h,r){
@@ -529,8 +532,12 @@
   function drawSummit(pool, cohort){
     viz.hidden = false; vizEmpty.hidden = true;
     const win = rankWin();
-    const legendH = 96;
-    const height = cohort.length > 50 ? 786 : 682;
+    const sectorItems=composition(cohort,pool,r => r.s==='—' ? [] : [r.s],k => k);
+    const themeItems=composition(cohort,pool,r => r.th,k => THEMES[k] || k);
+    const summaryRows=Math.max(1,sectorItems.length,themeItems.length);
+    const legendH=46+summaryRows*18;
+    const plotHeight=cohort.length>50 ? 690 : 586;
+    const height=plotHeight+legendH;
     const {ctx,width,height:h} = canvasContext(height,'#fffdf8');
     const baseSignature = [win,st.uni,st.dir,st.top,st.sector,st.theme,st.minAdv,
       cohort.map(r=>r.t).join(',')].join('|');
@@ -677,25 +684,50 @@
       if (i%showEvery===0 || p.rank<=3 || p.rank===cohort.length) drawPennant(p);
     });
 
-    // The only key the chart still needs: live sectors mapped to pennant notches.
+    // Summit owns its composition table: sector colours on the left, theme tags
+    // on the right, with the same cohort counts and group medians as the normal
+    // panel. Rows remain clickable filters.
     ctx.strokeStyle='#78716c'; ctx.lineWidth=.8;
     ctx.beginPath(); ctx.moveTo(16,legendTop); ctx.lineTo(width-16,legendTop); ctx.stroke();
     ctx.fillStyle='#292524'; ctx.font='600 9.5px ui-sans-serif, system-ui, sans-serif';
-    ctx.textAlign='left'; ctx.fillText('SECTOR · pennant notch',18,legendTop+17);
-    const sectors=[...new Set(cohort.map(r => r.s==='—' ? 'Other' : r.s))].sort();
-    const sectorCols=Math.min(sectors.length,width<900 ? 4 : 6);
-    const sectorRows=Math.ceil(sectors.length/sectorCols);
-    const sectorColW=(width-36)/sectorCols;
-    sectors.forEach((sector,i) => {
-      const col=i%sectorCols, row=Math.floor(i/sectorCols);
-      const x=18+col*sectorColW, y=legendTop+43+row*16;
-      ctx.fillStyle=colourOf({s:sector==='Other'?'—':sector,t:sector});
-      ctx.fillRect(x,y-4,8,8);
-      ctx.fillStyle='#57534e'; ctx.font='8.5px ui-sans-serif, system-ui, sans-serif';
-      ctx.fillText(sector.length>23 ? sector.slice(0,22)+'…' : sector,x+13,y);
-    });
+    const mid=width/2, leftX=18, rightX=mid+18, colW=mid-36;
+    ctx.textAlign='left'; ctx.fillText('SECTORS · pennant notch',leftX,legendTop+17);
+    ctx.fillText('THEMES',rightX,legendTop+17);
+    ctx.strokeStyle='#d6d3d1';
+    ctx.beginPath(); ctx.moveTo(mid,legendTop+10); ctx.lineTo(mid,h-12); ctx.stroke();
+
+    function drawSummary(items,x,type){
+      if (!items.length){
+        ctx.fillStyle='#a8a29e'; ctx.font='8.5px ui-sans-serif, system-ui, sans-serif';
+        ctx.fillText(type==='theme' ? 'No tagged themes' : 'No sector labels',x,legendTop+43);
+        return;
+      }
+      items.forEach((item,i) => {
+        const y=legendTop+43+i*18, active=type==='sector'
+          ? item.k===st.sector : item.k===st.theme;
+        if (type==='sector'){
+          ctx.fillStyle=colourOf({s:item.k,t:item.k}); ctx.fillRect(x,y-4,8,8);
+        } else {
+          ctx.strokeStyle=active ? '#1d7fc4' : '#a8a29e'; ctx.lineWidth=1;
+          roundRect(ctx,x,y-5,9,9,2); ctx.stroke();
+        }
+        ctx.fillStyle=active ? '#1d7fc4' : '#57534e';
+        ctx.font=`${active ? 600 : 400} 8.5px ui-sans-serif, system-ui, sans-serif`;
+        ctx.textAlign='left';
+        const name=item.label.length>24 ? item.label.slice(0,23)+'…' : item.label;
+        ctx.fillText(name,x+14,y);
+        ctx.fillStyle='#78716c'; ctx.font='8px ui-monospace, "SF Mono", Menlo, monospace';
+        ctx.textAlign='right'; ctx.fillText(`${item.n}/${item.of}`,x+colW-63,y);
+        ctx.fillStyle=item.med==null ? '#a8a29e' : item.med>=0 ? '#3f9d6a' : '#b8484f';
+        ctx.fillText(fmtP(item.med),x+colW-4,y);
+        vizFilterHits.push({x,y:y-8,w:colW,h:16,type,key:item.k});
+      });
+    }
+    drawSummary(sectorItems,leftX,'sector');
+    drawSummary(themeItems,rightX,'theme');
     vizDesc.textContent = `${cohort.length} ranked tickers climb an etched mountain from left `
-      + `to right over ${win}. The bottom key identifies the sector colour used on each pennant notch.`;
+      + `to right over ${win}. The bottom table lists sector and theme composition with counts `
+      + `and group medians; sector colours match the pennant notches.`;
   }
 
   function drawViz(pool,cohort){
@@ -705,6 +737,9 @@
   }
   viz.addEventListener('mousemove', e => {
     const box=viz.getBoundingClientRect(), x=e.clientX-box.left, y=e.clientY-box.top;
+    const filterHit=vizFilterHits.find(h => x>=h.x && x<=h.x+h.w && y>=h.y && y<=h.y+h.h);
+    viz.style.cursor=filterHit ? 'pointer' : 'default';
+    if (filterHit){vizTip.classList.remove('on');return;}
     let hit=null, best=14;
     for (const h of vizHits){
       const d=Math.hypot(h.x-x,h.y-y);
@@ -714,7 +749,17 @@
     vizTip.textContent=`#${hit.rank ?? '—'} ${hit.r.t} · ${fmtP(hit.r.r[hit.win])} · ${hit.r.s}`;
     vizTip.style.left=x+'px'; vizTip.style.top=y+'px'; vizTip.classList.add('on');
   });
-  viz.addEventListener('mouseleave',() => vizTip.classList.remove('on'));
+  viz.addEventListener('click',e => {
+    const box=viz.getBoundingClientRect(),x=e.clientX-box.left,y=e.clientY-box.top;
+    const hit=vizFilterHits.find(h => x>=h.x && x<=h.x+h.w && y>=h.y && y<=h.y+h.h);
+    if (!hit) return;
+    if (hit.type==='sector') st.sector=st.sector===hit.key ? '' : hit.key;
+    else st.theme=st.theme===hit.key ? '' : hit.key;
+    syncCtl(); render();
+  });
+  viz.addEventListener('mouseleave',() => {
+    vizTip.classList.remove('on'); viz.style.cursor='default';
+  });
 
   // The verdict sentence is built inline in render(): it needs the cohort, both
   // compositions and the filtered median, and pulling it out only moved the
@@ -728,6 +773,7 @@
     const n = Math.min(st.top, rk.length);
     const cohort = rk.slice(0, n);
     const win = rankWin();
+    document.querySelector('.comp').hidden=st.view==='summit';
 
     const secs = composition(cohort, p, r => r.s === '—' ? [] : [r.s], k => k);
     const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);

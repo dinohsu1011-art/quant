@@ -49,7 +49,7 @@ class LeadersPageTests(unittest.TestCase):
         self.assertIn("Dashed switchbacks", self.script)
         self.assertNotIn("Short downhill hachures", self.script)
         self.assertNotIn("for (let i=0;i<115;i++)", self.script)
-        self.assertIn("SECTOR · pennant notch", self.script)
+        self.assertIn("SECTORS · pennant notch", self.script)
         self.assertNotIn("Median baseline", self.script)
         self.assertIn("const sub=fmtP", self.script)
         self.assertIn("Every flag trails left", self.script)
@@ -57,6 +57,14 @@ class LeadersPageTests(unittest.TestCase):
         self.assertNotIn("Rank + ticker", self.script)
         self.assertNotIn("p.x>plotLeft+span*.63", self.script)
         self.assertNotIn("branchEnds", self.script)
+
+    def test_summit_replaces_top_composition_with_clickable_sector_theme_table(self):
+        self.assertIn(".comp[hidden]", self.html)
+        self.assertIn("document.querySelector('.comp').hidden=st.view==='summit'", self.script)
+        self.assertIn("drawSummary(sectorItems,leftX,'sector')", self.script)
+        self.assertIn("drawSummary(themeItems,rightX,'theme')", self.script)
+        self.assertIn("vizFilterHits.push", self.script)
+        self.assertIn("st.theme=st.theme===hit.key ? '' : hit.key", self.script)
 
 
 if __name__ == "__main__":
