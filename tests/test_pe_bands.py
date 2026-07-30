@@ -61,9 +61,14 @@ class PeBandExportTests(unittest.TestCase):
     def test_theme_returns_dates_are_directly_typable(self):
         with open("web/market-lab-themes.html") as f:
             page = f.read()
-        self.assertIn('class="date-input" type="text" id="d1"', page)
-        self.assertIn('placeholder="mm/dd/yyyy"', page)
+        self.assertIn('class="date-input" id="d1" role="group"', page)
+        self.assertIn('data-part="month"', page)
+        self.assertIn('data-part="day"', page)
+        self.assertIn('data-part="year"', page)
         self.assertIn("function typedDate(raw)", page)
+        self.assertIn(r"let parts=value.match(/^(\d{4})", page)
+        self.assertIn("function setupDateControl(control)", page)
+        self.assertIn("parts[index+1].focus()", page)
         self.assertIn("if (e.key==='Enter')", page)
 
 

@@ -37,4 +37,27 @@ if (selected.includes('MU') || !selected.includes('NVDA')) {
   throw new Error('Double click should remove only the double-clicked ticker');
 }
 
+await page.goto(url + '?case=segmented-date', {waitUntil: 'networkidle'});
+const month = page.locator('#d1 [data-part="month"]');
+await month.click();
+const selectedMonth = await month.evaluate(el => [el.selectionStart, el.selectionEnd, el.value.length]);
+if (selectedMonth[0] !== 0 || selectedMonth[1] !== selectedMonth[2]) {
+  throw new Error('Clicking a date segment should select its whole value');
+}
+await month.pressSequentially('10');
+if (await page.evaluate(() => document.activeElement?.dataset.part) !== 'day') {
+  throw new Error('Completing the month should advance to the day');
+}
+await page.keyboard.type('16');
+if (await page.evaluate(() => document.activeElement?.dataset.part) !== 'year') {
+  throw new Error('Completing the day should advance to the year');
+}
+await page.keyboard.type('2000');
+await page.keyboard.press('Enter');
+await page.waitForTimeout(350);
+const committedStart = await page.evaluate(() => location.hash.slice(1).split('|')[3]);
+if (committedStart !== '2000-10-16') {
+  throw new Error('Enter should commit the typed date');
+}
+
 console.log('theme returns interaction tests passed');
