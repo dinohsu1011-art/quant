@@ -61,10 +61,11 @@ class LeadersPageTests(unittest.TestCase):
     def test_summit_replaces_top_composition_with_clickable_sector_theme_table(self):
         self.assertIn(".comp[hidden]", self.html)
         self.assertIn("document.querySelector('.comp').hidden=st.view==='summit'", self.script)
-        self.assertIn("drawSummary(sectorItems,leftX,'sector')", self.script)
-        self.assertIn("drawSummary(themeItems,rightX,'theme')", self.script)
-        self.assertIn("vizFilterHits.push", self.script)
-        self.assertIn("st.theme=st.theme===hit.key ? '' : hit.key", self.script)
+        self.assertIn('<div class="summit-comp" id="summit-comp" hidden>', self.html)
+        self.assertIn("summitComp.hidden=st.view!=='summit'", self.script)
+        self.assertIn("drawSummitComp(secs,thms,win,cohort.length)", self.script)
+        self.assertIn("SECTORS · pennant notch", self.script)
+        self.assertIn("st.theme=st.theme===row.dataset.key ? '' : row.dataset.key", self.script)
 
 
 if __name__ == "__main__":

@@ -72,6 +72,30 @@
     .crow .cn { color:var(--ink); }
     .cempty { font-size:12px; color:var(--steel); padding:4px 0; }
 
+    .summit-comp { display:grid; grid-template-columns:1fr 1fr; gap:0 40px;
+                   background:#fffdf8; border:1px solid var(--stone); border-radius:4px;
+                   padding:14px 20px 16px; margin-top:16px; }
+    .summit-comp[hidden] { display:none; }
+    .summit-comp > div + div { border-left:1px solid var(--stone); padding-left:20px; }
+    .summit-comp h3 { margin:0 0 8px; color:var(--ink); font-size:9.5px; font-weight:650;
+                      letter-spacing:.03em; }
+    .summit-comp h3 em { color:var(--ash); font-size:9px; font-style:normal; font-weight:400;
+                         letter-spacing:0; margin-left:7px; }
+    .summit-row { width:100%; display:grid; grid-template-columns:10px minmax(0,1fr) 44px 55px;
+                  align-items:center; gap:8px; padding:3px 0; border:0; background:none;
+                  color:var(--ash); cursor:pointer; text-align:left; }
+    .summit-row:hover, .summit-row.on { color:var(--blue-deep); }
+    .summit-row.on { font-weight:650; }
+    .summit-row .swatch { width:8px; height:8px; }
+    .summit-row .tag { width:8px; height:8px; border:1px solid var(--steel); border-radius:2px; }
+    .summit-row .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+                        font:10px var(--sans); }
+    .summit-row .count, .summit-row .med { text-align:right; font:9px var(--mono);
+                                          font-variant-numeric:tabular-nums; }
+    .summit-row .med.pos { color:var(--green); }
+    .summit-row .med.neg { color:var(--red); }
+    .summit-empty { color:var(--steel); font:10px var(--sans); padding:3px 0; }
+
     .verdict { font-family:var(--mono); font-size:10.5px; color:var(--ash); margin:13px 2px 0;
                line-height:1.5; font-variant-numeric:tabular-nums; }
     .verdict b { font-weight:650; }
@@ -167,6 +191,8 @@
       <div id="cthm"></div>
     </div>
   </div>
+
+  <div class="summit-comp" id="summit-comp" hidden></div>
 
   <p class="verdict" id="verdict"></p>
 
@@ -386,8 +412,8 @@
   const vizTip = document.getElementById('viztip');
   const vizEmpty = document.getElementById('vizempty');
   const vizDesc = document.getElementById('vizdesc');
+  const summitComp = document.getElementById('summit-comp');
   let vizHits = [];
-  let vizFilterHits = [];
   let lastViz = null;
 
   const SECTOR_COLOURS = {
@@ -425,7 +451,6 @@
     ctx.fillRect(0,0,width,height);
     ctx.textBaseline = 'middle';
     vizHits = [];
-    vizFilterHits = [];
     return {ctx, width, height};
   }
   function roundRect(ctx,x,y,w,h,r){
@@ -532,12 +557,7 @@
   function drawSummit(pool, cohort){
     viz.hidden = false; vizEmpty.hidden = true;
     const win = rankWin();
-    const sectorItems=composition(cohort,pool,r => r.s==='—' ? [] : [r.s],k => k);
-    const themeItems=composition(cohort,pool,r => r.th,k => THEMES[k] || k);
-    const summaryRows=Math.max(1,sectorItems.length,themeItems.length);
-    const legendH=46+summaryRows*18;
-    const plotHeight=cohort.length>50 ? 690 : 586;
-    const height=plotHeight+legendH;
+    const height=cohort.length>50 ? 690 : 586;
     const {ctx,width,height:h} = canvasContext(height,'#fffdf8');
     const baseSignature = [win,st.uni,st.dir,st.top,st.sector,st.theme,st.minAdv,
       cohort.map(r=>r.t).join(',')].join('|');
@@ -545,7 +565,7 @@
     const routeSeed = hash32(baseSignature + '|' + st.route);
     const terrainRandom = rng32(mountainSeed), routeRandom = rng32(routeSeed);
     const axisX = width-26, plotLeft = 22, plotRight = width-66;
-    const legendTop = h-legendH, baseY = legendTop-22, summitY = 58;
+    const baseY = h-24, summitY = 58;
     const span = plotRight-plotLeft, summitX = plotLeft+span*.82;
 
     // A real mountain silhouette: foothills, shoulders, false peaks and one
@@ -684,49 +704,8 @@
       if (i%showEvery===0 || p.rank<=3 || p.rank===cohort.length) drawPennant(p);
     });
 
-    // Summit owns its composition table: sector colours on the left, theme tags
-    // on the right, with the same cohort counts and group medians as the normal
-    // panel. Rows remain clickable filters.
-    ctx.strokeStyle='#78716c'; ctx.lineWidth=.8;
-    ctx.beginPath(); ctx.moveTo(16,legendTop); ctx.lineTo(width-16,legendTop); ctx.stroke();
-    ctx.fillStyle='#292524'; ctx.font='600 9.5px ui-sans-serif, system-ui, sans-serif';
-    const mid=width/2, leftX=18, rightX=mid+18, colW=mid-36;
-    ctx.textAlign='left'; ctx.fillText('SECTORS · pennant notch',leftX,legendTop+17);
-    ctx.fillText('THEMES',rightX,legendTop+17);
-    ctx.strokeStyle='#d6d3d1';
-    ctx.beginPath(); ctx.moveTo(mid,legendTop+10); ctx.lineTo(mid,h-12); ctx.stroke();
-
-    function drawSummary(items,x,type){
-      if (!items.length){
-        ctx.fillStyle='#a8a29e'; ctx.font='8.5px ui-sans-serif, system-ui, sans-serif';
-        ctx.fillText(type==='theme' ? 'No tagged themes' : 'No sector labels',x,legendTop+43);
-        return;
-      }
-      items.forEach((item,i) => {
-        const y=legendTop+43+i*18, active=type==='sector'
-          ? item.k===st.sector : item.k===st.theme;
-        if (type==='sector'){
-          ctx.fillStyle=colourOf({s:item.k,t:item.k}); ctx.fillRect(x,y-4,8,8);
-        } else {
-          ctx.strokeStyle=active ? '#1d7fc4' : '#a8a29e'; ctx.lineWidth=1;
-          roundRect(ctx,x,y-5,9,9,2); ctx.stroke();
-        }
-        ctx.fillStyle=active ? '#1d7fc4' : '#57534e';
-        ctx.font=`${active ? 600 : 400} 8.5px ui-sans-serif, system-ui, sans-serif`;
-        ctx.textAlign='left';
-        const name=item.label.length>24 ? item.label.slice(0,23)+'…' : item.label;
-        ctx.fillText(name,x+14,y);
-        ctx.fillStyle='#78716c'; ctx.font='8px ui-monospace, "SF Mono", Menlo, monospace';
-        ctx.textAlign='right'; ctx.fillText(`${item.n}/${item.of}`,x+colW-63,y);
-        ctx.fillStyle=item.med==null ? '#a8a29e' : item.med>=0 ? '#3f9d6a' : '#b8484f';
-        ctx.fillText(fmtP(item.med),x+colW-4,y);
-        vizFilterHits.push({x,y:y-8,w:colW,h:16,type,key:item.k});
-      });
-    }
-    drawSummary(sectorItems,leftX,'sector');
-    drawSummary(themeItems,rightX,'theme');
     vizDesc.textContent = `${cohort.length} ranked tickers climb an etched mountain from left `
-      + `to right over ${win}. The bottom table lists sector and theme composition with counts `
+      + `to right over ${win}. The table above lists sector and theme composition with counts `
       + `and group medians; sector colours match the pennant notches.`;
   }
 
@@ -737,9 +716,6 @@
   }
   viz.addEventListener('mousemove', e => {
     const box=viz.getBoundingClientRect(), x=e.clientX-box.left, y=e.clientY-box.top;
-    const filterHit=vizFilterHits.find(h => x>=h.x && x<=h.x+h.w && y>=h.y && y<=h.y+h.h);
-    viz.style.cursor=filterHit ? 'pointer' : 'default';
-    if (filterHit){vizTip.classList.remove('on');return;}
     let hit=null, best=14;
     for (const h of vizHits){
       const d=Math.hypot(h.x-x,h.y-y);
@@ -749,16 +725,34 @@
     vizTip.textContent=`#${hit.rank ?? '—'} ${hit.r.t} · ${fmtP(hit.r.r[hit.win])} · ${hit.r.s}`;
     vizTip.style.left=x+'px'; vizTip.style.top=y+'px'; vizTip.classList.add('on');
   });
-  viz.addEventListener('click',e => {
-    const box=viz.getBoundingClientRect(),x=e.clientX-box.left,y=e.clientY-box.top;
-    const hit=vizFilterHits.find(h => x>=h.x && x<=h.x+h.w && y>=h.y && y<=h.y+h.h);
-    if (!hit) return;
-    if (hit.type==='sector') st.sector=st.sector===hit.key ? '' : hit.key;
-    else st.theme=st.theme===hit.key ? '' : hit.key;
-    syncCtl(); render();
-  });
   viz.addEventListener('mouseleave',() => {
     vizTip.classList.remove('on'); viz.style.cursor='default';
+  });
+
+  function drawSummitComp(sectors,themes,win,cohortN){
+    function column(title,detail,items,type){
+      const rows=items.length ? items.map(item => {
+        const active=type==='sector' ? item.k===st.sector : item.k===st.theme;
+        const marker=type==='sector'
+          ? `<i class="swatch" style="background:${colourOf({s:item.k,t:item.k})}"></i>`
+          : '<i class="tag"></i>';
+        return `<button class="summit-row${active ? ' on' : ''}" type="button"`
+          + ` data-type="${type}" data-key="${esc(item.k)}" aria-pressed="${active}">`
+          + marker + `<span class="name">${esc(item.label)}</span>`
+          + `<span class="count">${item.n}/${item.of}</span>`
+          + `<span class="med ${cls(item.med)}">${fmtP(item.med)}</span></button>`;
+      }).join('') : `<div class="summit-empty">${type==='theme' ? 'No tagged themes' : 'No sector labels'}</div>`;
+      return `<div><h3>${title}<em>${detail}</em></h3>${rows}</div>`;
+    }
+    summitComp.innerHTML=column('SECTORS · pennant notch',`${cohortN} names · group median ${win}`,
+      sectors,'sector')+column('THEMES',`tagged names · group median ${win}`,themes,'theme');
+  }
+  summitComp.addEventListener('click',e => {
+    const row=e.target.closest('.summit-row');
+    if (!row) return;
+    if (row.dataset.type==='sector') st.sector=st.sector===row.dataset.key ? '' : row.dataset.key;
+    else st.theme=st.theme===row.dataset.key ? '' : row.dataset.key;
+    syncCtl(); render();
   });
 
   // The verdict sentence is built inline in render(): it needs the cohort, both
@@ -774,6 +768,7 @@
     const cohort = rk.slice(0, n);
     const win = rankWin();
     document.querySelector('.comp').hidden=st.view==='summit';
+    summitComp.hidden=st.view!=='summit';
 
     const secs = composition(cohort, p, r => r.s === '—' ? [] : [r.s], k => k);
     const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);
@@ -781,6 +776,7 @@
     document.getElementById('ch2').textContent = `tagged names · group median ${win}`;
     drawComp('csec', secs, st.sector, k => { st.sector = k; syncCtl(); render(); });
     drawComp('cthm', thms, st.theme, k => { st.theme  = k; syncCtl(); render(); });
+    if (st.view==='summit') drawSummitComp(secs,thms,win,cohort.length);
 
     const med = median(p.map(r => r.r[win]));
     const uni = UNIS.find(u => u[0] === st.uni)[1];
