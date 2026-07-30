@@ -91,9 +91,11 @@
                    font-size:12.5px; color:var(--ash); border-bottom:1.5px solid transparent; }
     .cgrp button:hover { color:var(--ink); }
     .cgrp button.on { color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
-    .cgrp input[type=date] { font-family:var(--mono); font-size:11.5px; padding:3px 5px;
-                             border:1px solid var(--stone); border-radius:6px; background:var(--white);
-                             color:var(--ink); }
+    .cgrp .date-input { width:118px; font-family:var(--mono); font-size:11.5px; padding:3px 5px;
+                        border:1px solid var(--stone); border-radius:6px; background:var(--white);
+                        color:var(--ink); font-variant-numeric:tabular-nums; }
+    .cgrp .date-input:focus { outline:2px solid var(--blue); outline-offset:1px; border-color:var(--blue); }
+    .cgrp .date-input.invalid { border-color:var(--red); color:var(--red); }
     .cgrp select { font-family:var(--sans); font-size:12.5px; padding:3px 4px; border:none;
                    border-bottom:1px solid var(--stone); background:none; color:var(--ink); }
 
@@ -211,7 +213,11 @@
     <div class="controls">
       <div class="cgrp" id="spans"><span class="lbl">Window</span></div>
       <div class="cgrp">
-        <input type="date" id="d1" /><span style="color:var(--steel);font-size:11px">to</span><input type="date" id="d2" />
+        <input class="date-input" type="text" id="d1" inputmode="numeric" autocomplete="off"
+               placeholder="mm/dd/yyyy" aria-label="Start date" />
+        <span style="color:var(--steel);font-size:11px">to</span>
+        <input class="date-input" type="text" id="d2" inputmode="numeric" autocomplete="off"
+               placeholder="mm/dd/yyyy" aria-label="End date" />
       </div>
       <div class="cgrp" id="anchors"><span class="lbl">Anchor</span>
         <select id="anchor"></select>
@@ -2064,13 +2070,55 @@
     st.i2 = N-1; st.span = null; syncCtl(); render();
   };
   const d1 = document.getElementById('d1'), d2 = document.getElementById('d2');
-  d1.min = d2.min = DATES[0]; d1.max = d2.max = DATES[N-1];
-  function onDate(){
-    if (d1.value) st.i1 = idxOnOrAfter(d1.value);
-    if (d2.value) st.i2 = Math.max(st.i1+1, idxOnOrAfter(d2.value));
-    st.span = null; st.anchor = null; anchorSel.value = ''; syncCtl(); render();
+  const displayDate = iso => {
+    const [year,month,day] = iso.split('-');
+    return `${month}/${day}/${year}`;
+  };
+  function typedDate(raw){
+    const value=raw.trim();
+    let parts=value.match(/^(\\d{4})-(\\d{1,2})-(\\d{1,2})$/);
+    if (parts) parts=[parts[1],parts[2],parts[3]];
+    else {
+      parts=value.match(/^(\\d{1,2})[\\/. -](\\d{1,2})[\\/. -](\\d{4})$/)
+        || value.match(/^(\\d{2})(\\d{2})(\\d{4})$/);
+      if (!parts) return null;
+      parts=[parts[3],parts[1],parts[2]];
+    }
+    const [year,month,day]=parts.map(Number);
+    const date=new Date(Date.UTC(year,month-1,day));
+    if (date.getUTCFullYear()!==year || date.getUTCMonth()!==month-1 || date.getUTCDate()!==day) return null;
+    const iso=`${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    return iso>=DATES[0] && iso<=DATES[N-1] ? iso : null;
   }
-  d1.onchange = d2.onchange = onDate;
+  function setDateInvalid(input,invalid){
+    input.classList.toggle('invalid',invalid);
+    input.setAttribute('aria-invalid',invalid ? 'true' : 'false');
+  }
+  function onDate(input){
+    const start=typedDate(d1.value), end=typedDate(d2.value);
+    if (!start || !end){
+      setDateInvalid(d1,!start); setDateInvalid(d2,!end);
+      return false;
+    }
+    let i1=Math.min(idxOnOrAfter(start),N-2);
+    let i2=Math.min(N-1,idxOnOrAfter(end));
+    if (i2<=i1){
+      setDateInvalid(input,true);
+      return false;
+    }
+    st.i1=i1; st.i2=i2;
+    st.span = null; st.anchor = null; anchorSel.value = '';
+    setDateInvalid(d1,false); setDateInvalid(d2,false);
+    syncCtl(); render();
+    return true;
+  }
+  [d1,d2].forEach(input => {
+    input.addEventListener('input',() => setDateInvalid(input,false));
+    input.addEventListener('keydown',e => {
+      if (e.key==='Enter') { e.preventDefault(); if (onDate(input)) input.blur(); }
+    });
+    input.addEventListener('blur',() => onDate(input));
+  });
 
   function syncCtl(){
     syncCorrAvailability();
@@ -2091,7 +2139,8 @@
     document.getElementById('anchors').classList.toggle('disabled',
       st.mode === 'pe' || st.mode === 'corr');
     document.getElementById('penote').classList.toggle('on', st.mode === 'pe' && !!ctx);
-    d1.value = DATES[st.i1]; d2.value = DATES[st.i2];
+    if (document.activeElement !== d1) d1.value = displayDate(DATES[st.i1]);
+    if (document.activeElement !== d2) d2.value = displayDate(DATES[st.i2]);
     anchorSel.value = st.anchor ? '@' + st.anchor : anchorSel.value;
     writeHash();
   }

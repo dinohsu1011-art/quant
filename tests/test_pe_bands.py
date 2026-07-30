@@ -58,6 +58,14 @@ class PeBandExportTests(unittest.TestCase):
         )
         self.assertNotIn("SNDK", self.payload["meta"]["excluded"])
 
+    def test_theme_returns_dates_are_directly_typable(self):
+        with open("web/market-lab-themes.html") as f:
+            page = f.read()
+        self.assertIn('class="date-input" type="text" id="d1"', page)
+        self.assertIn('placeholder="mm/dd/yyyy"', page)
+        self.assertIn("function typedDate(raw)", page)
+        self.assertIn("if (e.key==='Enter')", page)
+
 
 if __name__ == "__main__":
     unittest.main()
