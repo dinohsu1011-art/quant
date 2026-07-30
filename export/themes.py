@@ -30,6 +30,35 @@ DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 START = "2000-01-01"  # calendar floor; individual series start when they start
 PE_INPUT = Path(__file__).parent.parent / "data" / "eps" / "annual_eps.json"
 
+# The full S&P 500 Consumer Staples cohort, plus the six restaurant names the
+# index classifies as Consumer Discretionary. These are visible rail equities,
+# not synthetic baskets: every line is the company's own full price history.
+# Large, commonly compared names lead each list; the rest complete the sector.
+CONSUMER_STAPLES = [
+    ("COST", "Costco · COST"), ("WMT", "Walmart · WMT"),
+    ("PG", "Procter & Gamble · PG"), ("KO", "Coca-Cola · KO"),
+    ("PEP", "PepsiCo · PEP"), ("PM", "Philip Morris · PM"),
+    ("MO", "Altria · MO"), ("MDLZ", "Mondelez · MDLZ"),
+    ("MNST", "Monster Beverage · MNST"), ("CL", "Colgate-Palmolive · CL"),
+    ("KDP", "Keurig Dr Pepper · KDP"), ("TGT", "Target · TGT"),
+    ("KR", "Kroger · KR"), ("SYY", "Sysco · SYY"),
+    ("ADM", "Archer-Daniels-Midland · ADM"), ("BF-B", "Brown-Forman · BF-B"),
+    ("BG", "Bunge Global · BG"), ("CASY", "Casey's General Stores · CASY"),
+    ("CHD", "Church & Dwight · CHD"), ("CLX", "Clorox · CLX"),
+    ("DG", "Dollar General · DG"), ("DLTR", "Dollar Tree · DLTR"),
+    ("EL", "Estée Lauder · EL"), ("GIS", "General Mills · GIS"),
+    ("HRL", "Hormel Foods · HRL"), ("HSY", "Hershey · HSY"),
+    ("KHC", "Kraft Heinz · KHC"), ("KMB", "Kimberly-Clark · KMB"),
+    ("KVUE", "Kenvue · KVUE"), ("MKC", "McCormick · MKC"),
+    ("SJM", "J.M. Smucker · SJM"), ("STZ", "Constellation Brands · STZ"),
+    ("TAP", "Molson Coors · TAP"), ("TSN", "Tyson Foods · TSN"),
+]
+RESTAURANTS = [
+    ("SBUX", "Starbucks · SBUX"), ("CMG", "Chipotle · CMG"),
+    ("MCD", "McDonald's · MCD"), ("YUM", "Yum! Brands · YUM"),
+    ("DRI", "Darden Restaurants · DRI"), ("DPZ", "Domino's · DPZ"),
+]
+
 # id -> (label, group). Order within a group drives the rail order, and the
 # order of the groups here drives the rail top-to-bottom: broad market context
 # first (Indices -> Macro -> Sectors -> Thematic ETFs), then the pure-play baskets.
@@ -60,6 +89,8 @@ GROUPS = [
     ("Europe — single names", [
         ("siemens_energy", "Siemens Energy · Germany"),
     ]),
+    ("Consumer staples — single names", CONSUMER_STAPLES),
+    ("Restaurants — single names", RESTAURANTS),
     ("Macro & cross-asset", [
         ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),
         ("tlt", "20Y Treasuries · TLT"), ("ief", "7-10Y Treasuries · IEF"),
@@ -112,7 +143,10 @@ GROUPS = [
 # series whose *level* is not a total-return-like price (charting % change on
 # these is still meaningful, but they are not investable — flag for the page).
 NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
-SINGLE_NAMES = {"kr005930", "kr000660", "siemens_energy"}
+SINGLE_NAMES = (
+    {"kr005930", "kr000660", "siemens_energy"}
+    | {ticker for ticker, _ in CONSUMER_STAPLES + RESTAURANTS}
+)
 
 # Coverage-book handoffs, one per person. The prior book is measured from
 # `anchor` and drawn bold up to `switch`, then ghosts forward (the "if I'd kept
@@ -223,7 +257,7 @@ def build():
     raw, missing = {}, []
     for _, items in GROUPS:
         for sid, _ in items:
-            s = close_series(conn, sid)
+            s = close_series(conn, _view(sid))
             # reco strategy lines are short by construction — exempt from the floor
             floor = 0 if sid.endswith("_reco") else 30
             if s is None or len(s) < floor:
@@ -242,6 +276,9 @@ def build():
     members = sorted(listed_members | set(PE_TICKERS))
     stock_raw = {}
     for t in members:
+        # Visible single names already have a rail record above. Keep them in
+        # stock_raw so basket/recommendation drill-downs can reference them,
+        # but do not append a second series with the same id.
         s = close_series(conn, _view(t))
         if s is not None and len(s) >= 15:
             stock_raw[t] = s
@@ -300,6 +337,8 @@ def build():
     # constituent stock lines — hidden from the rail, revealed per basket on demand
     for t in members:
         if t not in stock_raw:
+            continue
+        if t in SINGLE_NAMES:
             continue
         i0, lv, p0 = rebase(stock_raw[t], cal, pos)
         orphan = t not in listed_members
