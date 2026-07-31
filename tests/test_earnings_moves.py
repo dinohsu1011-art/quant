@@ -54,21 +54,22 @@ class EarningsMoveTests(unittest.TestCase):
     def test_theme_returns_has_daily_weekly_move_context_ui(self):
         with open("web/market-lab-themes.html") as f:
             page = f.read()
-        self.assertIn('id="movehead"', page)
+        self.assertIn('id="ddmovetoggle"', page)
         self.assertIn('data-move="d"', page)
         self.assertIn('data-move="w"', page)
-        self.assertIn("function renderMoveContext(data)", page)
-        self.assertIn("prior earnings reactions only", page)
+        self.assertIn("function standardDeviationSection(item)", page)
+        self.assertIn("<span>Standard deviation</span>", page)
+        self.assertIn("earnings reactions only", page)
 
     def test_move_context_follows_consolidated_ticker_card_grid(self):
         with open("web/market-lab-themes.html") as f:
             page = f.read()
-        self.assertLess(page.index('id="ddgrid"'), page.index('id="movehead"'))
         self.assertIn('id="tbl" hidden aria-hidden="true"', page)
         self.assertIn("Visible-window performance", page)
         self.assertIn("Full-history drawdown summary", page)
         self.assertIn("Completed ATH episodes · newest first", page)
         self.assertIn('class="ticker-card ', page)
+        self.assertIn("${r.sigma}", page)
         self.assertIn('class="summary-strip performance"', page)
 
 

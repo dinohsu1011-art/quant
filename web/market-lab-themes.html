@@ -133,30 +133,12 @@
                font-variant-numeric:tabular-nums; padding:3px 8px; border-radius:4px;
                white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.25); }
 
-    /* ---------- recent move context ---------- */
-    .movehd { justify-content:space-between; align-items:center; }
-    .movehd > div { display:flex; align-items:baseline; gap:12px; }
+    /* ---------- standard-deviation context ---------- */
     .movetoggle { display:flex; gap:12px; }
+    .movetoggle[hidden] { display:none; }
     .movetoggle button { padding:1px 0; border:0; border-bottom:1.5px solid transparent;
                          background:none; color:var(--ash); cursor:pointer; font:11px var(--sans); }
     .movetoggle button.on { color:var(--ink); border-bottom-color:var(--ink); font-weight:650; }
-    .movewrap { overflow-x:auto; border:1px solid var(--stone); border-radius:4px;
-                background:var(--white); }
-    .movewrap[hidden] { display:none; }
-    #movetbl { margin:0; min-width:760px; table-layout:fixed; }
-    #movetbl thead th { cursor:default; text-align:center; padding-top:9px; }
-    #movetbl thead th:first-child { width:150px; text-align:left; }
-    #movetbl tbody tr { cursor:default; }
-    #movetbl tbody td { height:55px; padding:6px 10px; text-align:center; vertical-align:middle; }
-    #movetbl tbody td:first-child { text-align:left; font-family:var(--sans); }
-    .movecell { position:relative; line-height:1.2; }
-    .movecell.earnings { background:#fff8e7; box-shadow:inset 0 0 0 1px rgba(212,135,29,.16); }
-    .movecell .mvdate { display:block; color:var(--steel); font-size:8.5px; margin-bottom:2px; }
-    .movecell b { display:block; font-size:12px; }
-    .movecell em { display:block; color:var(--ash); font-size:9px; font-style:normal; margin-top:2px; }
-    .movecell .etag { position:absolute; top:4px; right:5px; color:#9a5e00; font-size:8px;
-                      font-weight:700; letter-spacing:.04em; }
-    .movecell.empty { color:var(--stone); }
 
     /* ---------- table ---------- */
     table { width:100%; border-collapse:collapse; margin-top:26px; }
@@ -180,7 +162,8 @@
     .big { font-size:14px; font-weight:600; }
     .note { font-size:12px; color:var(--ash); margin-top:26px; max-width:760px; }
     .note b { color:var(--ink); font-weight:600; }
-    .ddhd { margin-top:34px; }
+    .ddhd { margin-top:34px; justify-content:space-between; align-items:center; }
+    .ddhd > div:first-child { display:flex; align-items:baseline; gap:12px; min-width:0; }
     .ddwrap { margin-top:10px; }
     #ddgrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
     .ticker-card { min-width:0; border:1px solid var(--stone); border-radius:6px; background:#fff;
@@ -196,8 +179,12 @@
                         letter-spacing:.08em; text-transform:uppercase; }
     .ticker-card-section { padding:11px 14px 13px; }
     .ticker-card-section + .ticker-card-section { border-top:1px solid var(--fog); }
-    .ticker-card-section h3 { margin:0 0 8px; color:var(--steel); font:600 8.5px var(--sans);
+    .ticker-card-section h3 { display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+                              margin:0 0 8px; color:var(--steel); font:600 8.5px var(--sans);
                               letter-spacing:.12em; text-transform:uppercase; }
+    .ticker-card-section h3 small { overflow:hidden; color:var(--stone); font:8px var(--mono);
+                                    font-weight:400; letter-spacing:0; text-transform:none;
+                                    white-space:nowrap; text-overflow:ellipsis; }
     .summary-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
     .summary-metric { min-width:0; min-height:42px; padding:7px 8px; text-align:left;
                       background:#fafaf9; border:1px solid var(--fog); border-radius:3px; }
@@ -207,6 +194,18 @@
     .summary-metric b { display:block; margin-top:3px; color:var(--ink); font:600 11px var(--mono);
                         font-variant-numeric:tabular-nums; white-space:nowrap; }
     .summary-metric.trough { border-left:2px solid rgba(117,50,77,.24); }
+    .sigma-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; }
+    .sigma-grid.weekly { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .sigma-cell { position:relative; min-width:0; min-height:50px; padding:7px 8px;
+                  background:#fafaf9; border:1px solid var(--fog); border-radius:3px;
+                  text-align:center; line-height:1.2; }
+    .sigma-cell.earnings { background:#fff8e7; border-color:rgba(212,135,29,.2); }
+    .sigma-cell .mvdate { display:block; color:var(--steel); font:8.5px var(--mono); margin-bottom:2px; }
+    .sigma-cell b { display:block; font:600 11px var(--mono); }
+    .sigma-cell em { display:block; overflow:hidden; margin-top:3px; color:var(--ash);
+                     font:9px var(--mono); font-style:normal; white-space:nowrap; text-overflow:ellipsis; }
+    .sigma-cell .etag { position:absolute; top:4px; right:5px; color:#9a5e00; font:700 8px var(--mono); }
+    .sigma-cell.empty { display:flex; align-items:center; justify-content:center; color:var(--stone); }
     .dd-events { max-height:146px; overflow-y:auto; padding-right:4px; }
     .dd-event { display:grid; grid-template-columns:54px 164px 1fr; gap:7px; line-height:1.75;
                 white-space:nowrap; font:10.5px var(--mono); }
@@ -218,6 +217,7 @@
     #ddgrid > .dd-none { grid-column:1/-1; padding:18px 0; }
     @media (max-width:1250px){ #ddgrid{grid-template-columns:1fr;} }
     @media (max-width:620px){ .summary-strip{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .sigma-grid,.sigma-grid.weekly{grid-template-columns:repeat(2,minmax(0,1fr));}
       .dd-event{grid-template-columns:48px 1fr;} .dd-event em{grid-column:2;} }
     @media (max-width:900px){ .shell{grid-template-columns:1fr;} .rail{height:auto;position:static;}
       .list{max-height:260px;} .main{padding:20px 16px 60px;} .mast h1{font-size:30px;} }
@@ -321,28 +321,17 @@
     </table>
 
     <div class="heathd ddhd">
-      <span class="lbl">Ticker summary · Completed ATH drawdowns</span>
-      <span class="hnote" title="High-volatility ETF = at least 30% annualized volatility over its full available history">full history · &gt;20% single names, metals &amp; ≥30% vol ETFs · &gt;5% otherwise · Current = latest close · Current Trough = low since ATH</span>
-    </div>
-    <div class="ddwrap">
-      <div id="ddgrid" aria-live="polite"></div>
-    </div>
-
-    <div class="heathd movehd" id="movehead" hidden>
       <div>
-        <span class="lbl">Move context</span>
-        <span class="hnote" id="movenote"></span>
+        <span class="lbl">Ticker summary · Completed ATH drawdowns</span>
+        <span class="hnote" title="High-volatility ETF = at least 30% annualized volatility over its full available history">full history · &gt;20% single names, metals &amp; ≥30% vol ETFs · &gt;5% otherwise · Current = latest close · Current Trough = low since ATH</span>
       </div>
-      <div class="movetoggle" aria-label="Move context frequency">
+      <div class="movetoggle" id="ddmovetoggle" aria-label="Standard deviation frequency" hidden>
         <button type="button" data-move="d">Daily</button>
         <button type="button" data-move="w">Weekly</button>
       </div>
     </div>
-    <div class="movewrap" id="movewrap" hidden>
-      <table id="movetbl">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
+    <div class="ddwrap">
+      <div id="ddgrid" aria-live="polite"></div>
     </div>
 
     <p class="note" id="foot"></p>
@@ -1085,7 +1074,6 @@
     return lbl;   // MM-DD
   }
   function renderHeat(data){
-    renderMoveContext(data);
     const buckets = heatBuckets();
     if (!data.length || !buckets.length){ heat.innerHTML = ''; heatnote.textContent = ''; return; }
     const W = (heat.parentNode.clientWidth || 900);
@@ -1142,62 +1130,45 @@
     heatnote.textContent = `${buckets.length} ${gran} periods · blue = up, red = down`;
   }
 
-  // ---------- recent move context ----------
-  const moveHead = document.getElementById('movehead');
-  const moveWrap = document.getElementById('movewrap');
-  const moveTable = document.getElementById('movetbl');
-  const moveNote = document.getElementById('movenote');
-  let lastMoveData = [];
+  // ---------- standard-deviation context ----------
+  const ddMoveToggle = document.getElementById('ddmovetoggle');
   const moveSource = id => {
     const item=SER[id];
     return item && item.kind==='reconame' ? SER[item.src] : item;
   };
-  function renderMoveContext(data){
-    lastMoveData=data || [];
-    document.querySelectorAll('[data-move]').forEach(button =>
-      button.classList.toggle('on',button.dataset.move===st.moveFrame));
-    const rows=lastMoveData.map(item => {
-      const selected=SER[item.id];
-      if (!selected || !['stock','equity','reconame'].includes(selected.kind)) return null;
-      const source=moveSource(item.id);
-      const moves=source?.moves?.[st.moveFrame];
-      return moves?.length ? {item,moves} : null;
-    }).filter(Boolean);
-    const show=rows.length>0;
-    moveHead.hidden=!show; moveWrap.hidden=!show;
-    if (!show){ moveTable.querySelector('thead').innerHTML='';
-      moveTable.querySelector('tbody').innerHTML=''; return; }
+  function standardDeviationSection(item){
+    const selected=SER[item.id];
+    if (!selected || !['stock','equity','reconame'].includes(selected.kind)) return '';
+    const source=moveSource(item.id);
+    const moves=source?.moves?.[st.moveFrame];
+    if (!moves?.length) return '';
     const count=st.moveFrame==='d' ? 5 : 4;
-    const labels=st.moveFrame==='d'
-      ? ['−4','−3','−2','−1','Latest'] : ['−3','−2','−1','Latest'];
-    moveTable.querySelector('thead').innerHTML='<tr><th>Series</th>'
-      + labels.map(x=>`<th>${x}</th>`).join('')+'</tr>';
-    moveTable.querySelector('tbody').innerHTML=rows.map(({item,moves}) => {
-      const padded=Array(Math.max(0,count-moves.length)).fill(null).concat(moves.slice(-count));
-      const cells=padded.map(move => {
-        if (!move) return '<td class="movecell empty">—</td>';
-        const basis=move.e ? 'prior earnings reactions' :
-          (st.moveFrame==='d' ? 'prior daily moves (3Y)' : 'prior weekly moves (3Y)');
-        const sigma=move.z==null ? '—' : `${move.z.toFixed(1)}σ`;
-        const percentile=move.p==null ? '' : ` · ${move.p.toFixed(0)}th percentile`;
-        const title=`${item.label} · ${move.date} · ${fmtPct(move.r)} · ${sigma}`
-          + ` vs ${move.n} ${basis}${percentile}`;
-        return `<td class="movecell${move.e?' earnings':''}" title="${esc(title)}">`
-          + (move.e?'<span class="etag">E</span>':'')
-          + `<span class="mvdate">${esc(move.date.slice(5))}</span>`
-          + `<b style="color:${move.r>=0?'#3f9d6a':'#b8484f'}">${fmtPct(move.r)}</b>`
-          + `<em>${sigma}${move.e?` · ${move.n} E moves`:''}</em></td>`;
-      }).join('');
-      return `<tr><td><span class="swatch" style="background:${item.color}"></span>`
-        + `<span class="nm">${esc(item.label)}</span></td>${cells}</tr>`;
+    const padded=Array(Math.max(0,count-moves.length)).fill(null).concat(moves.slice(-count));
+    const cells=padded.map(move => {
+      if (!move) return '<div class="sigma-cell empty">—</div>';
+      const basis=move.e ? 'prior earnings reactions' :
+        (st.moveFrame==='d' ? 'prior daily moves (3Y)' : 'prior weekly moves (3Y)');
+      const sigma=move.z==null ? '—' : `${move.z.toFixed(1)}σ`;
+      const percentile=move.p==null ? '' : ` · ${move.p.toFixed(0)}th percentile`;
+      const title=`${item.label} · ${move.date} · ${fmtPct(move.r)} · ${sigma}`
+        + ` vs ${move.n} ${basis}${percentile}`;
+      return `<div class="sigma-cell${move.e?' earnings':''}" title="${esc(title)}">`
+        + (move.e?'<span class="etag">E</span>':'')
+        + `<span class="mvdate">${esc(move.date.slice(5))}</span>`
+        + `<b style="color:${move.r>=0?'#3f9d6a':'#b8484f'}">${fmtPct(move.r)}</b>`
+        + `<em>${sigma}${move.e?` · ${move.n} E moves`:''}</em></div>`;
     }).join('');
-    moveNote.textContent=st.moveFrame==='d'
-      ? 'latest 5 sessions · σ vs prior 3Y · E = prior earnings reactions only'
-      : 'latest 4 weeks · σ vs prior 3Y · E = prior earnings weeks only';
+    const note=st.moveFrame==='d'
+      ? 'latest 5 sessions · σ vs prior 3Y · E compares with earnings reactions only'
+      : 'latest 4 weeks · σ vs prior 3Y · E compares with earnings weeks only';
+    return `<section class="ticker-card-section sigma-section">
+      <h3><span>Standard deviation</span><small>${note}</small></h3>
+      <div class="sigma-grid${st.moveFrame==='w'?' weekly':''}">${cells}</div>
+    </section>`;
   }
   document.querySelectorAll('[data-move]').forEach(button => button.onclick=() => {
     st.moveFrame=button.dataset.move;
-    renderMoveContext(lastMoveData);
+    renderDrawdowns();
   });
 
   function niceTicks(lo, hi, log){
@@ -1977,8 +1948,17 @@
                floor, events, avg:depths.length ? depths.reduce((a,b)=>a+b,0)/depths.length : null,
                med:median(depths), current:currentDrawdown(s) };
     }).filter(Boolean);
+    rows.forEach(row => { row.sigma = standardDeviationSection(row); });
+    const hasSigma = rows.some(row => row.sigma);
+    ddMoveToggle.hidden = !hasSigma;
+    document.querySelectorAll('[data-move]').forEach(button =>
+      button.classList.toggle('on',button.dataset.move===st.moveFrame));
     const grid = document.getElementById('ddgrid');
-    if (!rows.length){ grid.innerHTML = `<div class="dd-none">Select a series to see its performance and completed ATH drawdowns.</div>`; return; }
+    if (!rows.length){
+      ddMoveToggle.hidden = true;
+      grid.innerHTML = `<div class="dd-none">Select a series to see its performance and completed ATH drawdowns.</div>`;
+      return;
+    }
     const colMax = get => Math.max(0, ...rows.map(get).filter(Number.isFinite));
     const maxes = {
       avg:colMax(r => r.avg),
@@ -2029,6 +2009,7 @@
           <h3>Visible-window performance</h3>
           <div class="summary-strip performance">${performance}</div>
         </section>
+        ${r.sigma}
         <section class="ticker-card-section">
           <h3>Full-history drawdown summary</h3>
           <div class="summary-strip drawdown">${drawdowns}</div>
