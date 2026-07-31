@@ -71,6 +71,14 @@
     .crow .cn, .crow .cm { font-family:var(--mono); font-size:11px; text-align:right;
                            font-variant-numeric:tabular-nums; color:var(--ash); }
     .crow .cn { color:var(--ink); }
+    /* a group with nobody in the cohort still belongs on the list, but it should
+       not compete for attention with the ones carrying the move */
+    .crow.cold .cl, .crow.cold .cn { color:var(--steel); }
+    .chead { display:grid; grid-template-columns:150px minmax(0,1fr) 40px 60px; gap:10px;
+             font-size:8.5px; letter-spacing:.09em; text-transform:uppercase;
+             color:var(--steel); padding-bottom:3px; margin-bottom:2px;
+             border-bottom:1px solid var(--stone); }
+    .chead span:nth-child(3), .chead span:nth-child(4) { text-align:right; }
     .cempty { font-size:12px; color:var(--steel); padding:4px 0; }
 
     .summit-comp { display:grid; grid-template-columns:1fr 1fr; gap:0 40px;
@@ -353,10 +361,14 @@
     const push = (m, k, r) => { if (!m.has(k)) m.set(k, []); m.get(k).push(r); };
     for (const r of cohort) for (const k of key(r)) push(inC, k, r);
     for (const r of all)    for (const k of key(r)) push(inAll, k, r);
-    // Month mode asks a group question outright — which sectors and themes tend
-    // to do well in October — so every group in the filtered pool is listed and
-    // ranked by its own median, not just the ones holding cohort members.
-    const keys = [...(st.rank === 'month' ? inAll : inC).keys()];
+    // Every group in the filtered pool is listed, including the ones holding
+    // nobody in the cohort. Listing only groups with a name in the top 10 made
+    // this panel disagree with the themes page for no reason a reader could see:
+    // Photonics appeared as "2" and the other twenty themes simply weren't there,
+    // which reads as missing tags rather than as an empty cohort. A group at 0/7
+    // is an answer — that theme has no leaders right now — and it belongs on the
+    // list next to the ones that do.
+    const keys = [...inAll.keys()];
     const out = [];
     for (const k of keys){
       const members = inC.get(k) || [];
@@ -378,8 +390,13 @@
     const max = byMed ? Math.max(...items.map(it => Math.abs(it.med ?? 0)), 0.01)
                       : items[0].n;
     const barW = it => byMed ? Math.abs(it.med ?? 0)/max*100 : it.n/max*100;
-    el.innerHTML = items.map(it => `
-      <div class="crow${it.k === active ? ' on' : ''}" data-k="${esc(it.k)}">
+    // The count column reads "2/7" and nothing on screen said what either number
+    // was, which is how it came to be read as "only 2 stocks are tagged".
+    const head = `<div class="chead"><span></span><span></span>`
+      + `<span>${byMed ? 'n' : 'in/of'}</span><span>median</span></div>`;
+    el.innerHTML = head + items.map(it => `
+      <div class="crow${it.k === active ? ' on' : ''}${it.n ? '' : ' cold'}" data-k="${esc(it.k)}"
+           title="${esc(it.label)}: ${it.n} of ${it.of} tagged names in the cohort">
         <span class="cl">${esc(it.label)}</span>
         <span class="cb"><i style="width:${barW(it).toFixed(1)}%${
           byMed && (it.med ?? 0) < 0 ? ';background:var(--down)' : ''}"></i></span>
@@ -879,8 +896,9 @@
       }).join('') : `<div class="summit-empty">${type==='theme' ? 'No tagged themes' : 'No sector labels'}</div>`;
       return `<div><h3>${title}<em>${detail}</em></h3>${rows}</div>`;
     }
-    summitComp.innerHTML=column('SECTORS · pennant notch',`${cohortN} names · group median ${win}`,
-      sectors,'sector')+column('THEMES',`tagged names · group median ${win}`,themes,'theme');
+    const detail=`in top ${cohortN} / tagged · group median ${win}`;
+    summitComp.innerHTML=column('SECTORS · pennant notch',detail,sectors,'sector')
+      +column('THEMES',detail,themes,'theme');
   }
   summitComp.addEventListener('click',e => {
     const row=e.target.closest('.summit-row');
@@ -909,8 +927,11 @@
     const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);
     const medianLabel = st.rank === 'sigma' ? `${win} σ`
       : st.rank === 'month' ? `avg ${MON[st.month]}` : win;
-    document.getElementById('ch1').textContent = `${cohort.length} names · group median ${medianLabel}`;
-    document.getElementById('ch2').textContent = `tagged names · group median ${medianLabel}`;
+    // Both panels list every group in the filtered pool, so say what the pair of
+    // numbers means rather than leaving "2/7" to be guessed at.
+    const detail = `in top ${cohort.length} / tagged · group median ${medianLabel}`;
+    document.getElementById('ch1').textContent = detail;
+    document.getElementById('ch2').textContent = detail;
     drawComp('csec', secs, st.sector, k => { st.sector = k; syncCtl(); render(); });
     drawComp('cthm', thms, st.theme, k => { st.theme  = k; syncCtl(); render(); });
     if (st.view==='summit') drawSummitComp(secs,thms,medianLabel,cohort.length);
