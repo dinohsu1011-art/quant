@@ -51,7 +51,7 @@ class LeadersPageTests(unittest.TestCase):
         self.assertNotIn("for (let i=0;i<115;i++)", self.script)
         self.assertIn("SECTORS · pennant notch", self.script)
         self.assertNotIn("Median baseline", self.script)
-        self.assertIn("const sub=fmtP", self.script)
+        self.assertIn("const sub=st.rank==='sigma'", self.script)
         self.assertIn("Every flag trails left", self.script)
         self.assertNotIn("const keyItems", self.script)
         self.assertNotIn("Rank + ticker", self.script)
@@ -63,9 +63,20 @@ class LeadersPageTests(unittest.TestCase):
         self.assertIn("document.querySelector('.comp').hidden=st.view==='summit'", self.script)
         self.assertIn('<div class="summit-comp" id="summit-comp" hidden>', self.html)
         self.assertIn("summitComp.hidden=st.view!=='summit'", self.script)
-        self.assertIn("drawSummitComp(secs,thms,win,cohort.length)", self.script)
+        self.assertIn("drawSummitComp(secs,thms,medianLabel,cohort.length)", self.script)
         self.assertIn("SECTORS · pennant notch", self.script)
         self.assertIn("st.theme=st.theme===row.dataset.key ? '' : row.dataset.key", self.script)
+
+    def test_sigma_rank_uses_same_window_historical_move_distribution(self):
+        self.assertIn("['sigma','Sigma']", self.script)
+        self.assertIn("r.z?.[win]", self.script)
+        self.assertIn("st.rank === 'sigma' ? 'sigma' : 'win'", self.script)
+        self.assertIn("Top '+cohort.length+' by sigma", self.script)
+        exporter = (ROOT / "export" / "leaders.py").read_text()
+        self.assertIn("def _sigma(c, k, current):", exporter)
+        self.assertIn("end = end[-756:]", exporter)
+        self.assertIn("(current / 100) - mean", exporter)
+        self.assertIn('"z": z', exporter)
 
 
 if __name__ == "__main__":

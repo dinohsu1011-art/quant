@@ -69,6 +69,8 @@ class EarningsMoveTests(unittest.TestCase):
         self.assertIn("Full-history drawdown summary", page)
         self.assertIn("Completed ATH episodes · newest first", page)
         self.assertIn('class="ticker-card ', page)
+        self.assertIn('class="ticker-card-scroll"', page)
+        self.assertIn("max-height:640px", page)
         self.assertIn("${r.sigma}", page)
         self.assertIn('class="summary-strip performance"', page)
 

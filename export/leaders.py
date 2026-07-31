@@ -100,12 +100,37 @@ def _ret(c, k):
     return round((b / a - 1) * 100, 2)
 
 
+def _sigma(c, k, current):
+    """Magnitude of the current k-session move versus like-for-like history.
+
+    Use rolling moves ending before the latest close and cap the comparison at
+    the prior three years. This mirrors Theme Returns' move-context convention:
+    sigma describes unusualness, while the return itself preserves direction.
+    """
+    if current is None or len(c) <= k + 4:
+        return None
+    end = np.arange(k, len(c) - 1)
+    if len(end) > 756:
+        end = end[-756:]
+    base = c[end - k]
+    finish = c[end]
+    sample = finish / base - 1
+    sample = sample[np.isfinite(sample) & np.isfinite(base) & (base > 0)]
+    if len(sample) < 4:
+        return None
+    sd = np.std(sample, ddof=1)
+    if not np.isfinite(sd) or sd <= 0:
+        return None
+    mean = np.mean(sample)
+    return round(abs((current / 100) - mean) / sd, 2)
+
+
 def row(stem, df):
     c = df["close"].to_numpy(dtype=float)
     if len(c) < 30:
         return None
     dates = df.index
-    r = {}
+    r, z = {}, {}
     for label, k in WINDOWS:
         if k == "ytd":
             # first session of the current year *in this stock's own history*
@@ -113,9 +138,12 @@ def row(stem, df):
             pos = np.searchsorted(dates.values, np.datetime64(f"{yr}-01-01"))
             # the session before the year's first is the base; a stock that
             # listed this year has no prior close and so no YTD number
-            r[label] = _ret(c, len(c) - pos) if 0 < pos < len(c) else None
+            sessions = len(c) - pos
+            r[label] = _ret(c, sessions) if 0 < pos < len(c) else None
+            z[label] = _sigma(c, sessions, r[label]) if r[label] is not None else None
         else:
             r[label] = _ret(c, k)
+            z[label] = _sigma(c, k, r[label])
 
     hi52 = np.nanmax(c[-252:]) if len(c) >= 60 else np.nan
     lo52 = np.nanmin(c[-252:]) if len(c) >= 60 else np.nan
@@ -135,6 +163,7 @@ def row(stem, df):
         "t": stem,
         "px": num(c[-1], 2),
         "r": r,
+        "z": z,
         "off52": num((c[-1] / hi52 - 1) * 100 if np.isfinite(hi52) else np.nan),
         "up52": num((c[-1] / lo52 - 1) * 100 if np.isfinite(lo52) else np.nan),
         "ma50": num((c[-1] / ma50 - 1) * 100 if np.isfinite(ma50) else np.nan),
