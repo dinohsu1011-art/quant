@@ -396,7 +396,7 @@
       + `<span>${byMed ? 'n' : 'in/of'}</span><span>median</span></div>`;
     el.innerHTML = head + items.map(it => `
       <div class="crow${it.k === active ? ' on' : ''}${it.n ? '' : ' cold'}" data-k="${esc(it.k)}"
-           title="${esc(it.label)}: ${it.n} of ${it.of} tagged names in the cohort">
+           title="${esc(it.label)}: ${it.n} of ${it.of} in the cohort. The ${it.of} counts tagged names with a ${rankWin()} number — a theme of recent listings thins out on the long windows.">
         <span class="cl">${esc(it.label)}</span>
         <span class="cb"><i style="width:${barW(it).toFixed(1)}%${
           byMed && (it.med ?? 0) < 0 ? ';background:var(--down)' : ''}"></i></span>

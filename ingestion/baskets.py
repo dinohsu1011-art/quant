@@ -44,7 +44,10 @@ BASKETS = {
     "semicap":      ["AMAT", "LRCX", "KLAC", "ASML", "KLIC"],
     "powersemi":    ["ON", "MPWR", "STM", "POWI", "ALGM", "WOLF", "NXPI", "DIOD", "AOSL", "VSH"],
     "photonics":    ["COHR", "LITE", "FN", "AXTI", "AAOI", "GLW", "VIAV"],
-    "connectivity": ["CRDO", "ALAB"],
+    # MRVL sits here as well as in cpuasic: its custom silicon is the ASIC story,
+    # its optical DSP and interconnect is the connectivity one. A name is allowed
+    # in two baskets, and leaving it out of this one made a two-name theme.
+    "connectivity": ["CRDO", "ALAB", "MRVL"],
     "networking":   ["CSCO", "ANET"],
     # compute, cloud & software
     "aiserver":     ["SMCI", "DELL", "HPE", "VRT", "AAPL", "IBM"],
