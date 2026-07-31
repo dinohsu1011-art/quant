@@ -154,20 +154,18 @@
     .rk { color:var(--steel); font-size:11px; }
     .bar { display:inline-block; height:8px; background:var(--sky); border-radius:1px;
            vertical-align:middle; }
-    /* the sigma hover panel: a paragraph, not a one-liner, because it has to put
-       what actually happened next to what the bell curve claims */
+    /* the sigma hover panel: what happened, over what the bell curve claims,
+       sized to the numbers rather than to a sentence */
     .sg { cursor:help; border-bottom:1px dotted var(--platinum); }
-    .oddstip { position:fixed; z-index:40; display:none; pointer-events:none; width:290px;
-               padding:10px 12px 11px; border:1px solid var(--platinum); border-radius:4px;
+    .oddstip { position:fixed; z-index:40; display:none; pointer-events:none;
+               padding:8px 11px 9px; border:1px solid var(--platinum); border-radius:4px;
                background:rgba(255,255,255,.985); box-shadow:0 6px 22px rgba(12,10,9,.10);
-               color:var(--ink); font:11px/1.45 var(--mono); font-variant-numeric:tabular-nums; }
-    .oddstip .hd { font-size:9px; letter-spacing:.12em; text-transform:uppercase;
-                   color:var(--steel); margin-bottom:5px; }
-    .oddstip b { display:block; font-weight:650; margin-bottom:6px; }
-    .oddstip .row { display:flex; justify-content:space-between; gap:14px; padding:1px 0; }
-    .oddstip .row span:first-child { color:var(--ash); }
-    .oddstip .cav { margin-top:7px; padding-top:6px; border-top:1px solid var(--stone);
-                    color:var(--steel); font-size:10px; line-height:1.45; white-space:normal; }
+               color:var(--ink); font:11px/1.5 var(--mono); font-variant-numeric:tabular-nums;
+               white-space:nowrap; }
+    .oddstip b { display:block; font-weight:650; margin-bottom:5px; }
+    .oddstip .row { display:flex; justify-content:space-between; gap:22px; }
+    .oddstip .row span:first-child { color:var(--steel); }
+    .oddstip sup { font-size:8.5px; }
     .note { font:10.5px/1.6 var(--mono); color:var(--steel); margin-top:18px; max-width:980px; }
     .note b { color:var(--ink); font-weight:600; }
     .empty { padding:80px 0; text-align:center; color:var(--steel); font-size:13px; }
@@ -439,9 +437,21 @@
     return d*t*(0.319381530 + t*(-0.356563782 + t*(1.781477937
              + t*(-1.821255978 + t*1.330274429))));
   }
-  const oneIn = pr => !pr || !isFinite(pr) ? null
-    : (n => n >= 1000 ? '1 in ' + Math.round(n/100)*100
-          : n >= 100 ? '1 in ' + Math.round(n/10)*10 : '1 in ' + Math.round(n))(1/pr);
+  // A 10-sigma move puts the normal curve at 1 in 1.18e23, which printed in full
+  // is unreadable and, read carefully, still only means "never". Past a million
+  // the exponent is the whole message.
+  const oneIn = pr => {
+    if (!pr || !isFinite(pr)) return null;
+    const n = 1/pr;
+    // "1 in 1" is not odds, it is a shrug — say nothing instead
+    if (n < 1.5) return null;
+    if (n >= 1e6){
+      const e = Math.floor(Math.log10(n));
+      return `1 in ${(n/10**e).toFixed(1)}&times;10<sup>${e}</sup>`;
+    }
+    return '1 in ' + (n >= 1000 ? Math.round(n/100)*100
+                    : n >= 100 ? Math.round(n/10)*10 : Math.round(n));
+  };
 
   function sigmaCell(r, win){
     const z = r.z?.[win];
@@ -452,24 +462,18 @@
     return `<span class="sg" data-odds="${payload}">${fmtS(z)}</span>`;
   }
 
+  // Numbers, not paragraphs. Two odds and the sample they came from; the reader
+  // can see that 0/756 means the history ran out without being told so in prose.
   function oddsHTML({t, n, win, z, ret, hits, samp}){
     const rows = [];
     if (hits != null && samp){
-      rows.push(['Actually happened', hits === 0
-        ? `never in ${samp}`
-        : `${hits} in ${samp} &rarr; ${oneIn(hits/samp)}`]);
+      rows.push(['seen', `${hits} / ${samp}`]);
+      if (hits) rows.push(['', oneIn(hits/samp)]);
     }
-    rows.push(['Bell curve says', oneIn(2*normSf(z))]);
-    const cav = hits === 0
-      ? `Never seen in ${samp} rolling ${win} moves, so the true odds are longer than `
-        + `1 in ${samp} — the history runs out. The bell-curve line is an extrapolation.`
-      : `Sigma assumes a bell curve. Real returns have fatter tails, so the count on `
-        + `the left is the honest one; where the two disagree, trust it.`;
-    return `<div class="hd">How unusual is this</div>`
-      + `<b>${esc(t)} · ${esc(n)} · ${win} ${fmtP(ret)} · ${z.toFixed(2)}σ</b>`
-      + rows.map(([k,v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('')
-      + `<div class="cav">${cav}<br>Measured against overlapping ${win} moves `
-      + `ending before today, capped at the prior 3 years.</div>`;
+    rows.push(['normal', oneIn(2*normSf(z))]);
+    return `<b>${esc(t)} · ${win} ${fmtP(ret)} · ${z.toFixed(2)}σ</b>`
+      + rows.filter(([,v]) => v != null)
+            .map(([k,v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('');
   }
 
   function bindOdds(root){

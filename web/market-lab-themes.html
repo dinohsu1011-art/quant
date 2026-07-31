@@ -128,19 +128,15 @@
     #heat, #seas { display:block; width:100%; font-family:var(--sans); }
     #heat text, #seas text { font-variant-numeric:tabular-nums; }
     #heat rect[data-t], #seas rect[data-t] { cursor:crosshair; }
-    /* the odds panel is a paragraph, not a one-line tooltip, so it gets its own
-       wider box; .heattip stays nowrap for the single-line cell tips */
-    .oddstip { position:fixed; z-index:61; display:none; pointer-events:none;
-               background:#0c0a09; color:#f5f5f4; font-family:var(--sans); font-size:11.5px;
-               line-height:1.5; padding:9px 11px; border-radius:5px; max-width:290px;
-               box-shadow:0 4px 16px rgba(0,0,0,.3); }
-    .oddstip b { color:#fff; font:600 12.5px var(--mono); font-variant-numeric:tabular-nums; }
-    .oddstip .hd { color:#a8a29e; font:9.5px var(--mono); letter-spacing:.06em;
-                   text-transform:uppercase; margin-bottom:4px; }
-    .oddstip .row { display:flex; justify-content:space-between; gap:14px; margin-top:4px; }
-    .oddstip .row span:last-child { font-family:var(--mono); font-variant-numeric:tabular-nums; }
-    .oddstip .cav { margin-top:7px; padding-top:6px; border-top:1px solid #292524;
-                    color:#a8a29e; font-size:10.5px; line-height:1.45; }
+    /* the odds panel is a short number stack, sized to its widest figure */
+    .oddstip { position:fixed; z-index:61; display:none; pointer-events:none; white-space:nowrap;
+               background:#0c0a09; color:#f5f5f4; font-family:var(--mono); font-size:11.5px;
+               line-height:1.5; padding:8px 11px 9px; border-radius:5px;
+               font-variant-numeric:tabular-nums; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+    .oddstip b { display:block; color:#fff; font-weight:600; font-size:12.5px; margin-bottom:4px; }
+    .oddstip .row { display:flex; justify-content:space-between; gap:22px; }
+    .oddstip .row span:first-child { color:#a8a29e; }
+    .oddstip sup { font-size:8.5px; }
     .heattip { position:fixed; z-index:60; display:none; pointer-events:none;
                background:#0c0a09; color:#fff; font-family:var(--mono); font-size:11px;
                font-variant-numeric:tabular-nums; padding:3px 8px; border-radius:4px;
@@ -1243,19 +1239,31 @@
     return d*t*(0.319381530 + t*(-0.356563782 + t*(1.781477937
              + t*(-1.821255978 + t*1.330274429))));
   }
-  const oneIn = pr => !pr || !isFinite(pr) ? null
-    : (n => n >= 1000 ? '1 in ' + Math.round(n/100)*100
-          : n >= 100 ? '1 in ' + Math.round(n/10)*10 : '1 in ' + Math.round(n))(1/pr);
+  // A 10-sigma move puts the normal curve at 1 in 1.18e23, which printed in full
+  // is unreadable and, read carefully, still only means "never". Past a million
+  // the exponent is the whole message.
+  const oneIn = pr => {
+    if (!pr || !isFinite(pr)) return null;
+    const n = 1/pr;
+    // "1 in 1" is not odds, it is a shrug — say nothing instead
+    if (n < 1.5) return null;
+    if (n >= 1e6){
+      const e = Math.floor(Math.log10(n));
+      return `1 in ${(n/10**e).toFixed(1)}&times;10<sup>${e}</sup>`;
+    }
+    return '1 in ' + (n >= 1000 ? Math.round(n/100)*100
+                    : n >= 100 ? Math.round(n/10)*10 : Math.round(n));
+  };
   // periods -> the longest plain-English unit that reads as a round number
   function everyPhrase(periods, perYear){
     if (!isFinite(periods) || periods <= 0) return null;
     const yrs = periods/perYear;
-    if (yrs >= 1.5) return `about once every ${yrs < 10 ? yrs.toFixed(1) : Math.round(yrs)} years`;
+    if (yrs >= 1.5) return `every ${yrs < 10 ? yrs.toFixed(1) : Math.round(yrs)} yrs`;
     const mos = yrs*12;
-    if (mos >= 1.5) return `about once every ${Math.round(mos)} months`;
+    if (mos >= 1.5) return `every ${Math.round(mos)} mo`;
     const wks = yrs*52;
-    if (wks >= 1.5) return `about once every ${Math.round(wks)} weeks`;
-    return 'more often than weekly';
+    if (wks >= 1.5) return `every ${Math.round(wks)} wks`;
+    return 'weekly or more';
   }
   // p is the percentile from _move_stat: (count(|x| <= |v|) + 1)/(n+1)*100,
   // so the exceedance count comes straight back out of it.
@@ -1266,23 +1274,20 @@
     const th = z == null ? null : 1/(2*normSf(z));
     const head = `${esc(label)} · ${esc(date)} · ${fmtPct(r)}`
       + (z == null ? '' : ` · ${z.toFixed(1)}σ`);
+    // Numbers, not paragraphs. 0/n says the history ran out; it does not need a
+    // sentence explaining that it did.
     let rows = '';
     if (exceed != null){
-      rows += `<div class="row"><span>Actually happened</span><span>`
-        + (exceed === 0 ? `never in ${n}` : `${exceed} in ${n} &rarr; ${oneIn(exceed/(n+1))}`)
-        + `</span></div>`;
+      rows += `<div class="row"><span>seen</span><span>${exceed} / ${n}</span></div>`;
+      const o = exceed ? oneIn(exceed/(n+1)) : null;
+      if (o) rows += `<div class="row"><span></span><span>${o}</span></div>`;
     }
-    if (th != null){
-      rows += `<div class="row"><span>Bell curve says</span><span>${oneIn(2*normSf(z))}</span></div>`;
-    }
+    const tho = th == null ? null : oneIn(2*normSf(z));
+    if (tho) rows += `<div class="row"><span>normal</span><span>${tho}</span></div>`;
     const per = emp || (exceed === 0 ? n+1 : null) || th;
     const phr = per && perYear ? everyPhrase(per, perYear) : null;
-    if (phr) rows += `<div class="row"><span>Which is</span><span>${phr}</span></div>`;
-    const cav = exceed === 0
-      ? `Never seen in ${n} ${basis}, so the real odds are longer than 1 in ${n+1} — the history simply runs out. The bell-curve figure is an extrapolation.`
-      : `Sigma assumes a bell curve. Real returns have fatter tails, so the count on the left is the honest one; where the two disagree, trust it.`;
-    return `<div class="hd">How unusual is this</div><b>${head}</b>${rows}`
-      + `<div class="cav">${cav}<br>Measured against ${n} ${esc(basis)}.</div>`;
+    if (phr) rows += `<div class="row"><span>rate</span><span>${phr}</span></div>`;
+    return `<b>${head}</b>${rows}`;
   }
   function bindOdds(root){
     root.addEventListener('mousemove', e => {
