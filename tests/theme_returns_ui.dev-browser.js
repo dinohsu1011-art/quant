@@ -6,7 +6,7 @@ await page.locator('#q').fill('MU');
 await page.locator('#q').press('Enter');
 await page.waitForTimeout(350);
 let selected = await page.evaluate(() => location.hash.slice(1).split('|')[0].split(','));
-if (!selected.includes('MU') || await page.locator('#ddtbl tbody tr[data-id="MU"]').count() !== 1) {
+if (!selected.includes('MU') || await page.locator('#ddgrid .ticker-card[data-id="MU"]').count() !== 1) {
   throw new Error('Enter should select the exact ticker in the search box');
 }
 
@@ -25,12 +25,12 @@ for (const ticker of ['MU', 'NVDA']) {
   await page.locator('#q').press('Enter');
   await page.waitForTimeout(100);
 }
-await page.locator('#ddtbl tbody tr[data-id="MU"]').click();
+await page.locator('#ddgrid .ticker-card[data-id="MU"]').click();
 await page.waitForTimeout(350);
-if (await page.locator('#ddtbl tbody tr[data-id="NVDA"].dim').count() !== 1) {
+if (await page.locator('#ddgrid .ticker-card[data-id="NVDA"].dim').count() !== 1) {
   throw new Error('Single click should continue to focus the selected ticker');
 }
-await page.locator('#ddtbl tbody tr[data-id="MU"]').dblclick();
+await page.locator('#ddgrid .ticker-card[data-id="MU"]').dblclick();
 await page.waitForTimeout(350);
 selected = await page.evaluate(() => location.hash.slice(1).split('|')[0].split(','));
 if (selected.includes('MU') || !selected.includes('NVDA')) {
