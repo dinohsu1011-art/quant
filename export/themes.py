@@ -18,6 +18,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -291,6 +292,40 @@ def _move_stat(value, sample):
     )
 
 
+def seasonality(prices):
+    """Average calendar-month return, Jan..Dec, over the series' whole history.
+
+    Deliberately not windowed. The heat strip beside it answers "what happened
+    in each of the last 24 months"; this answers "what does this thing usually
+    do in March", and a two-year window has two Marches in it. The sample count
+    ships with every month so a thin one is visible rather than implied.
+
+    Month-end to month-end, so the first partial month is dropped rather than
+    counted as a short month's return.
+
+    Each month's sample is winsorized at the 10th/90th percentile before the mean
+    is taken. Not for smoothing — for survival. Yahoo's split-adjusted history has
+    genuine breaks in it (NVR shows +2600% in October 1993, a reorganisation the
+    adjustment never applied), and one bar like that sets the whole average.
+    Clipping the tails to their own 10/90 keeps every observation in the sample
+    while denying any single one the power to decide the answer.
+    """
+    p = prices[prices > 0].dropna().sort_index()
+    m = p.resample("ME").last().dropna()
+    r = m.pct_change(fill_method=None).dropna()
+    if len(r) < 12:
+        return None
+    out = []
+    for mo in range(1, 13):
+        s = r[r.index.month == mo].to_numpy(dtype=float)
+        if not len(s):
+            out.append(None)
+            continue
+        lo, hi = np.percentile(s, [10, 90])
+        out.append([round(float(np.clip(s, lo, hi).mean()) * 100, 2), int(len(s))])
+    return out
+
+
 def move_context(prices, reactions):
     """Latest five sessions and four weeks versus like-for-like history.
 
@@ -430,6 +465,9 @@ def build():
             else:
                 rec["kind"] = "etf"
             add_move_context(rec, sid, raw[sid], EARNINGS)
+            seas = seasonality(raw[sid])
+            if seas:
+                rec["seas"] = seas
             # coverage-book handoff metadata (leaves the basket kind + drill-down
             # intact; only tells the page how to rebase/split this aggregate line)
             for h in HANDOFFS:
@@ -449,13 +487,17 @@ def build():
             continue
         i0, lv, p0 = rebase(stock_raw[t], cal, pos)
         orphan = t not in listed_members
-        series.append({"id": t, "label": PE_TICKERS.get(t, t),
-                       "group": "P/E bands" if orphan else "",
-                       "kind": "equity" if orphan else "stock",
-                       "i0": i0, "lv": lv, "p0": p0,
-                       "moves": move_context(
-                           stock_raw[t], earnings_reactions(t, stock_raw[t], EARNINGS)
-                       )})
+        rec = {"id": t, "label": PE_TICKERS.get(t, t),
+               "group": "P/E bands" if orphan else "",
+               "kind": "equity" if orphan else "stock",
+               "i0": i0, "lv": lv, "p0": p0,
+               "moves": move_context(
+                   stock_raw[t], earnings_reactions(t, stock_raw[t], EARNINGS)
+               )}
+        seas = seasonality(stock_raw[t])
+        if seas:
+            rec["seas"] = seas
+        series.append(rec)
     n_rail = sum(s["kind"] != "stock" for s in series)
 
     payload = {

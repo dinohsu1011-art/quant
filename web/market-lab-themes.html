@@ -125,9 +125,22 @@
     .heathd .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
     .heathd .hnote { font-family:var(--mono); font-size:11px; color:var(--ash);
                      font-variant-numeric:tabular-nums; }
-    #heat { display:block; width:100%; font-family:var(--sans); }
-    #heat text { font-variant-numeric:tabular-nums; }
-    #heat rect[data-t] { cursor:crosshair; }
+    #heat, #seas { display:block; width:100%; font-family:var(--sans); }
+    #heat text, #seas text { font-variant-numeric:tabular-nums; }
+    #heat rect[data-t], #seas rect[data-t] { cursor:crosshair; }
+    /* the odds panel is a paragraph, not a one-line tooltip, so it gets its own
+       wider box; .heattip stays nowrap for the single-line cell tips */
+    .oddstip { position:fixed; z-index:61; display:none; pointer-events:none;
+               background:#0c0a09; color:#f5f5f4; font-family:var(--sans); font-size:11.5px;
+               line-height:1.5; padding:9px 11px; border-radius:5px; max-width:290px;
+               box-shadow:0 4px 16px rgba(0,0,0,.3); }
+    .oddstip b { color:#fff; font:600 12.5px var(--mono); font-variant-numeric:tabular-nums; }
+    .oddstip .hd { color:#a8a29e; font:9.5px var(--mono); letter-spacing:.06em;
+                   text-transform:uppercase; margin-bottom:4px; }
+    .oddstip .row { display:flex; justify-content:space-between; gap:14px; margin-top:4px; }
+    .oddstip .row span:last-child { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+    .oddstip .cav { margin-top:7px; padding-top:6px; border-top:1px solid #292524;
+                    color:#a8a29e; font-size:10.5px; line-height:1.45; }
     .heattip { position:fixed; z-index:60; display:none; pointer-events:none;
                background:#0c0a09; color:#fff; font-family:var(--mono); font-size:11px;
                font-variant-numeric:tabular-nums; padding:3px 8px; border-radius:4px;
@@ -306,6 +319,14 @@
     </div>
     <div class="chartwrap">
       <svg id="heat" role="img" aria-label="Period return heatmap"></svg>
+    </div>
+
+    <div class="heathd">
+      <span class="lbl">Average by month</span>
+      <span class="hnote" id="seasnote"></span>
+    </div>
+    <div class="chartwrap">
+      <svg id="seas" role="img" aria-label="Average return by calendar month"></svg>
     </div>
 
     <table id="tbl" hidden aria-hidden="true">
@@ -1078,7 +1099,9 @@
   }
   function renderHeat(data){
     const buckets = heatBuckets();
-    if (!data.length || !buckets.length){ heat.innerHTML = ''; heatnote.textContent = ''; return; }
+    if (!data.length || !buckets.length){
+      heat.innerHTML = ''; heatnote.textContent = ''; renderSeas(data); return;
+    }
     const W = (heat.parentNode.clientWidth || 900);
     const LBL = 128, RPAD = 8, TOP = 4, BOT = 16, cellH = 17, gap = 1;
     const H = TOP + BOT + data.length * cellH;
@@ -1131,10 +1154,156 @@
     const gran = (st.i2-st.i1) <= 22 ? 'daily' : (st.i2-st.i1) <= 140 ? 'weekly'
       : (st.i2-st.i1) <= 650 ? 'monthly' : (st.i2-st.i1) <= 2600 ? 'quarterly' : 'yearly';
     heatnote.textContent = `${buckets.length} ${gran} periods · blue = up, red = down`;
+    renderSeas(data);
+  }
+
+  // ---------- seasonality: average return by calendar month ----------
+  // The strip above answers "what happened in each of the last N periods". This
+  // answers "what does this usually do in March", which is a different question
+  // and needs the whole history — a two-year window contains two Marches. So it
+  // deliberately ignores st.i1/st.i2 and reads the precomputed `seas` block.
+  const seas = document.getElementById('seas');
+  const seasnote = document.getElementById('seasnote');
+  seas.addEventListener('mousemove', e => {
+    const t = e.target && e.target.getAttribute && e.target.getAttribute('data-t');
+    if (!t){ heatTip.style.display = 'none'; return; }
+    heatTip.textContent = t;
+    heatTip.style.display = 'block';
+    const w = heatTip.offsetWidth;
+    heatTip.style.left = Math.min(e.clientX + 12, window.innerWidth - w - 8) + 'px';
+    heatTip.style.top = (e.clientY + 14) + 'px';
+  });
+  seas.addEventListener('mouseleave', () => { heatTip.style.display = 'none'; });
+
+  function renderSeas(data){
+    const rows = data.map(d => ({ d, s: (SER[d.id] || {}).seas })).filter(x => x.s);
+    if (!rows.length){ seas.innerHTML = ''; seasnote.textContent = ''; return; }
+    const W = (seas.parentNode.clientWidth || 900);
+    const LBL = 128, RPAD = 8, TOP = 4, BOT = 16, cellH = 17, gap = 1;
+    const H = TOP + BOT + rows.length * cellH;
+    const gridW = W - LBL - RPAD, cw = gridW / 12;
+    seas.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    seas.setAttribute('height', H);
+    // scaled off the 90th percentile of what's on screen, like the heat strip,
+    // so one wild month doesn't wash the other eleven out to white
+    const flat = [];
+    rows.forEach(x => x.s.forEach(v => { if (v) flat.push(Math.abs(v[0])); }));
+    flat.sort((a,b) => a-b);
+    const maxa = Math.max(0.4, flat.length ? flat[Math.floor(flat.length*0.9)] : 2);
+    let g = '';
+    rows.forEach((x, ri) => {
+      const y = TOP + ri*cellH, d = x.d;
+      const dim = st.focus && st.focus !== d.id;
+      const nm = d.label.length > 18 ? d.label.slice(0,17)+'…' : d.label;
+      g += `<rect x="${(LBL-6).toFixed(1)}" y="${(y+cellH/2-4).toFixed(1)}" width="3" height="8" rx="1.5" fill="${d.color}" opacity="${dim?0.35:1}"/>`;
+      g += `<text x="${(LBL-11).toFixed(1)}" y="${(y+cellH/2+3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${dim?'#c9c6c2':'#57534e'}">${esc(nm)}</text>`;
+      x.s.forEach((v, mi) => {
+        const px = LBL + mi*cw;
+        const t = v == null ? null : Math.max(-1, Math.min(1, v[0]/maxa));
+        const fill = t == null ? '#f4f3f1'
+          : t >= 0 ? hexLerp('#ffffff','#1d7fc4', t*0.85+0.12)
+                   : hexLerp('#ffffff','#b8484f', -t*0.85+0.12);
+        const tip = v == null ? `${d.label} · ${MONTHS[mi]} · no history`
+          : `${d.label} · ${MONTHS[mi]} · average ${v[0]>=0?'+':''}${v[0].toFixed(1)}% · ${v[1]} year${v[1]===1?'':'s'}`;
+        g += `<rect x="${px.toFixed(2)}" y="${y.toFixed(1)}" width="${(cw-gap).toFixed(2)}" height="${cellH-gap}" fill="${fill}" data-t="${esc(tip)}"/>`;
+        // 12 columns leave room to print the number, and a seasonality strip is
+        // read for its values, not just its shape
+        if (v != null && cw > 34){
+          const ink = Math.abs(t) > 0.55 ? '#ffffff' : '#44403c';
+          g += `<text x="${(px+cw/2-0.5).toFixed(1)}" y="${(y+cellH/2+3.3).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${ink}" pointer-events="none">${(v[0]>=0?'+':'')+v[0].toFixed(1)}</text>`;
+        }
+      });
+    });
+    MONTHS.forEach((m, mi) => {
+      const x = LBL + mi*cw + cw/2;
+      g += `<text x="${x.toFixed(1)}" y="${(TOP+rows.length*cellH+11).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#a8a29e">${m}</text>`;
+    });
+    seas.innerHTML = g;
+    const yrs = rows.map(x => Math.max(...x.s.filter(Boolean).map(v => v[1])));
+    const lo = Math.min(...yrs), hi = Math.max(...yrs);
+    seasnote.textContent = `mean calendar-month return · whole history `
+      + `(${lo === hi ? lo : lo+'–'+hi} years) · extreme months clipped to the `
+      + `10th/90th percentile · blue = up, red = down`;
+  }
+
+  // ---------- "how unusual is this really" ----------
+  // A sigma is only a probability if returns are normally distributed, and they
+  // are not — the tails are exactly where the bell curve is most wrong, and the
+  // tails are the only part anyone looks at a sigma for. So the panel leads with
+  // the empirical count (how often it actually happened in this name's own
+  // history) and shows the normal-theory number beside it as the contrast.
+  const oddsTip = document.createElement('div');
+  oddsTip.className = 'oddstip';
+  document.body.appendChild(oddsTip);
+
+  // 1 - Φ(z), Abramowitz & Stegun 26.2.17 — plenty accurate for a hover panel
+  function normSf(z){
+    const a = Math.abs(z), t = 1/(1 + 0.2316419*a);
+    const d = 0.3989422804014327*Math.exp(-a*a/2);
+    return d*t*(0.319381530 + t*(-0.356563782 + t*(1.781477937
+             + t*(-1.821255978 + t*1.330274429))));
+  }
+  const oneIn = pr => !pr || !isFinite(pr) ? null
+    : (n => n >= 1000 ? '1 in ' + Math.round(n/100)*100
+          : n >= 100 ? '1 in ' + Math.round(n/10)*10 : '1 in ' + Math.round(n))(1/pr);
+  // periods -> the longest plain-English unit that reads as a round number
+  function everyPhrase(periods, perYear){
+    if (!isFinite(periods) || periods <= 0) return null;
+    const yrs = periods/perYear;
+    if (yrs >= 1.5) return `about once every ${yrs < 10 ? yrs.toFixed(1) : Math.round(yrs)} years`;
+    const mos = yrs*12;
+    if (mos >= 1.5) return `about once every ${Math.round(mos)} months`;
+    const wks = yrs*52;
+    if (wks >= 1.5) return `about once every ${Math.round(wks)} weeks`;
+    return 'more often than weekly';
+  }
+  // p is the percentile from _move_stat: (count(|x| <= |v|) + 1)/(n+1)*100,
+  // so the exceedance count comes straight back out of it.
+  function oddsHTML({label, date, r, z, p, n, perYear, basis}){
+    const exceed = (p == null || n == null) ? null
+      : Math.max(0, Math.round((n+1)*(1 - p/100)));
+    const emp = exceed == null ? null : exceed === 0 ? null : (n+1)/exceed;
+    const th = z == null ? null : 1/(2*normSf(z));
+    const head = `${esc(label)} · ${esc(date)} · ${fmtPct(r)}`
+      + (z == null ? '' : ` · ${z.toFixed(1)}σ`);
+    let rows = '';
+    if (exceed != null){
+      rows += `<div class="row"><span>Actually happened</span><span>`
+        + (exceed === 0 ? `never in ${n}` : `${exceed} in ${n} &rarr; ${oneIn(exceed/(n+1))}`)
+        + `</span></div>`;
+    }
+    if (th != null){
+      rows += `<div class="row"><span>Bell curve says</span><span>${oneIn(2*normSf(z))}</span></div>`;
+    }
+    const per = emp || (exceed === 0 ? n+1 : null) || th;
+    const phr = per && perYear ? everyPhrase(per, perYear) : null;
+    if (phr) rows += `<div class="row"><span>Which is</span><span>${phr}</span></div>`;
+    const cav = exceed === 0
+      ? `Never seen in ${n} ${basis}, so the real odds are longer than 1 in ${n+1} — the history simply runs out. The bell-curve figure is an extrapolation.`
+      : `Sigma assumes a bell curve. Real returns have fatter tails, so the count on the left is the honest one; where the two disagree, trust it.`;
+    return `<div class="hd">How unusual is this</div><b>${head}</b>${rows}`
+      + `<div class="cav">${cav}<br>Measured against ${n} ${esc(basis)}.</div>`;
+  }
+  function bindOdds(root){
+    root.addEventListener('mousemove', e => {
+      const el = e.target.closest && e.target.closest('[data-odds]');
+      if (!el){ oddsTip.style.display = 'none'; return; }
+      if (oddsTip.dataset.for !== el.dataset.odds){
+        oddsTip.dataset.for = el.dataset.odds;
+        oddsTip.innerHTML = oddsHTML(JSON.parse(el.dataset.odds));
+      }
+      oddsTip.style.display = 'block';
+      const w = oddsTip.offsetWidth, h = oddsTip.offsetHeight;
+      oddsTip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 8) + 'px';
+      oddsTip.style.top = (e.clientY + 16 + h > window.innerHeight
+        ? e.clientY - h - 12 : e.clientY + 16) + 'px';
+    });
+    root.addEventListener('mouseleave', () => { oddsTip.style.display = 'none'; });
   }
 
   // ---------- standard-deviation context ----------
   const ddMoveToggle = document.getElementById('ddmovetoggle');
+  bindOdds(document.getElementById('ddgrid'));
   const moveSource = id => {
     const item=SER[id];
     return item && item.kind==='reconame' ? SER[item.src] : item;
@@ -1152,10 +1321,16 @@
       const basis=move.e ? 'prior earnings reactions' :
         (st.moveFrame==='d' ? 'prior daily moves (3Y)' : 'prior weekly moves (3Y)');
       const sigma=move.z==null ? '—' : `${move.z.toFixed(1)}σ`;
-      const percentile=move.p==null ? '' : ` · ${move.p.toFixed(0)}th percentile`;
-      const title=`${item.label} · ${move.date} · ${fmtPct(move.r)} · ${sigma}`
-        + ` vs ${move.n} ${basis}${percentile}`;
-      return `<div class="sigma-cell${move.e?' earnings':''}" title="${esc(title)}">`
+      // No native title: the hover panel says everything the old one said and the
+      // odds on top, and a browser tooltip fading in a second later would land on
+      // top of the panel.
+      const odds=esc(JSON.stringify({
+        label:item.label, date:move.date, r:move.r, z:move.z, p:move.p, n:move.n,
+        // an earnings cell is compared only with other earnings reactions, so its
+        // periods are quarters, not sessions
+        perYear: move.e ? 4 : st.moveFrame==='d' ? 252 : 52, basis,
+      }));
+      return `<div class="sigma-cell${move.e?' earnings':''}" data-odds="${odds}">`
         + (move.e?'<span class="etag">E</span>':'')
         + `<span class="mvdate">${esc(move.date.slice(5))}</span>`
         + `<b style="color:${move.r>=0?'#3f9d6a':'#b8484f'}">${fmtPct(move.r)}</b>`

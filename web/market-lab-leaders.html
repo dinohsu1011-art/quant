@@ -34,6 +34,7 @@
 
     .controls { display:flex; flex-wrap:wrap; align-items:center; gap:9px 26px; padding:14px 0 4px; }
     .cgrp { display:flex; align-items:center; gap:11px; }
+    .cgrp[hidden] { display:none; }
     .cgrp .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
     .cgrp .sep { width:1px; height:11px; background:var(--stone); margin:0 -3px; }
     .cgrp button { background:none; border:none; padding:2px 0; cursor:pointer; font-family:var(--sans);
@@ -142,6 +143,20 @@
     .rk { color:var(--steel); font-size:11px; }
     .bar { display:inline-block; height:8px; background:var(--sky); border-radius:1px;
            vertical-align:middle; }
+    /* the sigma hover panel: a paragraph, not a one-liner, because it has to put
+       what actually happened next to what the bell curve claims */
+    .sg { cursor:help; border-bottom:1px dotted var(--platinum); }
+    .oddstip { position:fixed; z-index:40; display:none; pointer-events:none; width:290px;
+               padding:10px 12px 11px; border:1px solid var(--platinum); border-radius:4px;
+               background:rgba(255,255,255,.985); box-shadow:0 6px 22px rgba(12,10,9,.10);
+               color:var(--ink); font:11px/1.45 var(--mono); font-variant-numeric:tabular-nums; }
+    .oddstip .hd { font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+                   color:var(--steel); margin-bottom:5px; }
+    .oddstip b { display:block; font-weight:650; margin-bottom:6px; }
+    .oddstip .row { display:flex; justify-content:space-between; gap:14px; padding:1px 0; }
+    .oddstip .row span:first-child { color:var(--ash); }
+    .oddstip .cav { margin-top:7px; padding-top:6px; border-top:1px solid var(--stone);
+                    color:var(--steel); font-size:10px; line-height:1.45; white-space:normal; }
     .note { font:10.5px/1.6 var(--mono); color:var(--steel); margin-top:18px; max-width:980px; }
     .note b { color:var(--ink); font-weight:600; }
     .empty { padding:80px 0; text-align:center; color:var(--steel); font-size:13px; }
@@ -177,6 +192,7 @@
       <select id="sector"></select>
       <select id="theme"></select>
     </div>
+    <div class="cgrp" id="months" hidden><span class="lbl">Month</span></div>
     <div class="cgrp" id="liq"><span class="lbl">Min $ vol</span></div>
     <div class="cgrp" id="clearwrap"><button id="clear">Clear filters</button></div>
   </div>
@@ -233,14 +249,18 @@
   // Otherwise flipping to Worst renumbers the ranks but leaves the table sorted
   // best-first, so the bottom 10 sits at the bottom of a 500-row table.
   const st = { windows:['YTD'], view:'table', uni:'all', rank:'best', dir:-1, top:10, q:'',
-               sector:'', theme:'', minAdv:0, sortK:'win', sortDir:-1, route:0 };
+               sector:'', theme:'', minAdv:0, sortK:'win', sortDir:-1, route:0,
+               month:new Date().getMonth() };
   const sortByRank = () => {
-    st.sortK = st.rank === 'sigma' ? 'sigma' : 'win';
+    st.sortK = st.rank === 'sigma' ? 'sigma' : st.rank === 'month' ? 'month' : 'win';
     st.sortDir = st.rank === 'worst' ? 1 : -1;
   };
 
   const UNIS = [['all','All tracked'], ['sp','S&P 500'], ['reco','My coverage']];
-  const DIRS = [['best','Best'], ['worst','Worst'], ['sigma','Sigma']];
+  // Month is a rank mode, not a window: it ignores the window entirely and asks
+  // what this name usually does in that calendar month across its whole history.
+  const DIRS = [['best','Best'], ['worst','Worst'], ['sigma','Sigma'], ['month','Month']];
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const TOPS = [10, 25, 50, 100];
   const LIQ  = [[0,'—'], [50,'50M'], [250,'250M'], [1000,'1B']];
   const VIEWS = [['table','Table'], ['loom','Loom'], ['summit','Summit']];
@@ -278,7 +298,15 @@
   const fmtS = v => v == null ? '—' : v.toFixed(1) + 'σ';
   const cls  = v => v == null ? '' : v >= 0 ? 'pos' : 'neg';
   const fmtM = v => v == null ? '—' : v >= 1000 ? (v/1000).toFixed(1) + 'B' : v.toFixed(0) + 'M';
-  const rankValue = (r, win) => st.rank === 'sigma' ? r.z?.[win] : r.r[win];
+  // [average %, sample count] for the selected calendar month, or null
+  const monthStat = r => (r.m && r.m[st.month]) || null;
+  // Three Julys average to whatever the biggest of the three did, and that name
+  // then owns the top of the ranking on nothing. Five is the floor for being
+  // rankable at all; the count still ships in the column so a thin five is visible.
+  const MIN_MONTHS = 5;
+  const rankValue = (r, win) => st.rank === 'sigma' ? r.z?.[win]
+    : st.rank === 'month' ? (monthStat(r)?.[1] >= MIN_MONTHS ? monthStat(r)[0] : null)
+    : r.r[win];
   const fmtRank = v => st.rank === 'sigma' ? fmtS(v) : fmtP(v);
   const fmtRankValue = (r, win) => fmtRank(rankValue(r,win));
 
@@ -325,23 +353,36 @@
     const push = (m, k, r) => { if (!m.has(k)) m.set(k, []); m.get(k).push(r); };
     for (const r of cohort) for (const k of key(r)) push(inC, k, r);
     for (const r of all)    for (const k of key(r)) push(inAll, k, r);
+    // Month mode asks a group question outright — which sectors and themes tend
+    // to do well in October — so every group in the filtered pool is listed and
+    // ranked by its own median, not just the ones holding cohort members.
+    const keys = [...(st.rank === 'month' ? inAll : inC).keys()];
     const out = [];
-    for (const [k, members] of inC){
+    for (const k of keys){
+      const members = inC.get(k) || [];
       const universe = inAll.get(k) || [];
       out.push({ k, label: labelOf(k), n: members.length, of: universe.length,
                  med: median(universe.map(r => rankValue(r,win))) });
     }
-    return out.sort((a,b) => b.n - a.n || (b.med ?? -1e9) - (a.med ?? -1e9));
+    return st.rank === 'month'
+      ? out.sort((a,b) => (b.med ?? -1e9) - (a.med ?? -1e9))
+      : out.sort((a,b) => b.n - a.n || (b.med ?? -1e9) - (a.med ?? -1e9));
   }
 
   function drawComp(id, items, active, onPick){
     const el = document.getElementById(id);
     if (!items.length){ el.innerHTML = '<div class="cempty">No labels on this cohort.</div>'; return; }
-    const max = items[0].n;
+    // The bar shows whatever the list is ranked on: cohort share normally, the
+    // group's own median in month mode, where a count bar would say nothing.
+    const byMed = st.rank === 'month';
+    const max = byMed ? Math.max(...items.map(it => Math.abs(it.med ?? 0)), 0.01)
+                      : items[0].n;
+    const barW = it => byMed ? Math.abs(it.med ?? 0)/max*100 : it.n/max*100;
     el.innerHTML = items.map(it => `
       <div class="crow${it.k === active ? ' on' : ''}" data-k="${esc(it.k)}">
         <span class="cl">${esc(it.label)}</span>
-        <span class="cb"><i style="width:${(it.n/max*100).toFixed(1)}%"></i></span>
+        <span class="cb"><i style="width:${barW(it).toFixed(1)}%${
+          byMed && (it.med ?? 0) < 0 ? ';background:var(--down)' : ''}"></i></span>
         <span class="cn">${it.n}<span style="color:var(--steel)">/${it.of}</span></span>
         <span class="cm ${cls(it.med)}">${fmtRank(it.med)}</span>
       </div>`).join('');
@@ -349,13 +390,85 @@
       row.onclick = () => onPick(row.dataset.k === active ? '' : row.dataset.k));
   }
 
+  // ---------- sigma odds ----------
+  // A sigma is a distance, and everyone reads it as a probability. The panel does
+  // that conversion out loud, and shows the two answers side by side: how often a
+  // move this far actually happened in this name's own history, and what a normal
+  // curve claims. They disagree, always in the same direction, because real
+  // returns have fat tails — which is exactly why the raw count ships in `zx`.
+  const oddsTip = document.createElement('div');
+  oddsTip.className = 'oddstip';
+  document.body.appendChild(oddsTip);
+
+  // 1 - Φ(z), Abramowitz & Stegun 26.2.17 — plenty accurate for a hover panel
+  function normSf(z){
+    const a = Math.abs(z), t = 1/(1 + 0.2316419*a);
+    const d = 0.3989422804014327*Math.exp(-a*a/2);
+    return d*t*(0.319381530 + t*(-0.356563782 + t*(1.781477937
+             + t*(-1.821255978 + t*1.330274429))));
+  }
+  const oneIn = pr => !pr || !isFinite(pr) ? null
+    : (n => n >= 1000 ? '1 in ' + Math.round(n/100)*100
+          : n >= 100 ? '1 in ' + Math.round(n/10)*10 : '1 in ' + Math.round(n))(1/pr);
+
+  function sigmaCell(r, win){
+    const z = r.z?.[win];
+    if (z == null) return '—';
+    const zx = r.zx?.[win];
+    const payload = esc(JSON.stringify({t:r.t, n:r.n, win, z, ret:r.r[win],
+      hits: zx?.[0] ?? null, samp: zx?.[1] ?? null}));
+    return `<span class="sg" data-odds="${payload}">${fmtS(z)}</span>`;
+  }
+
+  function oddsHTML({t, n, win, z, ret, hits, samp}){
+    const rows = [];
+    if (hits != null && samp){
+      rows.push(['Actually happened', hits === 0
+        ? `never in ${samp}`
+        : `${hits} in ${samp} &rarr; ${oneIn(hits/samp)}`]);
+    }
+    rows.push(['Bell curve says', oneIn(2*normSf(z))]);
+    const cav = hits === 0
+      ? `Never seen in ${samp} rolling ${win} moves, so the true odds are longer than `
+        + `1 in ${samp} — the history runs out. The bell-curve line is an extrapolation.`
+      : `Sigma assumes a bell curve. Real returns have fatter tails, so the count on `
+        + `the left is the honest one; where the two disagree, trust it.`;
+    return `<div class="hd">How unusual is this</div>`
+      + `<b>${esc(t)} · ${esc(n)} · ${win} ${fmtP(ret)} · ${z.toFixed(2)}σ</b>`
+      + rows.map(([k,v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('')
+      + `<div class="cav">${cav}<br>Measured against overlapping ${win} moves `
+      + `ending before today, capped at the prior 3 years.</div>`;
+  }
+
+  function bindOdds(root){
+    root.addEventListener('mousemove', e => {
+      const el = e.target.closest && e.target.closest('[data-odds]');
+      if (!el){ oddsTip.style.display = 'none'; return; }
+      if (oddsTip.dataset.for !== el.dataset.odds){
+        oddsTip.dataset.for = el.dataset.odds;
+        oddsTip.innerHTML = oddsHTML(JSON.parse(el.dataset.odds));
+      }
+      oddsTip.style.display = 'block';
+      const w = oddsTip.offsetWidth, h = oddsTip.offsetHeight;
+      oddsTip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 8) + 'px';
+      oddsTip.style.top = (e.clientY + 16 + h > window.innerHeight
+        ? e.clientY - h - 12 : e.clientY + 16) + 'px';
+    });
+    root.addEventListener('mouseleave', () => { oddsTip.style.display = 'none'; });
+  }
+  bindOdds(document.getElementById('tbl'));
+
   // ---------- table ----------
   const COLS = () => {
     const win = rankWin();
-    const returnCol = {k:'win', l:win, key:st.rank !== 'sigma',
+    const returnCol = {k:'win', l:win, key:st.rank === 'best' || st.rank === 'worst',
       get:r=>fmtP(r.r[win]), v:r=>r.r[win], colour:true};
     const sigmaCol = {k:'sigma', l:win+' σ', key:st.rank === 'sigma',
-      get:r=>fmtS(r.z?.[win]), v:r=>r.z?.[win]};
+      get:r=>sigmaCell(r,win), v:r=>r.z?.[win]};
+    const monthCol = {k:'month', l:'avg '+MON[st.month], key:true,
+      get:r=>{ const s = monthStat(r); return s
+        ? fmtP(s[0]) + `<span class="co">n=${s[1]}</span>` : '—'; },
+      v:r=>monthStat(r)?.[0], colour:true};
     return [
     {k:'rank', l:'#',        cls:'rk',  get:(r,i)=>String(i+1)},
     {k:'t',    l:'Ticker',   left:true, get:r=>`<span class="tk">${esc(r.t)}</span>`
@@ -364,7 +477,8 @@
     {k:'th',   l:'Themes',   left:true, nosort:true, get:r=> r.th.map(t =>
                  `<span class="tag${t === st.theme ? ' hot' : ''}">${esc(THEMES[t] || t)}</span>`).join('')
                  + (r.rc ? '<span class="tag rc">coverage</span>' : '')},
-    ...(st.rank === 'sigma' ? [sigmaCol,returnCol] : [returnCol,sigmaCol]),
+    ...(st.rank === 'month' ? [monthCol,returnCol,sigmaCol]
+        : st.rank === 'sigma' ? [sigmaCol,returnCol] : [returnCol,sigmaCol]),
     ...WINDOWS.filter(w => w !== win).map(w =>
     ({k:'w:'+w, l:w, get:r=>fmtP(r.r[w]), v:r=>r.r[w], colour:true})),
     {k:'off52',l:'off 52wH', get:r=>fmtP(r.off52), v:r=>r.off52, colour:true},
@@ -630,9 +744,9 @@
     ctx.strokeStyle='#8f8a83'; ctx.lineWidth=1.05; ctx.stroke();
 
     // Altitude is the active ranking metric: return, loss severity, or sigma.
-    const score = r => st.rank==='sigma' ? rankValue(r,win)
+    const score = r => st.rank==='sigma' || st.rank==='month' ? rankValue(r,win)
       : st.dir<0 ? r.r[win] : -r.r[win];
-    const unscore = v => st.rank==='sigma' ? v : st.dir<0 ? v : -v;
+    const unscore = v => st.rank==='sigma' || st.rank==='month' ? v : st.dir<0 ? v : -v;
     const scores=cohort.map(score).filter(Number.isFinite);
     let lo=Math.min(0,...scores), hi=Math.max(0,...scores);
     const spread=Math.max(1,hi-lo);
@@ -643,12 +757,14 @@
     ctx.beginPath(); ctx.moveTo(axisX,summitY); ctx.lineTo(axisX,baseY); ctx.stroke();
     ctx.fillStyle='#57534e'; ctx.font='9px ui-monospace, "SF Mono", Menlo, monospace';
     const axisTitle=st.rank==='sigma' ? `${win} SIGMA (σ)`
+      : st.rank==='month' ? `MEAN ${MON[st.month].toUpperCase()} RETURN (%)`
       : `${win} ${st.dir<0?'RETURN':'LOSS'} (%)`;
     ctx.textAlign='right'; ctx.fillText(axisTitle,width-8,18);
     for (let i=0;i<=5;i++){
       const s=lo+(hi-lo)*i/5, y=yScore(s);
       ctx.beginPath(); ctx.moveTo(axisX-4,y); ctx.lineTo(axisX+4,y); ctx.stroke();
-      ctx.textAlign='right'; ctx.fillText(unscore(s).toFixed(st.rank==='sigma'?1:0),width-7,y);
+      ctx.textAlign='right';
+      ctx.fillText(unscore(s).toFixed(st.rank==='best'||st.rank==='worst' ? 0 : 1),width-7,y);
     }
 
     const ascent=cohort.slice().reverse();
@@ -739,7 +855,9 @@
     }
     if (!hit){vizTip.classList.remove('on');return;}
     vizTip.textContent=`#${hit.rank ?? '—'} ${hit.r.t} · ${fmtRankValue(hit.r,hit.win)}`
-      + `${st.rank==='sigma' ? ` · ${fmtP(hit.r.r[hit.win])}` : ''} · ${hit.r.s}`;
+      + `${st.rank==='sigma' ? ` · ${fmtP(hit.r.r[hit.win])}`
+          : st.rank==='month' ? ` avg ${MON[st.month]} · n=${monthStat(hit.r)?.[1] ?? '—'}`
+          : ''} · ${hit.r.s}`;
     vizTip.style.left=x+'px'; vizTip.style.top=y+'px'; vizTip.classList.add('on');
   });
   viz.addEventListener('mouseleave',() => {
@@ -789,7 +907,8 @@
 
     const secs = composition(cohort, p, r => r.s === '—' ? [] : [r.s], k => k);
     const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);
-    const medianLabel = st.rank === 'sigma' ? `${win} σ` : win;
+    const medianLabel = st.rank === 'sigma' ? `${win} σ`
+      : st.rank === 'month' ? `avg ${MON[st.month]}` : win;
     document.getElementById('ch1').textContent = `${cohort.length} names · group median ${medianLabel}`;
     document.getElementById('ch2').textContent = `tagged names · group median ${medianLabel}`;
     drawComp('csec', secs, st.sector, k => { st.sector = k; syncCtl(); render(); });
@@ -800,7 +919,9 @@
     const uni = UNIS.find(u => u[0] === st.uni)[1];
     document.getElementById('verdict').innerHTML = cohort.length
       ? `<b>${st.rank==='sigma' ? 'Top '+cohort.length+' by sigma'
-          : (st.dir < 0 ? 'Top ' : 'Bottom ')+cohort.length}</b> · ${esc(uni)} · ${win}`
+          : st.rank==='month' ? `Top ${cohort.length} in ${MON[st.month]}`
+          : (st.dir < 0 ? 'Top ' : 'Bottom ')+cohort.length}</b> · ${esc(uni)} · `
+        + `${st.rank==='month' ? `mean ${MON[st.month]} return, whole history` : win}`
         + ` · ${p.length} filtered · median ${fmtRank(med)}`
       : '';
 
@@ -820,7 +941,15 @@
 
     document.getElementById('foot').innerHTML =
       `<b>${M.n}</b> tracked names · price returns · no dividends · ${M.as_of}`
-      + (M.n_stale ? ` · ${M.n_stale} stale feeds excluded` : '');
+      + (M.n_stale ? ` · ${M.n_stale} stale feeds excluded` : '')
+      + (st.rank === 'month'
+        ? `<br>Month averages are month-end to month-end over each name's whole history, `
+          + `so a 2021 listing contributes five ${MON[st.month]}s. <b>n=</b> in the column is `
+          + `that count; names with fewer than ${MIN_MONTHS} are left out of the ranking `
+          + `rather than allowed to top it on three observations. Each month's extremes `
+          + `are clipped to its own 10th/90th percentile, so one broken split adjustment `
+          + `in 1993 cannot set a 36-year average.`
+        : '');
   }
 
   // ---------- controls ----------
@@ -839,6 +968,7 @@
     st.dir = v === 'worst' ? 1 : -1;
     sortByRank();
   });
+  mkBtns(document.getElementById('months'), MON.map((m,i) => [i, m]), v => st.month = +v);
   mkBtns(document.getElementById('tops'), TOPS.map(t => [t, 'Top ' + t]), v => st.top = +v);
   mkBtns(document.getElementById('views'), VIEWS, v => setView(v));
   mkBtns(document.getElementById('liq'),  LIQ,  v => st.minAdv = +v);
@@ -866,19 +996,20 @@
       b.classList.toggle('on',yes); b.setAttribute('aria-pressed',yes);
     });
     on('unis', st.uni); on('dirs', st.rank); on('tops', st.top);
-    on('views', st.view); on('liq', st.minAdv);
+    on('views', st.view); on('liq', st.minAdv); on('months', st.month);
+    document.getElementById('months').hidden = st.rank !== 'month';
     secSel.value = st.sector; thmSel.value = st.theme;
   }
 
   // ---------- hash ----------
   function writeHash(){
     history.replaceState(null, '', '#' + [rankWin(), st.uni, st.rank,
-      st.top, st.minAdv, st.sector, st.theme, st.view, st.windows.join(','), st.route]
-      .map(encodeURIComponent).join('|'));
+      st.top, st.minAdv, st.sector, st.theme, st.view, st.windows.join(','), st.route,
+      st.month].map(encodeURIComponent).join('|'));
   }
   function readHash(){
     const h = location.hash.slice(1); if (!h) return;
-    const [w, u, d, t, adv, sec, thm, view, wins, route] =
+    const [w, u, d, t, adv, sec, thm, view, wins, route, mon] =
       h.split('|').map(decodeURIComponent);
     if (WINDOWS.includes(w)) st.windows = [w];
     if (UNIS.some(x => x[0] === u)) st.uni = u;
@@ -898,6 +1029,7 @@
     }
     if (st.view !== 'loom' && st.windows.length > 1) st.windows=[rankWin()];
     if (Number.isFinite(+route)) st.route=+route;
+    if (mon !== undefined && +mon >= 0 && +mon <= 11) st.month=+mon;
   }
 
   document.getElementById('asof').textContent = 'as of ' + M.as_of;

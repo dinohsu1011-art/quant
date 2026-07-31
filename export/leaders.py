@@ -106,9 +106,16 @@ def _sigma(c, k, current):
     Use rolling moves ending before the latest close and cap the comparison at
     the prior three years. This mirrors Theme Returns' move-context convention:
     sigma describes unusualness, while the return itself preserves direction.
+
+    Returns (sigma, exceedances, n): how many of those n historical moves were
+    at least this far from the mean, alongside the sigma itself. A sigma is only
+    a probability if returns are normal, and they are not — the tails are the
+    part that matters and the part the normal curve gets most wrong. So the
+    count ships too, and the page can quote what actually happened next to what
+    the bell curve claims.
     """
     if current is None or len(c) <= k + 4:
-        return None
+        return None, None, None
     end = np.arange(k, len(c) - 1)
     if len(end) > 756:
         end = end[-756:]
@@ -117,12 +124,46 @@ def _sigma(c, k, current):
     sample = finish / base - 1
     sample = sample[np.isfinite(sample) & np.isfinite(base) & (base > 0)]
     if len(sample) < 4:
-        return None
+        return None, None, None
     sd = np.std(sample, ddof=1)
     if not np.isfinite(sd) or sd <= 0:
-        return None
+        return None, None, None
     mean = np.mean(sample)
-    return round(abs((current / 100) - mean) / sd, 2)
+    dev = abs((current / 100) - mean)
+    hits = int(np.sum(np.abs(sample - mean) >= dev))
+    return round(dev / sd, 2), hits, int(len(sample))
+
+
+def _seasonality(dates, c):
+    """Average calendar-month return, Jan..Dec, with the sample count per month.
+
+    Month-end to month-end over the whole history, so the first partial month is
+    dropped rather than counted as a short month. The count travels with the
+    average because a 3-year listing gives three Marches, and three of anything
+    is a story, not a tendency.
+
+    Each month's sample is winsorized at the 10th/90th percentile before the mean
+    is taken. Not for smoothing — for survival. Yahoo's split-adjusted history has
+    genuine breaks in it (NVR shows +2600% in October 1993, a reorganisation the
+    adjustment never applied), and one bar like that puts a name at the top of a
+    36-year ranking on a number that never happened. Clipping the tails to their
+    own 10/90 keeps every observation in the sample while denying any single one
+    the power to set the answer.
+    """
+    s = pd.Series(c, index=dates)
+    m = s.resample("ME").last().dropna()
+    r = m.pct_change(fill_method=None).dropna()
+    if len(r) < 12:
+        return None
+    out = []
+    for mo in range(1, 13):
+        x = r[r.index.month == mo].to_numpy(dtype=float)
+        if not len(x):
+            out.append(None)
+            continue
+        lo, hi = np.percentile(x, [10, 90])
+        out.append([round(float(np.clip(x, lo, hi).mean()) * 100, 2), int(len(x))])
+    return out
 
 
 def row(stem, df):
@@ -130,7 +171,7 @@ def row(stem, df):
     if len(c) < 30:
         return None
     dates = df.index
-    r, z = {}, {}
+    r, z, zx = {}, {}, {}
     for label, k in WINDOWS:
         if k == "ytd":
             # first session of the current year *in this stock's own history*
@@ -140,10 +181,13 @@ def row(stem, df):
             # listed this year has no prior close and so no YTD number
             sessions = len(c) - pos
             r[label] = _ret(c, sessions) if 0 < pos < len(c) else None
-            z[label] = _sigma(c, sessions, r[label]) if r[label] is not None else None
+            k = sessions
         else:
             r[label] = _ret(c, k)
-            z[label] = _sigma(c, k, r[label])
+        sg, hits, n = _sigma(c, k, r[label])
+        z[label] = sg
+        if sg is not None:
+            zx[label] = [hits, n]
 
     hi52 = np.nanmax(c[-252:]) if len(c) >= 60 else np.nan
     lo52 = np.nanmin(c[-252:]) if len(c) >= 60 else np.nan
@@ -164,6 +208,8 @@ def row(stem, df):
         "px": num(c[-1], 2),
         "r": r,
         "z": z,
+        "zx": zx,
+        "m": _seasonality(dates, c),
         "off52": num((c[-1] / hi52 - 1) * 100 if np.isfinite(hi52) else np.nan),
         "up52": num((c[-1] / lo52 - 1) * 100 if np.isfinite(lo52) else np.nan),
         "ma50": num((c[-1] / ma50 - 1) * 100 if np.isfinite(ma50) else np.nan),
