@@ -140,6 +140,9 @@
     tbody tr.cut td { border-bottom:1px solid var(--platinum); }
     tbody td .tk { font-family:var(--mono); font-weight:600; font-size:12.5px; }
     tbody td .co { color:var(--ash); font-size:11.5px; margin-left:8px; }
+    /* fewer than five years behind the average — readable, but marked */
+    tbody td .co.thin { color:var(--down); border-bottom:1px dotted var(--down);
+                        cursor:help; }
     tbody td .sec { color:var(--ash); font-size:11px; }
     .tag { display:inline-block; font-size:10px; letter-spacing:.02em; padding:1px 5px;
            border:1px solid var(--stone); border-radius:3px; color:var(--ash); margin-right:3px;
@@ -308,10 +311,14 @@
   const fmtM = v => v == null ? '—' : v >= 1000 ? (v/1000).toFixed(1) + 'B' : v.toFixed(0) + 'M';
   // [average %, sample count] for the selected calendar month, or null
   const monthStat = r => (r.m && r.m[st.month]) || null;
-  // Three Julys average to whatever the biggest of the three did, and that name
-  // then owns the top of the ranking on nothing. Five is the floor for being
-  // rankable at all; the count still ships in the column so a thin five is visible.
-  const MIN_MONTHS = 5;
+  // Two is the floor: below that there is no average, only a single month being
+  // reported as a tendency. It used to be five, which hid every recent listing —
+  // the whole Neocloud basket vanished from an August ranking for want of history
+  // it cannot have. Better to show the average and say how thin it is: anything
+  // under five years is flagged in the column and in the tooltip, so a two-year
+  // average can be read for what it is rather than silently dropped.
+  const MIN_MONTHS = 2;
+  const THIN_MONTHS = 5;
   const rankValue = (r, win) => st.rank === 'sigma' ? r.z?.[win]
     : st.rank === 'month' ? (monthStat(r)?.[1] >= MIN_MONTHS ? monthStat(r)[0] : null)
     : r.r[win];
@@ -491,8 +498,13 @@
     const sigmaCol = {k:'sigma', l:win+' σ', key:st.rank === 'sigma',
       get:r=>sigmaCell(r,win), v:r=>r.z?.[win]};
     const monthCol = {k:'month', l:'avg '+MON[st.month], key:true,
-      get:r=>{ const s = monthStat(r); return s
-        ? fmtP(s[0]) + `<span class="co">n=${s[1]}</span>` : '—'; },
+      // A thin sample is shown, not hidden — but it says so, because two Augusts
+      // averaging +12% and thirty averaging +2% are not the same claim.
+      get:r=>{ const s = monthStat(r); if (!s) return '—';
+        const thin = s[1] < THIN_MONTHS;
+        return fmtP(s[0]) + `<span class="co${thin ? ' thin' : ''}"`
+          + (thin ? ` title="only ${s[1]} ${MON[st.month]}s of history — a thin average"` : '')
+          + `>n=${s[1]}</span>`; },
       v:r=>monthStat(r)?.[0], colour:true};
     return [
     {k:'rank', l:'#',        cls:'rk',  get:(r,i)=>String(i+1)},
@@ -974,8 +986,9 @@
       + (st.rank === 'month'
         ? `<br>Month averages are month-end to month-end over each name's whole history, `
           + `so a 2021 listing contributes five ${MON[st.month]}s. <b>n=</b> in the column is `
-          + `that count; names with fewer than ${MIN_MONTHS} are left out of the ranking `
-          + `rather than allowed to top it on three observations. Each month's extremes `
+          + `that count, and it is marked in red below ${THIN_MONTHS} so a short history `
+          + `is visible rather than silently trusted. A name needs at least ${MIN_MONTHS} `
+          + `to appear at all, since one month is not an average. Each month's extremes `
           + `are clipped to its own 10th/90th percentile, so one broken split adjustment `
           + `in 1993 cannot set a 36-year average.`
         : '');
