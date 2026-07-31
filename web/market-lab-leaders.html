@@ -315,6 +315,14 @@
   const rankValue = (r, win) => st.rank === 'sigma' ? r.z?.[win]
     : st.rank === 'month' ? (monthStat(r)?.[1] >= MIN_MONTHS ? monthStat(r)[0] : null)
     : r.r[win];
+  // What it takes for a name to be counted at all, said in words. The second
+  // number in the composition panel is not "tagged names" — it is tagged names
+  // that clear this bar, and the bar moves with the mode. In month mode the
+  // window is irrelevant: the gate is having enough Augusts to average, which is
+  // why a basket of 2024 listings shows two names there whatever window is lit.
+  const rankableNote = () => st.rank === 'month'
+    ? `with ${MIN_MONTHS}+ years of ${MON[st.month]}`
+    : `with a ${rankWin()} number`;
   const fmtRank = v => st.rank === 'sigma' ? fmtS(v) : fmtP(v);
   const fmtRankValue = (r, win) => fmtRank(rankValue(r,win));
 
@@ -396,7 +404,7 @@
       + `<span>${byMed ? 'n' : 'in/of'}</span><span>median</span></div>`;
     el.innerHTML = head + items.map(it => `
       <div class="crow${it.k === active ? ' on' : ''}${it.n ? '' : ' cold'}" data-k="${esc(it.k)}"
-           title="${esc(it.label)}: ${it.n} of ${it.of} in the cohort. The ${it.of} counts tagged names with a ${rankWin()} number — a theme of recent listings thins out on the long windows.">
+           title="${esc(it.label)}: ${it.n} of ${it.of} in the cohort. The ${it.of} counts tagged names ${rankableNote()}, so a theme of recent listings thins out here whatever the window says.">
         <span class="cl">${esc(it.label)}</span>
         <span class="cb"><i style="width:${barW(it).toFixed(1)}%${
           byMed && (it.med ?? 0) < 0 ? ';background:var(--down)' : ''}"></i></span>
@@ -896,7 +904,7 @@
       }).join('') : `<div class="summit-empty">${type==='theme' ? 'No tagged themes' : 'No sector labels'}</div>`;
       return `<div><h3>${title}<em>${detail}</em></h3>${rows}</div>`;
     }
-    const detail=`in top ${cohortN} / tagged · group median ${win}`;
+    const detail=`in top ${cohortN} ${rankableNote()} · group median ${win}`;
     summitComp.innerHTML=column('SECTORS · pennant notch',detail,sectors,'sector')
       +column('THEMES',detail,themes,'theme');
   }
@@ -929,7 +937,7 @@
       : st.rank === 'month' ? `avg ${MON[st.month]}` : win;
     // Both panels list every group in the filtered pool, so say what the pair of
     // numbers means rather than leaving "2/7" to be guessed at.
-    const detail = `in top ${cohort.length} / tagged · group median ${medianLabel}`;
+    const detail = `in top ${cohort.length} ${rankableNote()} · group median ${medianLabel}`;
     document.getElementById('ch1').textContent = detail;
     document.getElementById('ch2').textContent = detail;
     drawComp('csec', secs, st.sector, k => { st.sector = k; syncCtl(); render(); });
