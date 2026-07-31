@@ -133,6 +133,31 @@
                font-variant-numeric:tabular-nums; padding:3px 8px; border-radius:4px;
                white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.25); }
 
+    /* ---------- recent move context ---------- */
+    .movehd { justify-content:space-between; align-items:center; }
+    .movehd > div { display:flex; align-items:baseline; gap:12px; }
+    .movetoggle { display:flex; gap:12px; }
+    .movetoggle button { padding:1px 0; border:0; border-bottom:1.5px solid transparent;
+                         background:none; color:var(--ash); cursor:pointer; font:11px var(--sans); }
+    .movetoggle button.on { color:var(--ink); border-bottom-color:var(--ink); font-weight:650; }
+    .movewrap { overflow-x:auto; border:1px solid var(--stone); border-radius:4px;
+                background:var(--white); }
+    .movewrap[hidden] { display:none; }
+    #movetbl { margin:0; min-width:760px; table-layout:fixed; }
+    #movetbl thead th { cursor:default; text-align:center; padding-top:9px; }
+    #movetbl thead th:first-child { width:150px; text-align:left; }
+    #movetbl tbody tr { cursor:default; }
+    #movetbl tbody td { height:55px; padding:6px 10px; text-align:center; vertical-align:middle; }
+    #movetbl tbody td:first-child { text-align:left; font-family:var(--sans); }
+    .movecell { position:relative; line-height:1.2; }
+    .movecell.earnings { background:#fff8e7; box-shadow:inset 0 0 0 1px rgba(212,135,29,.16); }
+    .movecell .mvdate { display:block; color:var(--steel); font-size:8.5px; margin-bottom:2px; }
+    .movecell b { display:block; font-size:12px; }
+    .movecell em { display:block; color:var(--ash); font-size:9px; font-style:normal; margin-top:2px; }
+    .movecell .etag { position:absolute; top:4px; right:5px; color:#9a5e00; font-size:8px;
+                      font-weight:700; letter-spacing:.04em; }
+    .movecell.empty { color:var(--stone); }
+
     /* ---------- table ---------- */
     table { width:100%; border-collapse:collapse; margin-top:26px; }
     thead th { font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--steel);
@@ -268,6 +293,23 @@
       <svg id="heat" role="img" aria-label="Period return heatmap"></svg>
     </div>
 
+    <div class="heathd movehd" id="movehead" hidden>
+      <div>
+        <span class="lbl">Move context</span>
+        <span class="hnote" id="movenote"></span>
+      </div>
+      <div class="movetoggle" aria-label="Move context frequency">
+        <button type="button" data-move="d">Daily</button>
+        <button type="button" data-move="w">Weekly</button>
+      </div>
+    </div>
+    <div class="movewrap" id="movewrap" hidden>
+      <table id="movetbl">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <table id="tbl">
       <thead><tr>
         <th class="l" data-k="label">Theme</th>
@@ -393,7 +435,7 @@
     sel: QUICK.ai.slice(),
     span: 'YTD', i1: 0, i2: N-1,
     mode: 'cum', bench: 'qqq', log: false, anchor: null, peBasis: 1, corrWin: 63,
-    sortK: 'ret', sortDir: -1, focus: null, cursor: null
+    sortK: 'ret', sortDir: -1, focus: null, cursor: null, moveFrame: 'd'
   };
   st.sel.forEach(assign);
   // swap events for the currently-selected reco book (set in transform, drawn in render)
@@ -1043,6 +1085,7 @@
     return lbl;   // MM-DD
   }
   function renderHeat(data){
+    renderMoveContext(data);
     const buckets = heatBuckets();
     if (!data.length || !buckets.length){ heat.innerHTML = ''; heatnote.textContent = ''; return; }
     const W = (heat.parentNode.clientWidth || 900);
@@ -1098,6 +1141,64 @@
       : (st.i2-st.i1) <= 650 ? 'monthly' : (st.i2-st.i1) <= 2600 ? 'quarterly' : 'yearly';
     heatnote.textContent = `${buckets.length} ${gran} periods · blue = up, red = down`;
   }
+
+  // ---------- recent move context ----------
+  const moveHead = document.getElementById('movehead');
+  const moveWrap = document.getElementById('movewrap');
+  const moveTable = document.getElementById('movetbl');
+  const moveNote = document.getElementById('movenote');
+  let lastMoveData = [];
+  const moveSource = id => {
+    const item=SER[id];
+    return item && item.kind==='reconame' ? SER[item.src] : item;
+  };
+  function renderMoveContext(data){
+    lastMoveData=data || [];
+    document.querySelectorAll('[data-move]').forEach(button =>
+      button.classList.toggle('on',button.dataset.move===st.moveFrame));
+    const rows=lastMoveData.map(item => {
+      const selected=SER[item.id];
+      if (!selected || !['stock','equity','reconame'].includes(selected.kind)) return null;
+      const source=moveSource(item.id);
+      const moves=source?.moves?.[st.moveFrame];
+      return moves?.length ? {item,moves} : null;
+    }).filter(Boolean);
+    const show=rows.length>0;
+    moveHead.hidden=!show; moveWrap.hidden=!show;
+    if (!show){ moveTable.querySelector('thead').innerHTML='';
+      moveTable.querySelector('tbody').innerHTML=''; return; }
+    const count=st.moveFrame==='d' ? 5 : 4;
+    const labels=st.moveFrame==='d'
+      ? ['−4','−3','−2','−1','Latest'] : ['−3','−2','−1','Latest'];
+    moveTable.querySelector('thead').innerHTML='<tr><th>Series</th>'
+      + labels.map(x=>`<th>${x}</th>`).join('')+'</tr>';
+    moveTable.querySelector('tbody').innerHTML=rows.map(({item,moves}) => {
+      const padded=Array(Math.max(0,count-moves.length)).fill(null).concat(moves.slice(-count));
+      const cells=padded.map(move => {
+        if (!move) return '<td class="movecell empty">—</td>';
+        const basis=move.e ? 'prior earnings reactions' :
+          (st.moveFrame==='d' ? 'prior daily moves (3Y)' : 'prior weekly moves (3Y)');
+        const sigma=move.z==null ? '—' : `${move.z.toFixed(1)}σ`;
+        const percentile=move.p==null ? '' : ` · ${move.p.toFixed(0)}th percentile`;
+        const title=`${item.label} · ${move.date} · ${fmtPct(move.r)} · ${sigma}`
+          + ` vs ${move.n} ${basis}${percentile}`;
+        return `<td class="movecell${move.e?' earnings':''}" title="${esc(title)}">`
+          + (move.e?'<span class="etag">E</span>':'')
+          + `<span class="mvdate">${esc(move.date.slice(5))}</span>`
+          + `<b style="color:${move.r>=0?'#3f9d6a':'#b8484f'}">${fmtPct(move.r)}</b>`
+          + `<em>${sigma}${move.e?` · ${move.n} E moves`:''}</em></td>`;
+      }).join('');
+      return `<tr><td><span class="swatch" style="background:${item.color}"></span>`
+        + `<span class="nm">${esc(item.label)}</span></td>${cells}</tr>`;
+    }).join('');
+    moveNote.textContent=st.moveFrame==='d'
+      ? 'latest 5 sessions · σ vs prior 3Y · E = prior earnings reactions only'
+      : 'latest 4 weeks · σ vs prior 3Y · E = prior earnings weeks only';
+  }
+  document.querySelectorAll('[data-move]').forEach(button => button.onclick=() => {
+    st.moveFrame=button.dataset.move;
+    renderMoveContext(lastMoveData);
+  });
 
   function niceTicks(lo, hi, log){
     if (log){
@@ -1387,7 +1488,7 @@
     const anchorWindowChanged = syncDynamicAnchorWindow();
     if (anchorWindowChanged){
       const startInput = document.getElementById('d1');
-      if (startInput) startInput.value = DATES[st.i1];
+      if (startInput) displayDate(startInput,DATES[st.i1]);
     }
     writeHash();   // keep the URL in sync with the current selection, not just control changes
     const data = transform();

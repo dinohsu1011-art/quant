@@ -15,10 +15,12 @@ an interactive panel embedded in the Obsidian trader profile.
 | Path | What |
 |---|---|
 | `data/daily/*.parquet` | One file per series. int64 prices ×100,000 (`PRICE_SCALE`), columns `date open high low close adj_close volume` |
+| `data/earnings_dates.json` | Local Yahoo earnings-calendar cache for Theme Returns move context; refreshed weekly and not committed |
 | `data/tickers.csv` | S&P 500 membership snapshot (see Caveats) |
 | `config.py` | Paths, `PRICE_SCALE`, index symbols, `SYMBOL_ALIASES` (`GC=F`→GOLD, `^VIX`→VIX, …) |
 | `db.py` | `connect()` → DuckDB with every parquet as a de-scaled view + `returns('tkr')` macro |
 | `ingestion/` | `fetch.py` (yfinance bulk), `store.py` (normalize: int64 scale, bar repair, partial-bar drop), `tickers.py` (Wikipedia S&P list), `baskets.py` (equal-weight theme baskets) |
+| `ingestion/earnings.py` | Refreshes historical earnings timestamps for every Theme Returns equity and maps after-close reports to the following session |
 | `analysis/events.py` | `event_study()` (trigger/weekday/horizon/`when=` regime gate/`measure_field`), `sequence()` (multi-day chains), `compare_regimes()` |
 | `analysis/betas.py` | Builds `data/betas/stock_betas.parquet` / `.csv`: SPX beta, correlation, R², vol, and returns by window |
 | `export/cube.py` | Pre-computes ~90k event-study combos → `trader-profile-cube.js` (offline panel data) |

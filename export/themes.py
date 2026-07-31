@@ -29,6 +29,7 @@ from ingestion.recos import LEDGER, walk, held_windows
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 START = "2000-01-01"  # calendar floor; individual series start when they start
 PE_INPUT = Path(__file__).parent.parent / "data" / "eps" / "annual_eps.json"
+EARNINGS_INPUT = Path(__file__).parent.parent / "data" / "earnings_dates.json"
 
 # The full S&P 500 Consumer Staples cohort, plus the six restaurant names the
 # index classifies as Consumer Discretionary. These are visible rail equities,
@@ -246,10 +247,112 @@ def pe_tickers():
     }
 
 
+def earnings_cache():
+    if not EARNINGS_INPUT.exists():
+        return {}
+    return json.loads(EARNINGS_INPUT.read_text()).get("series", {})
+
+
+def earnings_reactions(series_id, prices, cache):
+    """Actual session whose close captures an earnings release reaction."""
+    record = cache.get(series_id, {})
+    if not record or prices.empty:
+        return []
+    sessions = pd.DatetimeIndex(prices.index).tz_localize(None).normalize()
+    out = []
+    for event in record.get("events", []):
+        stamp = pd.Timestamp(event["ts"])
+        if stamp.tzinfo is not None:
+            stamp = stamp.tz_localize(None)
+        target = stamp.normalize()
+        if event.get("after_close"):
+            target += pd.Timedelta(days=1)
+        pos = sessions.searchsorted(target)
+        if pos < len(sessions):
+            out.append(sessions[pos].strftime("%Y-%m-%d"))
+    return sorted(set(out))
+
+
+def _move_stat(value, sample):
+    sample = pd.Series(sample).dropna()
+    n = len(sample)
+    if n < 4:
+        return None, None, n
+    sigma = float(sample.std(ddof=1))
+    z = None if not sigma else abs(float(value)) / sigma
+    percentile = (float((sample.abs() <= abs(value)).sum()) + 1) / (n + 1) * 100
+    return (
+        None if z is None else round(z, 2),
+        round(percentile, 1),
+        n,
+    )
+
+
+def move_context(prices, reactions):
+    """Latest five sessions and four weeks versus like-for-like history.
+
+    Ordinary moves use the prior three years. Earnings reactions use only prior
+    earnings reactions, so a +7% print is not described as a routine 4-sigma day
+    when it is ordinary for that company's reporting days.
+    """
+    prices = prices[prices > 0].dropna().sort_index()
+    if len(prices) < 10:
+        return {}
+    reactions = set(reactions)
+    daily = prices.pct_change(fill_method=None).dropna()
+    daily_rows = []
+    for stamp, value in daily.tail(5).items():
+        day = pd.Timestamp(stamp).strftime("%Y-%m-%d")
+        prior = daily[daily.index < stamp]
+        is_earnings = day in reactions
+        sample = (
+            prior[[pd.Timestamp(x).strftime("%Y-%m-%d") in reactions for x in prior.index]]
+            if is_earnings else prior.tail(756)
+        )
+        z, percentile, n = _move_stat(value, sample)
+        daily_rows.append({
+            "date": day, "r": round(float(value), 5), "z": z,
+            "p": percentile, "e": is_earnings, "n": n,
+        })
+
+    frame = prices.rename("close").to_frame()
+    frame["period"] = frame.index.to_period("W-FRI")
+    grouped = frame.groupby("period").agg(close=("close", "last"))
+    grouped["date"] = frame.groupby("period").apply(
+        lambda x: pd.Timestamp(x.index[-1]).strftime("%Y-%m-%d"),
+        include_groups=False,
+    )
+    grouped["r"] = grouped["close"].pct_change(fill_method=None)
+    reaction_periods = {pd.Timestamp(x).to_period("W-FRI") for x in reactions}
+    weekly_rows = []
+    valid = grouped.dropna(subset=["r"])
+    for period, row in valid.tail(4).iterrows():
+        prior = valid[valid.index < period]["r"]
+        is_earnings = period in reaction_periods
+        sample = (
+            prior[[x in reaction_periods for x in prior.index]]
+            if is_earnings else prior.tail(156)
+        )
+        z, percentile, n = _move_stat(row["r"], sample)
+        weekly_rows.append({
+            "date": row["date"], "r": round(float(row["r"]), 5), "z": z,
+            "p": percentile, "e": is_earnings, "n": n,
+        })
+    return {"d": daily_rows, "w": weekly_rows}
+
+
+def add_move_context(record, series_id, prices, cache):
+    reactions = earnings_reactions(series_id, prices, cache)
+    moves = move_context(prices, reactions)
+    if moves:
+        record["moves"] = moves
+
+
 def build():
     conn = db.connect()
     RECO = reco_meta()
     PE_TICKERS = pe_tickers()
+    EARNINGS = earnings_cache()
     # tickers named anywhere in a reco book must ship a price line even if they
     # sit in no basket (a call can reach outside current coverage).
     reco_tickers = {n["t"] for r in RECO.values() for n in r["names"]}
@@ -323,6 +426,7 @@ def build():
                 rec["kind"] = "equity"
             else:
                 rec["kind"] = "etf"
+            add_move_context(rec, sid, raw[sid], EARNINGS)
             # coverage-book handoff metadata (leaves the basket kind + drill-down
             # intact; only tells the page how to rebase/split this aggregate line)
             for h in HANDOFFS:
@@ -345,7 +449,10 @@ def build():
         series.append({"id": t, "label": PE_TICKERS.get(t, t),
                        "group": "P/E bands" if orphan else "",
                        "kind": "equity" if orphan else "stock",
-                       "i0": i0, "lv": lv, "p0": p0})
+                       "i0": i0, "lv": lv, "p0": p0,
+                       "moves": move_context(
+                           stock_raw[t], earnings_reactions(t, stock_raw[t], EARNINGS)
+                       )})
     n_rail = sum(s["kind"] != "stock" for s in series)
 
     payload = {

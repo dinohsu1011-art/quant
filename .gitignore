@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .DS_Store
 data/daily/*.parquet
+data/earnings_dates.json
 data/betas/
 docs/
 dashboard/

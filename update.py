@@ -128,7 +128,7 @@ def sync_site():
           "(push to GitHub to refresh the Pages site)")
 
 
-TOTAL_STEPS = 13
+TOTAL_STEPS = 14
 
 
 def step(i, name, fn):
@@ -144,16 +144,17 @@ def step(i, name, fn):
 
 if __name__ == "__main__":
     step(1, "full re-fetch (all tracked symbols)", fetch_all)
-    step(2, "rebuild baskets", lambda: sub("ingestion.baskets"))
-    step(3, "rebuild reco books (mark open calls to latest close)", build_recos)
-    step(4, "regenerate cube", lambda: sub("export.cube"))
-    step(5, "regenerate theme return series", lambda: sub("export.themes"))
-    step(6, "regenerate annual consensus EPS vintages", lambda: sub("export.pe_bands"))
-    step(7, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
-    step(8, "top up company/sector labels for new names", lambda: sub("ingestion.meta"))
-    step(9, "regenerate single-stock leaders screen", lambda: sub("export.leaders"))
-    step(10, "regenerate macro regime masks", lambda: sub("export.regimes"))
-    step(11, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(12, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(13, "validate", lambda: sub("validate.py"))
+    step(2, "refresh cached earnings dates", lambda: sub("ingestion.earnings"))
+    step(3, "rebuild baskets", lambda: sub("ingestion.baskets"))
+    step(4, "rebuild reco books (mark open calls to latest close)", build_recos)
+    step(5, "regenerate cube", lambda: sub("export.cube"))
+    step(6, "regenerate theme return series", lambda: sub("export.themes"))
+    step(7, "regenerate annual consensus EPS vintages", lambda: sub("export.pe_bands"))
+    step(8, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
+    step(9, "top up company/sector labels for new names", lambda: sub("ingestion.meta"))
+    step(10, "regenerate single-stock leaders screen", lambda: sub("export.leaders"))
+    step(11, "regenerate macro regime masks", lambda: sub("export.regimes"))
+    step(12, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(13, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(14, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")
