@@ -1342,8 +1342,8 @@
         + `<em>${sigma}${move.e?` · ${move.n} E moves`:''}</em></div>`;
     }).join('');
     const note=st.moveFrame==='d'
-      ? 'latest 5 sessions · σ vs prior 3Y · E compares with earnings reactions only'
-      : 'latest 4 weeks · σ vs prior 3Y · E compares with earnings weeks only';
+      ? 'latest 5 sessions · σ vs full history · E compares with earnings reactions only'
+      : 'latest 4 weeks · σ vs full history · E compares with earnings weeks only';
     return `<section class="ticker-card-section sigma-section">
       <h3><span>Standard deviation</span><small>${note}</small></h3>
       <div class="sigma-grid${st.moveFrame==='w'?' weekly':''}">${cells}</div>

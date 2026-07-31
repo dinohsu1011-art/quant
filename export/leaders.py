@@ -103,9 +103,14 @@ def _ret(c, k):
 def _sigma(c, k, current):
     """Magnitude of the current k-session move versus like-for-like history.
 
-    Use rolling moves ending before the latest close and cap the comparison at
-    the prior three years. This mirrors Theme Returns' move-context convention:
-    sigma describes unusualness, while the return itself preserves direction.
+    Use every rolling k-session move ending before the latest close. This mirrors
+    Theme Returns' move-context convention: sigma describes unusualness, while
+    the return itself preserves direction.
+
+    The comparison used to stop at the prior three years, on the argument that a
+    stock's normal range drifts. It does, but 756 samples cannot resolve anything
+    rarer than 1 in 756, so every move worth asking about came back "0 in 756".
+    A long sample muddies the yardstick; a short one is silent on the tails.
 
     Returns (sigma, exceedances, n): how many of those n historical moves were
     at least this far from the mean, alongside the sigma itself. A sigma is only
@@ -117,8 +122,6 @@ def _sigma(c, k, current):
     if current is None or len(c) <= k + 4:
         return None, None, None
     end = np.arange(k, len(c) - 1)
-    if len(end) > 756:
-        end = end[-756:]
     base = c[end - k]
     finish = c[end]
     sample = finish / base - 1

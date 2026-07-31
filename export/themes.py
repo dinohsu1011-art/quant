@@ -329,9 +329,16 @@ def seasonality(prices):
 def move_context(prices, reactions):
     """Latest five sessions and four weeks versus like-for-like history.
 
-    Ordinary moves use the prior three years. Earnings reactions use only prior
-    earnings reactions, so a +7% print is not described as a routine 4-sigma day
-    when it is ordinary for that company's reporting days.
+    Ordinary moves use every prior session in the file. Earnings reactions use
+    only prior earnings reactions, so a +7% print is not described as a routine
+    4-sigma day when it is ordinary for that company's reporting days.
+
+    This used to be capped at the prior three years, on the argument that a
+    stock's normal range drifts and 2015 is a poor yardstick for today. True, but
+    the cost was worse: 756 samples cannot resolve anything rarer than 1 in 756,
+    so every genuinely large move came back as "0 in 756" with no reading at all.
+    A long sample muddies the yardstick; a short one has nothing to say about the
+    tails, and the tails are the only reason to look.
     """
     prices = prices[prices > 0].dropna().sort_index()
     if len(prices) < 10:
@@ -345,7 +352,7 @@ def move_context(prices, reactions):
         is_earnings = day in reactions
         sample = (
             prior[[pd.Timestamp(x).strftime("%Y-%m-%d") in reactions for x in prior.index]]
-            if is_earnings else prior.tail(756)
+            if is_earnings else prior
         )
         z, percentile, n = _move_stat(value, sample)
         daily_rows.append({
@@ -369,7 +376,7 @@ def move_context(prices, reactions):
         is_earnings = period in reaction_periods
         sample = (
             prior[[x in reaction_periods for x in prior.index]]
-            if is_earnings else prior.tail(156)
+            if is_earnings else prior
         )
         z, percentile, n = _move_stat(row["r"], sample)
         weekly_rows.append({
