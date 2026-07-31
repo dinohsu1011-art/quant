@@ -44,7 +44,10 @@ RISK_RATIOS = [("qqq", "spy", "QQQ / SPY", "tech vs the market"),
                ("arkk", "spy", "ARKK / SPY", "long-duration speculation")]
 
 # Coverage books are personal watchlists, not themes; they have their own page.
-NOT_A_THEME = {"mycoverage", "coverage1", "fredcoverage", "fredcoverage1"}
+# The `_reco5` baskets (each book's current five) are the same kind of thing, and
+# are derived from the ledger, so they're excluded by suffix rather than by name.
+NOT_A_THEME = ({"mycoverage", "coverage1", "fredcoverage", "fredcoverage1"}
+               | {b for b in BASKETS if b.endswith("_reco5")})
 SECTORS = ["xlk", "xlc", "xly", "xli", "xlf", "xlv", "xle", "xlb", "xlu", "xlp", "xlre"]
 
 

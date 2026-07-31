@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 from config import DAILY_DIR, PRICE_SCALE, file_stem
 from ingestion.fetch import run
+from ingestion.recos import LEDGER, walk
 from ingestion.store import SCHEMA
 
 # Theme baskets (user's categorization; reorganized 2026-07-23). US listings only
@@ -118,6 +119,16 @@ BASKETS = {
                       "ASML", "TER", "6857.T", "6981.T", "8035.T", "4062.T",
                       "META", "AAPL", "MSFT", "GOOGL", "ORCL", "AMZN"],
 }
+
+# The five names each book is holding *right now*, as an ordinary equal-weight
+# basket. `{book}_reco` already ships the book's realized track record — every
+# call ever made, banked; this is the different question of how the current five
+# behave together, and it can be charted back before any of them were picked.
+#
+# Derived from the ledger rather than typed out, so a swap can never leave a
+# stale hand-written list behind: edit LEDGER, rebuild, and this follows.
+for _book, _spec in LEDGER.items():
+    BASKETS[f"{_book}_reco5"] = list(walk(_spec)[2])
 
 
 def _view(t):

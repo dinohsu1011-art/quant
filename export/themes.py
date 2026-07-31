@@ -66,11 +66,13 @@ RESTAURANTS = [
 GROUPS = [
     ("My Coverage", [
         ("mycoverage_reco", "Recommended"),
+        ("mycoverage_reco5", "Recommended — current 5"),
         ("mycoverage", "Active Coverage"),
         ("coverage1", "Original Coverage"),
     ]),
     ("Fred Coverage", [
         ("fredcoverage_reco", "Fred Recommended"),
+        ("fredcoverage_reco5", "Fred Recommended — current 5"),
         ("fredcoverage", "Fred Active Coverage"),
         ("fredcoverage1", "Fred Original Coverage"),
     ]),
@@ -171,7 +173,8 @@ HANDOFFS = [
 # standard daily-rebalanced index shipped in `lv`, which is start-invariant and
 # stops one 10-bagger from becoming the whole theme. The page rebuilds the
 # average whenever the window moves; this flag only tells it which to do.
-AVG_BASKETS = {"mycoverage", "coverage1", "fredcoverage", "fredcoverage1"}
+AVG_BASKETS = {"mycoverage", "coverage1", "fredcoverage", "fredcoverage1",
+               "mycoverage_reco5", "fredcoverage_reco5"}
 
 
 def _view(t):
