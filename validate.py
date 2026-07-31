@@ -95,7 +95,20 @@ def main():
         if str(t).startswith(("JP", "KR")) or t == "japan": return 12
         return 10
     gap_bad = [t for t, g in zip(q.tkr, q.max_gap) if pd.notna(g) and g > gap_limit(t)]
-    check("calendar gap > 10 days", gap_bad)
+    # Graded like staleness, and for the same reason: a stall on Yahoo's history
+    # endpoint eventually resolves into a *hole* rather than a stale tail once the
+    # feed resumes (VIX3M stalled 07-17, came back 07-30, and the 2026-07-20..29
+    # bars simply do not exist upstream at any period=). That hole is permanent,
+    # so a hard fail here would block every publish from then on over one thin
+    # series. The spine, or a gap that has spread, still fails hard.
+    gap_core = sorted(set(gap_bad) & CORE)
+    if gap_core:
+        check("calendar gap (core series)", gap_core)
+    else:
+        widespread = len(gap_bad) > STALE_TOLERANCE * len(q)
+        check("calendar gap > 10 days", gap_bad,
+              detail=f" (limit {int(STALE_TOLERANCE * len(q))})" if widespread else "",
+              fatal=widespread)
 
     stems = [p.stem for p in DATA.glob("*.parquet")]
     views = [s.lower().replace("-", "_").replace("^", "") for s in stems]
