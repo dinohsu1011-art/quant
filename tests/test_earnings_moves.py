@@ -60,6 +60,14 @@ class EarningsMoveTests(unittest.TestCase):
         self.assertIn("function renderMoveContext(data)", page)
         self.assertIn("prior earnings reactions only", page)
 
+    def test_move_context_follows_consolidated_ticker_drawdown_table(self):
+        with open("web/market-lab-themes.html") as f:
+            page = f.read()
+        self.assertLess(page.index('id="ddtbl"'), page.index('id="movehead"'))
+        self.assertIn('id="tbl" hidden aria-hidden="true"', page)
+        self.assertIn("Performance · drawdown summary", page)
+        self.assertIn('class="summary-strip performance"', page)
+
 
 if __name__ == "__main__":
     unittest.main()

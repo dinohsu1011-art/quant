@@ -182,22 +182,26 @@
     .note b { color:var(--ink); font-weight:600; }
     .ddhd { margin-top:34px; }
     .ddwrap { overflow-x:auto; }
-    #ddtbl { margin-top:0; min-width:1180px; table-layout:fixed; }
+    #ddtbl { margin-top:0; min-width:1420px; table-layout:fixed; }
     #ddtbl thead th { cursor:default; white-space:normal; line-height:1.25;
                       vertical-align:bottom; }
-    #ddtbl thead th:nth-child(1) { width:17%; }
-    #ddtbl thead th:nth-child(2) { width:6%; }
-    #ddtbl thead th:nth-child(3) { width:7%; }
-    #ddtbl thead th:nth-child(4), #ddtbl thead th:nth-child(5),
-    #ddtbl thead th:nth-child(6) { width:8%; }
-    #ddtbl thead th:nth-child(7) { width:10%; }
-    #ddtbl thead th:nth-child(8) { width:36%; }
+    #ddtbl thead th:nth-child(1) { width:15%; }
+    #ddtbl thead th:nth-child(2) { width:53%; text-align:left; }
+    #ddtbl thead th:nth-child(3) { width:32%; }
     #ddtbl .th-main, #ddtbl .th-sub { display:block; }
     #ddtbl .th-sub { margin-top:2px; font-size:9px; letter-spacing:.13em; color:var(--steel); }
-    #ddtbl th.trough-head { color:#755060; }
-    #ddtbl tbody tr { cursor:default; }
-    #ddtbl td.dd-metric.trough { box-shadow:inset 2px 0 rgba(117,50,77,.28); }
-    #ddtbl td.dd-metric.empty { color:var(--steel); font-weight:400; }
+    #ddtbl tbody tr { cursor:pointer; }
+    #ddtbl td.summary { padding:8px 14px; vertical-align:middle; }
+    .summary-strip { display:grid; gap:7px; align-items:stretch; }
+    .summary-strip.performance { grid-template-columns:repeat(9,minmax(62px,1fr)); }
+    .summary-strip.drawdown { grid-template-columns:repeat(6,minmax(76px,1fr));
+                              margin-top:8px; padding-top:8px; border-top:1px solid var(--fog); }
+    .summary-metric { min-width:0; text-align:right; }
+    .summary-metric span { display:block; color:var(--steel); font:8px var(--sans);
+                           letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+    .summary-metric b { display:block; margin-top:3px; color:var(--ink); font:600 11px var(--mono);
+                        font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .summary-metric.trough { padding-left:7px; border-left:2px solid rgba(117,50,77,.24); }
     #ddtbl td.events { text-align:left; padding-top:5px; padding-bottom:5px; }
     .dd-events { max-height:132px; overflow-y:auto; }
     .dd-event { display:grid; grid-template-columns:58px 172px 1fr; gap:8px; line-height:1.7;
@@ -293,24 +297,7 @@
       <svg id="heat" role="img" aria-label="Period return heatmap"></svg>
     </div>
 
-    <div class="heathd movehd" id="movehead" hidden>
-      <div>
-        <span class="lbl">Move context</span>
-        <span class="hnote" id="movenote"></span>
-      </div>
-      <div class="movetoggle" aria-label="Move context frequency">
-        <button type="button" data-move="d">Daily</button>
-        <button type="button" data-move="w">Weekly</button>
-      </div>
-    </div>
-    <div class="movewrap" id="movewrap" hidden>
-      <table id="movetbl">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <table id="tbl">
+    <table id="tbl" hidden aria-hidden="true">
       <thead><tr>
         <th class="l" data-k="label">Theme</th>
         <th data-k="ret">Return</th>
@@ -326,21 +313,33 @@
     </table>
 
     <div class="heathd ddhd">
-      <span class="lbl">Completed ATH drawdowns</span>
+      <span class="lbl">Ticker summary · Completed ATH drawdowns</span>
       <span class="hnote" title="High-volatility ETF = at least 30% annualized volatility over its full available history">full history · &gt;20% single names, metals &amp; ≥30% vol ETFs · &gt;5% otherwise · Current = latest close · Current Trough = low since ATH</span>
     </div>
     <div class="ddwrap">
       <table id="ddtbl">
         <thead><tr>
           <th class="l">Series</th>
-          <th>Floor</th>
-          <th>Episodes</th>
-          <th>Average</th>
-          <th>Median</th>
-          <th><span class="th-main">Current</span></th>
-          <th class="trough-head"><span class="th-main">Current</span><span class="th-sub">Trough</span></th>
+          <th><span class="th-main">Performance · drawdown summary</span><span class="th-sub">visible window · full-history ATH episodes</span></th>
           <th class="l"><span class="th-main">Completed episodes</span><span class="th-sub">Newest first</span></th>
         </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="heathd movehd" id="movehead" hidden>
+      <div>
+        <span class="lbl">Move context</span>
+        <span class="hnote" id="movenote"></span>
+      </div>
+      <div class="movetoggle" aria-label="Move context frequency">
+        <button type="button" data-move="d">Daily</button>
+        <button type="button" data-move="w">Weekly</button>
+      </div>
+    </div>
+    <div class="movewrap" id="movewrap" hidden>
+      <table id="movetbl">
+        <thead></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -1803,6 +1802,7 @@
 
   // ---------- table ----------
   let tableClickTimer = null;
+  let tableSummaryRows = new Map();
   function drawTable(data, cur){
     const rows = data.map(d => ({
       id:d.id, color:d.color, label:d.label,
@@ -1821,6 +1821,7 @@
       if (av == null) return 1; if (bv == null) return -1;
       return dir * (av - bv);
     });
+    tableSummaryRows = new Map(rows.map(row => [row.id,row]));
     const cls = v => v == null ? '' : (v >= 0 ? 'style="color:#1d7fc4"' : 'style="color:#b8484f"');
     document.querySelector('#tbl tbody').innerHTML = rows.map(r => `
       <tr data-id="${r.id}" class="${st.focus && st.focus!==r.id ? 'dim':''}">
@@ -1869,6 +1870,7 @@
       const r = rows.find(x => x.id === row.dataset.id);
       row.querySelector('.rr').textContent = r && r.ret != null ? fmtPct(r.ret) : '';
     });
+    renderDrawdowns();
   }
   document.querySelectorAll('#tbl thead th').forEach(th => {
     th.onclick = () => {
@@ -1948,14 +1950,18 @@
     const highVolEtf = s.kind === 'etf' && s.group !== 'Indices' && fullHistoryVol(s) >= .30;
     return single || metal || highVolEtf ? .20 : .05;
   }
-  function drawdownCell(value, max, tone, title){
-    if (value == null) return `<td class="dd-metric empty ${tone}" title="${esc(title)}">—</td>`;
+  function summaryMetric(label, value, color='', title='', extra=''){
+    return `<div class="summary-metric ${extra}"${title ? ` title="${esc(title)}"` : ''}>`
+      + `<span>${esc(label)}</span><b${color ? ` style="color:${color}"` : ''}>${value}</b></div>`;
+  }
+  function drawdownMetric(label, value, max, tone, title){
+    if (value == null) return summaryMetric(label,'—','#a8a29e',title,tone);
     const ratio = max > 0 ? Math.min(1, value / max) : 0;
     const spec = tone === 'trough' ? { h:337, s:53 } :
                  tone === 'current' ? { h:12, s:58 } : { h:356, s:49 };
     const light = 58 - 18 * ratio;
-    return `<td class="dd-metric ${tone}" title="${esc(title)}"
-      style="color:hsl(${spec.h},${spec.s}%,${light.toFixed(1)}%)">${fmtPct(-value)}</td>`;
+    return summaryMetric(label,fmtPct(-value),
+      `hsl(${spec.h},${spec.s}%,${light.toFixed(1)}%)`,title,tone);
   }
   function renderDrawdowns(){
     const rows = st.sel.map(id => {
@@ -1966,11 +1972,12 @@
       const events = completedDrawdowns(s, floor);
       const depths = events.map(e => e.depth);
       return { id, label:item.label, group:item.group || s.group || '', color:assign(id),
+               stat:tableSummaryRows.get(id),
                floor, events, avg:depths.length ? depths.reduce((a,b)=>a+b,0)/depths.length : null,
                med:median(depths), current:currentDrawdown(s) };
     }).filter(Boolean);
     const body = document.querySelector('#ddtbl tbody');
-    if (!rows.length){ body.innerHTML = `<tr><td colspan="8" class="dd-none">Select a series to see its completed ATH drawdowns.</td></tr>`; return; }
+    if (!rows.length){ body.innerHTML = `<tr><td colspan="3" class="dd-none">Select a series to see its performance and completed ATH drawdowns.</td></tr>`; return; }
     const colMax = get => Math.max(0, ...rows.map(get).filter(Number.isFinite));
     const maxes = {
       avg:colMax(r => r.avg),
@@ -1979,24 +1986,63 @@
       trough:colMax(r => r.current?.troughDepth)
     };
     body.innerHTML = rows.map(r => {
+      const s=r.stat || {};
+      const ret=s.ret==null ? '—' : st.mode==='dd' && s.ret>=0 ? '0.0%' : fmtPct(s.ret);
+      const retColor=s.ret==null ? '#a8a29e' : s.ret>=0 ? '#1d7fc4' : '#b8484f';
+      const returnLabel=st.mode==='rel' ? 'Relative' : st.mode==='dd' ? 'Drawdown now'
+        : st.mode==='idx' ? 'Growth' : 'Return';
+      const performance=[
+        summaryMetric(returnLabel,ret,retColor),
+        summaryMetric('At cursor',s.cursor==null?'—':fmtPct(s.cursor),
+          s.cursor==null?'#a8a29e':s.cursor>=0?'#1d7fc4':'#b8484f'),
+        summaryMetric('Ann. vol',s.vol==null?'—':(s.vol*100).toFixed(0)+'%'),
+        summaryMetric('Avg daily',s.advol==null?'—':(s.advol*100).toFixed(s.advol>=.095?0:1)+'%'),
+        summaryMetric('Max DD',s.dd==null?'—':s.dd<0?fmtPct(s.dd):'0.0%',s.dd<0?'#b8484f':'#a8a29e'),
+        summaryMetric('Ret / vol',s.rv==null?'—':s.rv.toFixed(2)),
+        summaryMetric('Best day',s.best==null?'—':fmtPct(s.best)),
+        summaryMetric('Worst day',s.worst==null?'—':fmtPct(s.worst)),
+        summaryMetric('Window',s.startd ? `${s.startd.slice(5)} → ${DATES[st.i2].slice(5)}` : '—')
+      ].join('');
+      const drawdowns=[
+        summaryMetric('Floor',`>${(r.floor*100).toFixed(0)}%`),
+        summaryMetric('Episodes',String(r.events.length)),
+        drawdownMetric('Average',r.avg,maxes.avg,'historical','Average qualifying completed drawdown'),
+        drawdownMetric('Median',r.med,maxes.med,'historical','Median qualifying completed drawdown'),
+        drawdownMetric('Current',r.current?.depth,maxes.current,'current',
+          r.current ? `ATH ${DATES[r.current.peak]} → ${DATES[r.current.asof]}` : 'Currently at an all-time high'),
+        drawdownMetric('Current trough',r.current?.troughDepth,maxes.trough,'trough',
+          r.current ? `ATH ${DATES[r.current.peak]} → trough ${DATES[r.current.trough]}` : 'No open drawdown')
+      ].join('');
       const events = r.events.slice().sort((a,b) => b.trough - a.trough);
       const detail = events.length ? `<div class="dd-events">${events.map((e, i) =>
         `<div class="dd-event${i === 0 ? ' latest' : ''}"${i === 0 ? ' title="Latest completed drawdown"' : ''}><b>${fmtPct(-e.depth)}</b><span>${DATES[e.peak]} → ${DATES[e.trough]}</span><em>new ATH ${DATES[e.recovery]}</em></div>`
       ).join('')}</div>` : `<span class="dd-none">No completed episodes above ${(r.floor*100).toFixed(0)}%.</span>`;
-      return `<tr>
+      return `<tr data-id="${r.id}" class="${st.focus && st.focus!==r.id ? 'dim':''}">
         <td class="l"><span class="swatch" style="background:${r.color}"></span><span class="nm">${esc(r.label)}</span>
           <span class="grp">${esc(r.group.replace(' — baskets','').replace('Thematic ETFs','ETF'))}</span></td>
-        <td>&gt;${(r.floor*100).toFixed(0)}%</td>
-        <td>${r.events.length}</td>
-        ${drawdownCell(r.avg, maxes.avg, 'historical', 'Average qualifying completed drawdown')}
-        ${drawdownCell(r.med, maxes.med, 'historical', 'Median qualifying completed drawdown')}
-        ${drawdownCell(r.current?.depth, maxes.current, 'current',
-          r.current ? `ATH ${DATES[r.current.peak]} → ${DATES[r.current.asof]}` : 'Currently at an all-time high')}
-        ${drawdownCell(r.current?.troughDepth, maxes.trough, 'trough',
-          r.current ? `ATH ${DATES[r.current.peak]} → trough ${DATES[r.current.trough]}` : 'No open drawdown')}
+        <td class="summary"><div class="summary-strip performance">${performance}</div>
+          <div class="summary-strip drawdown">${drawdowns}</div></td>
         <td class="events">${detail}</td>
       </tr>`;
     }).join('');
+    document.querySelectorAll('#ddtbl tbody tr[data-id]').forEach(tr => {
+      tr.onclick=e => {
+        if (e.detail>1) return;
+        clearTimeout(tableClickTimer);
+        const id=tr.dataset.id;
+        tableClickTimer=setTimeout(() => {
+          tableClickTimer=null;
+          st.focus=st.focus===id ? null : id;
+          render();
+        },280);
+      };
+      tr.ondblclick=e => {
+        e.preventDefault();
+        clearTimeout(tableClickTimer);
+        tableClickTimer=null;
+        toggle(tr.dataset.id);
+      };
+    });
   }
 
   // ---------- rail ----------
