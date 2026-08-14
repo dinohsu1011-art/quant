@@ -70,11 +70,12 @@ class LeadersPageTests(unittest.TestCase):
     def test_sigma_rank_uses_same_window_historical_move_distribution(self):
         self.assertIn("['sigma','Sigma']", self.script)
         self.assertIn("r.z?.[win]", self.script)
-        self.assertIn("st.rank === 'sigma' ? 'sigma' : 'win'", self.script)
+        self.assertIn("st.sortK = st.rank === 'sigma' ? 'sigma'", self.script)
         self.assertIn("Top '+cohort.length+' by sigma", self.script)
         exporter = (ROOT / "export" / "leaders.py").read_text()
         self.assertIn("def _sigma(c, k, current):", exporter)
-        self.assertIn("end = end[-756:]", exporter)
+        self.assertIn("Use every rolling k-session move", exporter)
+        self.assertNotIn("end = end[-756:]", exporter)
         self.assertIn("(current / 100) - mean", exporter)
         self.assertIn('"z": z', exporter)
 
