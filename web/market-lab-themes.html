@@ -493,7 +493,9 @@
   // `src` is a series object when the row was drawn off a rebuilt composite, so
   // the daily-move stat measures the same path the chart shows
   function avgDailyVol(src, a, b){
-    const s = typeof src === 'string' ? SER[src] : src; if (!s) return null;
+    let s = typeof src === 'string' ? SER[src] : src;
+    if (s && s.kind === 'reconame') s = SER[s.src];   // no levels of its own
+    if (!s || !s.lv) return null;                     // a stat, never a crash
     const lo = Math.max(a, s.i0), hi = Math.min(b, s.i0 + s.lv.length - 1);
     let sum = 0, n = 0, prev = null;
     for (let i = lo; i <= hi; i++){
@@ -593,7 +595,13 @@
     const parts = st.sel.map(id => {
       const S = SER[id];
       if (!S || S.kind === 'reco') return null;
-      const w = windowStats(id);
+      // A recommended name is a rendering identity, not a price series — it has
+      // no levels of its own and draws off the plain stock line underneath it.
+      // Correlate that line. Passing the reco id straight to windowStats read
+      // `.lv` off a series that has none and threw, and because this runs on
+      // every render to decide whether Correlation is available, it took the
+      // whole chart down whenever exactly two names were selected.
+      const w = windowStats(S.kind === 'reconame' ? S.src : id);
       return w ? { id, label: S.label, color: assign(id), s: w.s, a: w.a, b: w.b } : null;
     });
     return parts.every(Boolean) ? parts : null;
@@ -818,7 +826,12 @@
     const mean = n ? sum/n : 0;
     const vol = n > 1 ? Math.sqrt((sq/n - mean*mean) * 252) : null;
     let last = null; for (let k = g.length-1; k >= 0; k--) if (g[k] != null){ last = g[k]; break; }
-    return { g, a, b, ret: last != null ? last-1 : null, vol, mdd, best, worst, disp: last };
+    // `s` travels with the stats, as it does out of windowStats. The table's
+    // average-daily-move column reads it, and without it the column fell back to
+    // the row id — which for a recommended name is 'reco:NEM', a rendering
+    // identity with no price levels behind it. Reading them threw and took the
+    // period-return strip and the whole ledger down with it.
+    return { s, g, a, b, ret: last != null ? last-1 : null, vol, mdd, best, worst, disp: last };
   }
   function buildExits(R){
     // realized return of every closed call: exit close / entry close - 1, frozen
