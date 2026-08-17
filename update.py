@@ -2,8 +2,8 @@
 One-command refresh pipeline, in strict order:
 
   1. full re-fetch of every tracked symbol (skip_existing=False — incremental
-     append is UNSAFE: closes are auto-adjusted, so any dividend/split rescales
-     the entire back-history)
+     append is UNSAFE: `adj_close` is dividend-adjusted and `close` is split-
+     adjusted, so any dividend or split rescales the entire back-history)
   2. rebuild baskets (levels compound full history, so they MUST follow a fetch)
   3. regenerate the offline cube
   4. regenerate the theme return series (market-lab-themes.html)
@@ -84,11 +84,12 @@ def retry_stale_downloads(symbols, max_lag_days=3):
     for symbol in stale:
         # period=max takes Yahoo's single-ticker history path. It avoids the
         # truncated multi-download response while still refreshing the entire
-        # adjusted history instead of appending an incompatible raw-price tail.
+        # history on the same two-column basis as the bulk fetch, instead of
+        # appending a tail that was adjusted differently.
         for attempt in range(1, 4):
             try:
                 frame = yf.download(
-                    symbol, period="max", auto_adjust=True, progress=False,
+                    symbol, period="max", auto_adjust=False, progress=False,
                     group_by="ticker", threads=False,
                 )
                 if not frame.empty and store_ticker(frame, symbol):

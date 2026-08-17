@@ -301,6 +301,7 @@
       <div class="cgrp" id="pebasis" hidden><span class="lbl">Earnings</span></div>
       <div class="cgrp" id="corrwin" hidden><span class="lbl">Rolling</span></div>
       <div class="cgrp" id="scales"><span class="lbl">Scale</span></div>
+      <div class="cgrp" id="basis" title="Off = price return, the move in the share price alone. On = total return, dividends reinvested on the ex-date. Applies to every page."><span class="lbl">Dividends</span></div>
     </div>
 
     <div class="readout" id="readout"></div>
@@ -396,6 +397,21 @@
     s.memberIds = ids;
   });
 
+  // ---------- return basis ----------
+  // `lv` ships PRICE return — splits only, dividends left out — because that is
+  // what a hand-kept sheet of entry and exit prices reproduces. `dv` is the
+  // sparse cumulative dividend-reinvestment factor: [[index, factor], ...], flat
+  // between ex-dates, absent entirely for anything that never paid. Multiplying
+  // the two gives total return, so both bases live in one payload.
+  //
+  // The choice is ONE setting shared across the whole site, so this page and
+  // Leaders can never disagree about what a number means.
+  const BASIS_KEY = 'mlab.basis';
+  const readBasis = () => { try { return localStorage.getItem(BASIS_KEY) === 'tr'; }
+                            catch (e) { return false; } };
+  const writeBasis = v => { try { localStorage.setItem(BASIS_KEY, v ? 'tr' : 'pr'); }
+                            catch (e) {} };
+
   // ---------- palette: 20 hues that stay legible at 1.6px on white ----------
   const PALETTE = ['#1d7fc4','#e2703a','#3f9d6a','#b8484f','#7a5bbd','#8a6b4a','#c25da8',
                    '#5f7183','#9a9a2c','#3aa9b8','#2f5fa8','#d1902b','#4f7f3a','#a1445f',
@@ -444,9 +460,33 @@
     sel: QUICK.ai.slice(),
     span: 'YTD', i1: 0, i2: N-1,
     mode: 'cum', bench: 'qqq', log: false, anchor: null, peBasis: 1, corrWin: 63,
-    sortK: 'ret', sortDir: -1, focus: null, cursor: null, moveFrame: 'd'
+    sortK: 'ret', sortDir: -1, focus: null, cursor: null, moveFrame: 'd',
+    tr: readBasis()
   };
   st.sel.forEach(assign);
+
+  // Swap the whole `lv` array rather than teaching every consumer about the
+  // factor: stats, correlation, the period strip, the drawdown grid and the
+  // drawing code all read `s.lv` through lvAt and stay untouched. Both versions
+  // are cached per series, so flipping the toggle is a re-render, not a rebuild.
+  function applyBasis(){
+    IDS.forEach(id => {
+      const S = SER[id];
+      if (!S || !S.dv || !S.lv) return;
+      if (!S._pr) S._pr = S.lv;
+      if (!st.tr){ S.lv = S._pr; return; }
+      if (!S._tr){
+        const src = S._pr, out = new Array(src.length);
+        let j = 0, f = 1;
+        for (let k = 0; k < src.length; k++){
+          while (j < S.dv.length && S.dv[j][0] <= k){ f = S.dv[j][1]; j++; }
+          out[k] = src[k] == null ? null : Math.round(src[k] * f * 1000) / 1000;
+        }
+        S._tr = out;
+      }
+      S.lv = S._tr;
+    });
+  }
   // swap events for the currently-selected reco book (set in transform, drawn in render)
   // one entry per selected reco book — two books can be on the chart at once and
   // can swap on the same day, so markers merge by date instead of overwriting
@@ -2407,6 +2447,22 @@
     b.onclick = () => { st.log = id === 'log'; syncCtl(); render(); };
     scalesEl.appendChild(b);
   });
+  const basisEl = document.getElementById('basis');
+  [['pr','Off'],['tr','On']].forEach(([id,lab]) => {
+    const b = document.createElement('button'); b.textContent = lab; b.dataset.basis = id;
+    b.onclick = () => {
+      st.tr = id === 'tr'; writeBasis(st.tr); applyBasis(); syncCtl(); render();
+    };
+    basisEl.appendChild(b);
+  });
+  // Another tab (or Leaders) changing the shared setting should not leave this
+  // page showing the other basis under the same label.
+  window.addEventListener('storage', e => {
+    if (e.key !== BASIS_KEY) return;
+    const v = readBasis();
+    if (v === st.tr) return;
+    st.tr = v; applyBasis(); syncCtl(); render();
+  });
   const benchSel = document.getElementById('bench');
   benchSel.innerHTML = ['qqq','spy','ndx','smh','xlk','igv','ura','gold']
     .filter(id => SER[id]).map(id => `<option value="${id}">${esc(SER[id].label)}</option>`).join('');
@@ -2532,6 +2588,8 @@
       b.classList.toggle('on', (b.dataset.scale === 'log') === st.log));
     document.querySelectorAll('#corrwin button').forEach(b =>
       b.classList.toggle('on', +b.dataset.corrwin === st.corrWin));
+    document.querySelectorAll('#basis button').forEach(b =>
+      b.classList.toggle('on', (b.dataset.basis === 'tr') === st.tr));
     document.getElementById('benchwrap').style.opacity = st.mode === 'rel' ? 1 : .35;
     document.getElementById('scales').style.opacity =
       (st.mode === 'dd' || st.mode === 'corr') ? .35 : 1;
@@ -2548,12 +2606,16 @@
   // ---------- hash state ----------
   function writeHash(){
     const h = [st.sel.join(','), st.mode, st.log?'log':'lin', DATES[st.i1], DATES[st.i2],
-               st.bench, 'fy'+st.peBasis, 'cw'+st.corrWin];
+               st.bench, 'fy'+st.peBasis, 'cw'+st.corrWin, st.tr?'div1':'div0'];
     history.replaceState(null, '', '#' + h.join('|'));
   }
   function readHash(){
     const h = location.hash.slice(1); if (!h) return false;
-    const [sel, mode, scale, a, b, bench, peBasis, corrWin] = h.split('|');
+    const [sel, mode, scale, a, b, bench, peBasis, corrWin, divs] = h.split('|');
+    // A shared link states its basis outright, so honour it AND adopt it — the
+    // setting is site-wide, and a link that silently meant something else on the
+    // recipient's machine would be worse than one that moves their toggle.
+    if (divs === 'div0' || divs === 'div1'){ st.tr = divs === 'div1'; writeBasis(st.tr); }
     if (corrWin && CORR_WINS.includes(+corrWin.slice(2))) st.corrWin = +corrWin.slice(2);
     if (sel) st.sel = sel.split(',').filter(id => SER[id]);
     if (MODES.some(m => m[0] === mode)) st.mode = mode;
@@ -2568,6 +2630,7 @@
 
   // ---------- boot ----------
   readHash();
+  applyBasis();          // after readHash: a shared link may have set the basis
   buildRail();
   document.getElementById('asof').innerHTML = `as of ${D.meta.as_of}`;
   const footEl = document.getElementById('foot');

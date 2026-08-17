@@ -157,23 +157,37 @@ def main():
 
     print("\nBuilding baskets:")
     for name, tickers in BASKETS.items():
-        cols, avail = {}, []
+        # Build the basket on both bases, from the same constituents on the same
+        # days, so a basket carries the price/total distinction its members do.
+        # Compounding an equal-weight mean of daily returns twice is the only
+        # honest way to do it: the ratio of two finished levels is not the mean
+        # of the members' dividend factors once weights drift intraperiod.
+        cols, adj_cols, avail = {}, {}, []
         for t in tickers:
             if _view(t) not in have:
                 print(f"  [miss] {name}: {t} unavailable"); continue
-            d = conn.execute(f'select date, close from "{_view(t)}" order by date').df()
+            d = conn.execute(
+                f'select date, close, adj_close from "{_view(t)}" order by date'
+            ).df()
             d["date"] = pd.to_datetime(d["date"])
-            cols[t] = d.set_index("date")["close"]
+            d = d.set_index("date")
+            cols[t], adj_cols[t] = d["close"], d["adj_close"]
             avail.append(t)
         if not cols:
             print(f"  [skip] {name}: no constituents available"); continue
-        px = pd.concat(cols, axis=1, sort=False).sort_index()
-        eq = px.pct_change().mean(axis=1, skipna=True).fillna(0.0)
-        level = 100.0 * (1.0 + eq).cumprod()
+
+        def _level(frames):
+            px = pd.concat(frames, axis=1, sort=False).sort_index()
+            eq = px.pct_change().mean(axis=1, skipna=True).fillna(0.0)
+            return 100.0 * (1.0 + eq).cumprod()
+
+        level = _level(cols)              # price return  -> close
+        adj_level = _level(adj_cols)      # total return  -> adj_close
         lvl = (level * PRICE_SCALE).round().astype("int64").to_numpy()
+        adj = (adj_level.reindex(level.index) * PRICE_SCALE).round().astype("int64").to_numpy()
         df = pd.DataFrame({
             "date": [d.date() for d in level.index],
-            "open": lvl, "high": lvl, "low": lvl, "close": lvl, "adj_close": lvl,
+            "open": lvl, "high": lvl, "low": lvl, "close": lvl, "adj_close": adj,
             "volume": np.zeros(len(level), dtype="int64"),
         })
         pq.write_table(pa.Table.from_pandas(df, schema=SCHEMA, preserve_index=False),

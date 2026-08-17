@@ -183,13 +183,16 @@ def _view(t):
     return file_stem(t).lower().replace("-", "_").replace(".", "_")
 
 
-def close_series(conn, view):
+def close_series(conn, view, col="close"):
+    """`close` is split-adjusted only (price return); `adj_close` reinvests
+    dividends (total return). The page charts the former and multiplies by the
+    shipped dividend factor when the reader asks for the latter."""
     df = conn.execute(
-        f'SELECT date, close FROM "{view}" WHERE date >= \'{START}\' ORDER BY date'
+        f'SELECT date, {col} FROM "{view}" WHERE date >= \'{START}\' ORDER BY date'
     ).fetchdf()
     if df.empty:
         return None
-    s = pd.Series(df["close"].values, index=pd.to_datetime(df["date"]))
+    s = pd.Series(df[col].values, index=pd.to_datetime(df["date"]))
     return s[s > 0].dropna()
 
 
@@ -218,6 +221,49 @@ def rebase(s, cal, pos):
         [None if pd.isna(v) else float(v) for v in lv.values],
         p0,
     )
+
+
+def div_steps(price_s, total_s, cal):
+    """Sparse cumulative dividend-reinvestment factor for one series.
+
+    The total-return level is the price-return level times this factor, so the
+    page can offer both bases without a second copy of every daily array. The
+    factor is flat between ex-dividend dates, which is what makes it cheap:
+    a 25-year dividend payer emits ~100 steps against ~6,000 levels, and a name
+    that has never paid emits nothing at all (key omitted -> the page uses 1).
+
+    Returned as [[local_index, factor], ...] against the same trimmed, rebased
+    index `rebase` produces, always opening with [0, 1.0].
+    """
+    if total_s is None:
+        return None
+    p = price_s.reindex(cal).ffill()
+    p = p[p.first_valid_index():]
+    t = total_s.reindex(cal).ffill().reindex(p.index)
+    # A gap in the total-return column would silently distort the toggled view;
+    # drop the factor and let the series read as price-only in both modes.
+    if t.isna().any() or float(t.iloc[0]) <= 0:
+        return None
+    f = (t / float(t.iloc[0])) / (p / float(p.iloc[0]))
+
+    # Both columns are stored as 4-decimal fixed point, so their ratio jitters at
+    # the 1e-6 level on every bar. Treating that as a step ships one entry per
+    # trading day — the exact opposite of the point. A step counts only when it
+    # moves the factor by more than TOL relatively, which lands the count near
+    # the number of dividends actually paid. Each emitted step carries the true
+    # factor at that bar, so the error never accumulates: it stays under TOL,
+    # which is 0.002pp on a return quoted to two decimals.
+    TOL = 2e-5
+    steps, last = [], None
+    for k, v in enumerate(f.to_numpy(dtype=float)):
+        if last is None or abs(v / last - 1.0) > TOL:
+            v = float(f"{v:.7g}")
+            steps.append([k, v])
+            last = v
+    # Constant 1.0 throughout = never paid a dividend. Ship nothing.
+    if len(steps) == 1 and steps[0][1] == 1.0:
+        return None
+    return steps
 
 
 def reco_meta():
@@ -402,7 +448,7 @@ def build():
     # sit in no basket (a call can reach outside current coverage).
     reco_tickers = {n["t"] for r in RECO.values() for n in r["names"]}
 
-    raw, missing = {}, []
+    raw, raw_adj, missing = {}, {}, []
     for _, items in GROUPS:
         for sid, _ in items:
             s = close_series(conn, _view(sid))
@@ -412,6 +458,7 @@ def build():
                 missing.append(sid)
                 continue
             raw[sid] = s
+            raw_adj[sid] = close_series(conn, _view(sid), "adj_close")
 
     # every basket constituent as its own series, so the page can drill a basket
     # down into the individual stocks that make it up. Keyed by uppercase ticker
@@ -422,7 +469,7 @@ def build():
     # as it has ~3 weeks of history instead of waiting out a full 30 sessions.
     listed_members = {t for ts in BASKETS.values() for t in ts} | reco_tickers
     members = sorted(listed_members | set(PE_TICKERS))
-    stock_raw = {}
+    stock_raw, stock_adj = {}, {}
     for t in members:
         # Visible single names already have a rail record above. Keep them in
         # stock_raw so basket/recommendation drill-downs can reference them,
@@ -430,6 +477,7 @@ def build():
         s = close_series(conn, _view(t))
         if s is not None and len(s) >= 15:
             stock_raw[t] = s
+            stock_adj[t] = close_series(conn, _view(t), "adj_close")
 
     # shared calendar: every trading day anything traded on (SPY-anchored)
     cal = sorted(set().union(*[set(s.index) for s in
@@ -447,6 +495,9 @@ def build():
                 "id": sid, "label": label, "group": group,
                 "i0": i0, "lv": lv, "p0": p0,
             }
+            dv = div_steps(raw[sid], raw_adj.get(sid), cal)
+            if dv:
+                rec["dv"] = dv
             if sid.endswith("_reco") and sid[:-5] in RECO:
                 rec["kind"] = "reco"
                 r = RECO[sid[:-5]]
@@ -501,6 +552,9 @@ def build():
                "moves": move_context(
                    stock_raw[t], earnings_reactions(t, stock_raw[t], EARNINGS)
                )}
+        dv = div_steps(stock_raw[t], stock_adj.get(t), cal)
+        if dv:
+            rec["dv"] = dv
         seas = seasonality(stock_raw[t])
         if seas:
             rec["seas"] = seas

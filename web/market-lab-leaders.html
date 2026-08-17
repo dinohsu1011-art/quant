@@ -203,6 +203,7 @@
     </div>
     <div class="cgrp" id="months" hidden><span class="lbl">Month</span></div>
     <div class="cgrp" id="liq"><span class="lbl">Min $ vol</span></div>
+    <div class="cgrp" id="basis" title="Off = price return, the move in the share price alone. On = total return, dividends reinvested on the ex-date. Applies to every page. 52-week, moving-average, volatility and liquidity columns always describe the share price."><span class="lbl">Dividends</span></div>
     <div class="cgrp" id="clearwrap"><button id="clear">Clear filters</button></div>
   </div>
 
@@ -251,6 +252,31 @@
   const ROWS = D.rows, M = D.meta, THEMES = M.themes;
   const WINDOWS = M.windows;
 
+  // ---------- return basis ----------
+  // `r`/`z`/`zx` are PRICE return — the move in the share price alone. `rt`/`zt`/
+  // `zxt` are the same horizons with dividends reinvested, shipped only for names
+  // that actually pay. The choice is one setting shared with Theme Returns, so
+  // the two pages can never disagree about what a number means.
+  //
+  // Everything else on this page (52-week extremes, MA distance, vol, liquidity,
+  // seasonality) describes the share price and does not move with the toggle.
+  const BASIS_KEY = 'mlab.basis';
+  const readBasis = () => { try { return localStorage.getItem(BASIS_KEY) === 'tr'; }
+                            catch (e) { return false; } };
+  const writeBasis = v => { try { localStorage.setItem(BASIS_KEY, v ? 'tr' : 'pr'); }
+                            catch (e) {} };
+  // Swap the fields in place rather than teaching every reader about the pair:
+  // the table, loom, summit, sorting, tooltips and the composition panel all go
+  // through r.r / r.z / r.zx and stay untouched.
+  function applyBasis(){
+    ROWS.forEach(r => {
+      if (!r.rt) return;
+      if (!r._pr) r._pr = { r:r.r, z:r.z, zx:r.zx };
+      const s = st.tr ? { r:r.rt, z:r.zt, zx:r.zxt } : r._pr;
+      r.r = s.r; r.z = s.z; r.zx = s.zx;
+    });
+  }
+
   // ---------- state ----------
   // `top` is the cohort size the composition panel reads. It is the whole point
   // of the page: a rank is only interesting once you ask what the top N share.
@@ -259,7 +285,7 @@
   // best-first, so the bottom 10 sits at the bottom of a 500-row table.
   const st = { windows:['YTD'], view:'table', uni:'all', rank:'best', dir:-1, top:10, q:'',
                sector:'', theme:'', minAdv:0, sortK:'win', sortDir:-1, route:0,
-               month:new Date().getMonth() };
+               month:new Date().getMonth(), tr:readBasis() };
   const sortByRank = () => {
     st.sortK = st.rank === 'sigma' ? 'sigma' : st.rank === 'month' ? 'month' : 'win';
     st.sortDir = st.rank === 'worst' ? 1 : -1;
@@ -1018,6 +1044,17 @@
   mkBtns(document.getElementById('tops'), TOPS.map(t => [t, 'Top ' + t]), v => st.top = +v);
   mkBtns(document.getElementById('views'), VIEWS, v => setView(v));
   mkBtns(document.getElementById('liq'),  LIQ,  v => st.minAdv = +v);
+  mkBtns(document.getElementById('basis'), [['pr','Off'], ['tr','On']], v => {
+    st.tr = v === 'tr'; writeBasis(st.tr); applyBasis();
+  });
+  // Another tab (or Theme Returns) changing the shared setting should not leave
+  // this page showing the other basis under the same label.
+  window.addEventListener('storage', e => {
+    if (e.key !== BASIS_KEY) return;
+    const v = readBasis();
+    if (v === st.tr) return;
+    st.tr = v; applyBasis(); syncCtl(); render();
+  });
   document.getElementById('reroute').onclick = () => { st.route++; render(); };
 
   const secSel = document.getElementById('sector'), thmSel = document.getElementById('theme');
@@ -1043,6 +1080,7 @@
     });
     on('unis', st.uni); on('dirs', st.rank); on('tops', st.top);
     on('views', st.view); on('liq', st.minAdv); on('months', st.month);
+    on('basis', st.tr ? 'tr' : 'pr');
     document.getElementById('months').hidden = st.rank !== 'month';
     secSel.value = st.sector; thmSel.value = st.theme;
   }
@@ -1051,12 +1089,16 @@
   function writeHash(){
     history.replaceState(null, '', '#' + [rankWin(), st.uni, st.rank,
       st.top, st.minAdv, st.sector, st.theme, st.view, st.windows.join(','), st.route,
-      st.month].map(encodeURIComponent).join('|'));
+      st.month, st.tr ? 'div1' : 'div0'].map(encodeURIComponent).join('|'));
   }
   function readHash(){
     const h = location.hash.slice(1); if (!h) return;
-    const [w, u, d, t, adv, sec, thm, view, wins, route, mon] =
+    const [w, u, d, t, adv, sec, thm, view, wins, route, mon, divs] =
       h.split('|').map(decodeURIComponent);
+    // A shared link states its basis outright, so honour it AND adopt it — the
+    // setting is site-wide, and a link that silently meant something else on the
+    // recipient's machine would be worse than one that moves their toggle.
+    if (divs === 'div0' || divs === 'div1'){ st.tr = divs === 'div1'; writeBasis(st.tr); }
     if (WINDOWS.includes(w)) st.windows = [w];
     if (UNIS.some(x => x[0] === u)) st.uni = u;
     if (DIRS.some(x => x[0] === d)){
@@ -1086,7 +1128,7 @@
       if (st.view !== 'table' && lastViz) drawViz(lastViz.pool,lastViz.cohort);
     },120);
   });
-  readHash(); syncCtl(); render();
+  readHash(); applyBasis(); syncCtl(); render();
 })();
 </script>
 </body>

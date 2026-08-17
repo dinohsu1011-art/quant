@@ -129,11 +129,13 @@ def held_windows(instances):
     return out
 
 
-def _closes(conn, ticker):
+def _closes(conn, ticker, col="close"):
+    """`close` is the price-return basis (the book's default, and what a hand-kept
+    sheet of entry/exit prices reproduces); `adj_close` adds reinvested dividends."""
     df = conn.execute(
-        f'SELECT date, close FROM "{_view(ticker)}" WHERE close>0 ORDER BY date'
+        f'SELECT date, {col} FROM "{_view(ticker)}" WHERE {col}>0 ORDER BY date'
     ).fetchdf()
-    s = pd.Series(df["close"].values, index=pd.to_datetime(df["date"]))
+    s = pd.Series(df[col].values, index=pd.to_datetime(df["date"]))
     return s
 
 
@@ -145,10 +147,10 @@ def price_on(s, date):
     return float(s2.iloc[-1]) if len(s2) else np.nan
 
 
-def strategy_level(conn, book):
+def strategy_level(conn, book, col="close"):
     """Return a pd.Series: the 100*(1+M) index over the book's trading calendar."""
     instances, _, _ = walk(book)
-    px = {it["ticker"]: _closes(conn, it["ticker"]) for it in instances}
+    px = {it["ticker"]: _closes(conn, it["ticker"], col) for it in instances}
     start = pd.Timestamp(book["init"][0])
     # trading calendar = union of every ledger ticker's sessions from start on
     cal = sorted(set().union(*[set(s[s.index >= start].index) for s in px.values()]))
@@ -185,11 +187,15 @@ def realized_table(conn, book):
 
 
 def build_parquet(conn, name, book):
+    # Both bases, walked over the same ledger: `close` banks price returns only,
+    # `adj_close` banks the dividends each call collected while it was held.
     lvl = strategy_level(conn, book)
+    adj_lvl = strategy_level(conn, book, "adj_close").reindex(lvl.index).ffill()
     arr = (lvl * PRICE_SCALE).round().astype("int64").to_numpy()
+    adj = (adj_lvl * PRICE_SCALE).round().astype("int64").to_numpy()
     df = pd.DataFrame({
         "date": [d.date() for d in lvl.index],
-        "open": arr, "high": arr, "low": arr, "close": arr, "adj_close": arr,
+        "open": arr, "high": arr, "low": arr, "close": arr, "adj_close": adj,
         "volume": np.zeros(len(lvl), dtype="int64"),
     })
     out = DAILY_DIR / f"{name}_reco.parquet"

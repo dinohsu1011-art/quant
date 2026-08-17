@@ -21,11 +21,16 @@ from ingestion.store import store_ticker
 
 def fetch_batch(tickers: list[str], start: str, end: str | None = None) -> dict[str, pd.DataFrame]:
     """Download a batch of tickers. Returns {ticker: df}."""
+    # auto_adjust=False keeps BOTH bases in the response: 'Close' is adjusted for
+    # splits but not dividends (a price return), 'Adj Close' is adjusted for both
+    # (a total return). The site defaults to price return and offers total return
+    # behind a toggle, so we need the pair — auto_adjust=True collapses them and
+    # throws the price-return series away.
     raw = yf.download(
         tickers,
         start=start,
         end=end,
-        auto_adjust=True,
+        auto_adjust=False,
         progress=False,
         group_by="ticker",
         threads=True,

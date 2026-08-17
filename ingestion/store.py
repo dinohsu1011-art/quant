@@ -1,9 +1,14 @@
 """
 Normalize raw yfinance DataFrames and write to Parquet with int64 prices.
 
-With auto_adjust=True, yfinance returns (ticker, column) MultiIndex and
-no separate Adj Close — Close is already adjusted. We store it as both
-close and adj_close for schema consistency.
+We fetch with auto_adjust=False, so both bases arrive and both are kept:
+
+    close      split-adjusted only     -> PRICE return   (the site's default)
+    adj_close  split + dividend        -> TOTAL return   (behind the site toggle)
+
+Their ratio is the cumulative dividend-reinvestment factor, which is what the
+export ships so a page can switch bases without a second copy of every series.
+Indices and futures pay nothing, so the two columns coincide there.
 """
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -53,8 +58,12 @@ def normalize(
     df = df.copy()
     df = _flatten_columns(df)
 
-    # With auto_adjust=True there is no "adj_close" — clone "close"
-    if "adj_close" not in df.columns and "close" in df.columns:
+    # A vendor response that omits "adj_close", or returns it empty, still has to
+    # produce a usable file — fall back to the price-return column rather than
+    # letting the dropna below delete the whole history.
+    if "close" in df.columns and (
+        "adj_close" not in df.columns or df["adj_close"].isna().all()
+    ):
         df["adj_close"] = df["close"]
 
     # Drop rows missing any price; volume can be absent for indices on old

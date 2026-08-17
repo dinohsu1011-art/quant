@@ -12,6 +12,11 @@ Windows are precomputed rather than shipped as full price history: 628 names of
 daily closes is ~50 MB, the same thing as a fixed set of horizons is ~200 KB,
 and a screen is read at standard horizons anyway.
 
+Returns ship twice, on price (`r`) and total-return (`rt`) bases, so the site's
+shared dividend toggle can switch them without a second fetch. Everything else
+here — 52-week extremes, moving-average distance, volatility, liquidity — is a
+statement about the share price and stays on price in both modes.
+
 Everything is measured to the last close in the file. Names whose history is
 shorter than a window get null for that window rather than a return off a
 partial series — a stock that listed in March has no 1-year number, and showing
@@ -169,11 +174,8 @@ def _seasonality(dates, c):
     return out
 
 
-def row(stem, df):
-    c = df["close"].to_numpy(dtype=float)
-    if len(c) < 30:
-        return None
-    dates = df.index
+def _windows(c, dates):
+    """Returns, sigmas and exceedance counts over every standard horizon."""
     r, z, zx = {}, {}, {}
     for label, k in WINDOWS:
         if k == "ytd":
@@ -191,6 +193,28 @@ def row(stem, df):
         z[label] = sg
         if sg is not None:
             zx[label] = [hits, n]
+    return r, z, zx
+
+
+def row(stem, df):
+    c = df["close"].to_numpy(dtype=float)
+    if len(c) < 30:
+        return None
+    dates = df.index
+    r, z, zx = _windows(c, dates)
+
+    # Returns get a second, dividend-reinvested copy so the site-wide basis
+    # toggle has something to switch to. Only the return block is doubled: the
+    # 52-week extremes, moving averages, volatility and liquidity below describe
+    # where the *share price* is trading, and stay on price in both modes.
+    # A name that never paid emits identical numbers, so ship nothing for it.
+    rt = zt = zxt = None
+    if "adj_close" in df:
+        a = df["adj_close"].to_numpy(dtype=float)
+        if len(a) == len(c) and np.isfinite(a).any() and not np.allclose(
+            a / a[-1], c / c[-1], rtol=1e-9, atol=0, equal_nan=True
+        ):
+            rt, zt, zxt = _windows(a, dates)
 
     hi52 = np.nanmax(c[-252:]) if len(c) >= 60 else np.nan
     lo52 = np.nanmin(c[-252:]) if len(c) >= 60 else np.nan
@@ -206,7 +230,7 @@ def row(stem, df):
     def num(x, nd=1):
         return None if x is None or not np.isfinite(x) else round(float(x), nd)
 
-    return {
+    out = {
         "t": stem,
         "px": num(c[-1], 2),
         "r": r,
@@ -221,11 +245,14 @@ def row(stem, df):
         "adv": num(dollar),
         "rvol": num(rvol, 2),
     }
+    if rt is not None:
+        out["rt"], out["zt"], out["zxt"] = rt, zt, zxt
+    return out
 
 
 def build():
     stems = scan_universe()
-    px = load_prices(stems, columns=("close", "volume"))
+    px = load_prices(stems, columns=("close", "adj_close", "volume"))
     # every tracked name gets a label, not just the index members — an unlabelled
     # stock still takes a slot in the cohort, so it has to be countable
     meta = load_meta()
