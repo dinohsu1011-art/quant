@@ -15,6 +15,7 @@ window that starts before that.
 """
 import json
 import sys
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -163,7 +164,7 @@ SINGLE_NAMES = (
 # happened yet — update the one date on switch day.
 HANDOFFS = [
     {"prev": "coverage1",     "next": "mycoverage",   "anchor": "2026-04-30",
-     "switch": "2026-08-17"},
+     "switch": "2026-08-22"},
     {"prev": "fredcoverage1", "next": "fredcoverage", "anchor": "2026-01-09",
      "switch": "2026-07-31"},
 ]
@@ -485,6 +486,15 @@ def build():
     cal = pd.DatetimeIndex(cal)
     pos = {d: i for i, d in enumerate(cal)}
 
+    # The page's "as of" is the most common last bar, not the calendar's last
+    # date. Tokyo closes a calendar day ahead of New York, so on a Monday
+    # evening in Asia the union calendar already carries a date the US session
+    # hasn't reached — stamping that would claim a session that hasn't happened
+    # for the ~97% of the universe that trades in New York. Same rule as
+    # export/leaders.py.
+    as_of = Counter(s.index[-1] for s in
+                    list(raw.values()) + list(stock_raw.values())).most_common(1)[0][0]
+
     series = []
     for group, items in GROUPS:
         for sid, label in items:
@@ -563,7 +573,7 @@ def build():
 
     payload = {
         "meta": {
-            "as_of": cal[-1].strftime("%Y-%m-%d"),
+            "as_of": as_of.strftime("%Y-%m-%d"),
             "start": cal[0].strftime("%Y-%m-%d"),
             "n_dates": len(cal),
             "n_series": n_rail,

@@ -93,13 +93,16 @@ BASKETS = {
     # 2026 IPOs, so their lines only start mid-2026.
     "gas":          ["GEV", "CAT", "CMI", "BE", "GNRC", "7011.T", "ENR.DE", "WRT1V.HE",
                      "INIO", "FPS"],
-    # Personal coverage watchlist (user-curated, from the image list + SPCX). Mixes
-    # US and TSE (6674/5802/5803) names, so the level is built from their mutual
-    # sessions and only loosely aligns across calendars — it's a tracker, not an
-    # investable index. Overlaps every other basket by design.
-    "mycoverage":   ["DELL", "HWM", "TSLA", "ETN", "VRT", "CMI", "GEV", "PWR",
-                     "HUBB", "FIX", "EME", "CAT", "6674.T", "7011.T", "5802.T",
-                     "5803.T", "BE", "GLW", "SPCX", "FLEX"],
+    # Personal coverage watchlist (user-curated). Mixes US and TSE (7011/5802/
+    # 5803/6501) names, so the level is built from their mutual sessions and only
+    # loosely aligns across calendars — it's a tracker, not an investable index.
+    # Overlaps every other basket by design.
+    # The book takes over from `coverage1` at the 2026-08-22 close (HANDOFFS in
+    # export/themes.py): the electricals/utilities cut narrowed and the six
+    # mega-cap platforms came in, so the list is no longer a power-only book.
+    "mycoverage":   ["GEV", "7011.T", "TSLA", "PWR", "CAT", "BE", "ETN", "5802.T",
+                     "VRT", "GLW", "5803.T", "6501.T", "FLEX", "GOOGL", "MSFT",
+                     "META", "AMZN", "ORCL", "SPCX", "AAPL"],
     # The prior personal coverage book (20 names), kept as a fixed reference vs
     # the live `mycoverage` ("Active Coverage"). The themes page anchors it to
     # 2026-04-30 and hands off to the active book on the switch date — see

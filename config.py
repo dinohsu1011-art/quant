@@ -67,6 +67,7 @@ SYMBOL_ALIASES = {
     # SQL-safe stem (a bare '6674.T' view name has a dot and a leading digit).
     # These trade on the TSE calendar, so they align only loosely with the
     # US-session series — fine as standalone series, not for US-aligned baskets.
+    "6501.T": "JP6501",  # Hitachi
     "6674.T": "JP6674",  # GS Yuasa
     "7011.T": "JP7011",  # Mitsubishi Heavy Industries
     "5802.T": "JP5802",  # Sumitomo Electric
