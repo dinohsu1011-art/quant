@@ -89,6 +89,15 @@ def normalize(
     df = df.reset_index()
     df["date"] = pd.to_datetime(df["date"]).dt.date
 
+    # No exchange in this universe holds a Saturday or Sunday session, but Yahoo
+    # stamps the Sunday-evening open of a continuous futures contract (GC=F and
+    # friends) as a Sunday bar. Four such bars were enough to stretch the shared
+    # calendar a weekend past the last equity close, so the site reported itself
+    # as of a Sunday and the chart's right edge was two empty days.
+    wd = pd.to_datetime(df["date"]).dt.dayofweek
+    if (wd >= 5).any():
+        df = df[wd < 5]
+
     # Reproducible historical refreshes may set an inclusive market-data cutoff.
     if DATA_THROUGH_DATE is not None:
         df = df[df["date"] <= DATA_THROUGH_DATE]

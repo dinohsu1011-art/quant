@@ -163,7 +163,7 @@ SINGLE_NAMES = (
 # happened yet — update the one date on switch day.
 HANDOFFS = [
     {"prev": "coverage1",     "next": "mycoverage",   "anchor": "2026-04-30",
-     "switch": "2026-07-31"},
+     "switch": "2026-08-17"},
     {"prev": "fredcoverage1", "next": "fredcoverage", "anchor": "2026-01-09",
      "switch": "2026-07-31"},
 ]
