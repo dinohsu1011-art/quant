@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 from config import file_stem
 from ingestion.baskets import BASKETS
+from ingestion.factors import FACTORS as FACTOR_DEFS
 from ingestion.recos import LEDGER, walk, held_windows
 
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
@@ -143,6 +144,20 @@ GROUPS = [
     ("Japan — baskets", [
         ("japan", "Japan · elec & grid"),
     ]),
+]
+
+# Cross-sectional factor buckets (see ingestion/factors.py). The whole universe is
+# re-scored and re-sorted every month end, so unlike a theme basket the membership
+# is a live screen rather than a curated list. Top and bottom deciles get their own
+# rail group; the dollar-neutral spread between them gets another, because a line
+# that can sit at 11 while its neighbours sit at 400 would wreck a shared axis if it
+# were filed next to them.
+GROUPS += [
+    ("Factor deciles", [(f"fac_{k}_{sd}", f"{lab} · {word}")
+                        for k, lab, _, _ in FACTOR_DEFS
+                        for sd, word in (("hi", "top"), ("lo", "bottom"))]),
+    ("Factor spreads", [(f"fac_{k}_ls", f"{lab} · top − bottom")
+                        for k, lab, _, _ in FACTOR_DEFS]),
 ]
 
 # series whose *level* is not a total-return-like price (charting % change on
@@ -440,9 +455,37 @@ def add_move_context(record, series_id, prices, cache):
         record["moves"] = moves
 
 
+def factor_meta():
+    """Current membership + sigma for each factor decile, from the last rebalance.
+
+    A factor bucket's "members" is a screen, not a definition: it is who happened
+    to rank there at the most recent month end, and it will differ next month.
+    """
+    f = Path(__file__).parent.parent / "data" / "factor_buckets.json"
+    if not f.exists():
+        return {}
+    d = json.loads(f.read_text())
+    out = {}
+    for key, blob in d.get("factors", {}).items():
+        for side in ("hi", "lo"):
+            out[f"fac_{key}_{side}"] = {
+                "members": [t for t, _ in blob[side]],
+                "sigma": {t: z for t, z in blob[side]},
+                "rebalanced": blob["rebalanced"], "scored": blob["scored"],
+                "cut": d.get("cut"), "caveats": d.get("caveats", []),
+            }
+        out[f"fac_{key}_ls"] = {
+            "members": [], "sigma": {}, "rebalanced": blob["rebalanced"],
+            "scored": blob["scored"], "cut": d.get("cut"),
+            "caveats": d.get("caveats", []),
+        }
+    return out
+
+
 def build():
     conn = db.connect()
     RECO = reco_meta()
+    FACTOR_META = factor_meta()
     PE_TICKERS = pe_tickers()
     EARNINGS = earnings_cache()
     # tickers named anywhere in a reco book must ship a price line even if they
@@ -517,6 +560,22 @@ def build():
                 rec["reco"] = r
                 # the names with a drawable price line, so the page can chart them
                 rec["memberIds"] = [n["t"] for n in r["names"] if n["t"] in stock_raw]
+            elif sid in FACTOR_META:
+                # Filed as a basket so the rail's existing drill-down works, but
+                # `fac` marks it as a screen: the constituent list is who ranked
+                # there at the last month end, not a standing membership.
+                # Deliberately NOT added to `listed_members`: a decile is ~61
+                # names out of the whole universe, and shipping a full price
+                # history for every name in all sixteen deciles would add ~10 MB
+                # to a page that already carries 16. The screen is listed in full
+                # as text; only the names that already have a line for another
+                # reason are drillable.
+                f = FACTOR_META[sid]
+                rec["kind"] = "basket"
+                rec["members"] = list(f["members"])
+                rec["memberIds"] = [t for t in f["members"] if t in stock_raw]
+                rec["fac"] = {k: f[k] for k in
+                              ("sigma", "rebalanced", "scored", "cut", "caveats")}
             elif sid in BASKETS:
                 rec["kind"] = "basket"
                 if sid in AVG_BASKETS:

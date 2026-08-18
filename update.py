@@ -135,10 +135,13 @@ def build_recos():
 
 
 def sub(target):
-    args = [sys.executable] + ([target] if target.endswith(".py") else ["-m", target])
+    """Run a module (or script) in this repo's interpreter. Trailing words in
+    `target` are passed through as CLI flags, e.g. "ingestion.factors --build"."""
+    mod, *flags = target.split()
+    args = [sys.executable] + ([mod] if mod.endswith(".py") else ["-m", mod]) + flags
     r = subprocess.run(args, cwd=ROOT)
     if r.returncode != 0:
-        raise RuntimeError(f"{target} exited {r.returncode}")
+        raise RuntimeError(f"{mod} exited {r.returncode}")
 
 
 REPORTS = Path.home() / "Desktop/Obsidian/trading-brain/reports"
@@ -191,7 +194,7 @@ def sync_site():
           "(push to GitHub to refresh the Pages site)")
 
 
-TOTAL_STEPS = 14
+TOTAL_STEPS = 15
 
 
 def step(i, name, fn):
@@ -210,14 +213,15 @@ if __name__ == "__main__":
     step(2, "refresh cached earnings dates", lambda: sub("ingestion.earnings"))
     step(3, "rebuild baskets", lambda: sub("ingestion.baskets"))
     step(4, "rebuild reco books (mark open calls to latest close)", build_recos)
-    step(5, "regenerate cube", lambda: sub("export.cube"))
-    step(6, "regenerate theme return series", lambda: sub("export.themes"))
-    step(7, "regenerate annual consensus EPS vintages", lambda: sub("export.pe_bands"))
-    step(8, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
-    step(9, "top up company/sector labels for new names", lambda: sub("ingestion.meta"))
-    step(10, "regenerate single-stock leaders screen", lambda: sub("export.leaders"))
-    step(11, "regenerate macro regime masks", lambda: sub("export.regimes"))
-    step(12, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
-    step(13, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
-    step(14, "validate", lambda: sub("validate.py"))
+    step(5, "rebuild factor decile buckets", lambda: sub("ingestion.factors --build"))
+    step(6, "regenerate cube", lambda: sub("export.cube"))
+    step(7, "regenerate theme return series", lambda: sub("export.themes"))
+    step(8, "regenerate annual consensus EPS vintages", lambda: sub("export.pe_bands"))
+    step(9, "regenerate weekend review (breadth, scans, gauges)", lambda: sub("export.weekend"))
+    step(10, "top up company/sector labels for new names", lambda: sub("ingestion.meta"))
+    step(11, "regenerate single-stock leaders screen", lambda: sub("export.leaders"))
+    step(12, "regenerate macro regime masks", lambda: sub("export.regimes"))
+    step(13, "regenerate trader-profile bundle", lambda: sub("export.trader_profile"))
+    step(14, "sync site copies (web/ + docs/ for GitHub Pages)", sync_site)
+    step(15, "validate", lambda: sub("validate.py"))
     print("\nUPDATE COMPLETE — all steps passed.")

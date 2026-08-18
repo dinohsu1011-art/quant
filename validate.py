@@ -18,6 +18,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 from ingestion.baskets import BASKETS
+from ingestion.factors import bucket_ids
 from ingestion.recos import LEDGER
 from config import DATA_THROUGH_DATE
 
@@ -115,8 +116,9 @@ def main():
     check("view-name uniqueness", sorted({v for v in views if views.count(v) > 1}))
 
     # synthetic index parquets that are flat-OHLC by construction: the equal-weight
-    # baskets, plus each reco book's index level ('{book}_reco').
-    flat_ok = set(BASKETS) | {f"{b}_reco" for b in LEDGER}
+    # baskets, each reco book's index level ('{book}_reco'), and the factor
+    # decile / spread levels ('fac_*').
+    flat_ok = set(BASKETS) | {f"{b}_reco" for b in LEDGER} | set(bucket_ids())
     frac = (q.set_index("tkr").flat_rows / q.set_index("tkr").n)
     non_flat_baskets = [b for b in BASKETS if b in frac.index and frac[b] < 1.0]
     unexpected_flat = [t for t, v in frac.items() if t not in flat_ok and v > 0.99]

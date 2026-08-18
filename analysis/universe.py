@@ -25,8 +25,11 @@ from ingestion.baskets import BASKETS
 from ingestion.recos import LEDGER, reco_tickers
 from ingestion.tickers import load_tickers
 
-# Series that are built FROM the universe rather than being part of it.
-SYNTHETIC = set(BASKETS) | {f"{k}_reco" for k in LEDGER}
+# Series that are built FROM the universe rather than being part of it. The
+# factor buckets especially: scoring them alongside real stocks would rank the
+# scoreboard against the players.
+SYNTHETIC = (set(BASKETS) | {f"{k}_reco" for k in LEDGER}
+             | {p.stem for p in DAILY_DIR.glob("fac_*.parquet")})
 
 
 def scan_universe():

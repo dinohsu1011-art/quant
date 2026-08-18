@@ -2346,6 +2346,16 @@
       const cur = (s.reco && s.reco.current) || [];
       return cur.length ? `currently held: ${cur.join(', ')}` : s.label;
     }
+    if (s.fac){
+      // A factor bucket is a screen, not a membership: the whole universe is
+      // re-scored and re-sorted every month end, so this list is who ranked here
+      // at the last rebalance and nothing more. The caveats ride along because a
+      // line this steep is easy to misread as a strategy someone could have run.
+      const pct = Math.round(s.fac.cut * 100);
+      return `screen · ${s.fac.scored} names ranked ${s.fac.rebalanced}, top/bottom ${pct}%`
+        + (s.members.length ? `\n${s.members.join(', ')}` : '')
+        + s.fac.caveats.map(c => `\n! ${c}`).join('');
+    }
     if (s.kind !== 'basket') return s.label;
     return s.members.join(', ') + (s.full ? `  ·  full membership from ${s.full}` : '');
   }
