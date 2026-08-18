@@ -27,6 +27,7 @@ import db
 from config import file_stem
 from ingestion.baskets import BASKETS
 from ingestion.factors import FACTORS as FACTOR_DEFS
+from ingestion.factors import SIDES as FACTOR_SIDES
 from ingestion.recos import LEDGER, walk, held_windows
 
 DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
@@ -148,17 +149,14 @@ GROUPS = [
 
 # Cross-sectional factor buckets (see ingestion/factors.py). The whole universe is
 # re-scored and re-sorted every month end, so unlike a theme basket the membership
-# is a live screen rather than a curated list. Twenty names a side, fixed, so each
-# line is a book you could actually hold. Top and bottom get their own rail group;
-# the dollar-neutral spread between them gets another, because a line that can sit
-# at 11 while its neighbours sit at 400 would wreck a shared axis if it were filed
-# next to them.
+# is a live screen rather than a curated list. Twenty names, fixed, so each line is
+# a book you could actually hold — and only the top of each rank, since the bottom
+# of a rank is an avoid-list rather than a holding. ingestion/factors.SIDES is what
+# decides; this reads it rather than restating it.
 GROUPS += [
     ("Factor 20s", [(f"fac_{k}_{sd}", f"{lab} · {word}")
                     for k, lab, _, _, _ in FACTOR_DEFS
-                    for sd, word in (("hi", "top 20"), ("lo", "bottom 20"))]),
-    ("Factor spreads", [(f"fac_{k}_ls", f"{lab} · top − bottom")
-                        for k, lab, _, _, _ in FACTOR_DEFS]),
+                    for sd, word in FACTOR_SIDES]),
 ]
 
 # series whose *level* is not a total-return-like price (charting % change on
@@ -468,7 +466,14 @@ def factor_meta():
     d = json.loads(f.read_text())
     out = {}
     for key, blob in d.get("factors", {}).items():
-        for side in ("hi", "lo"):
+        for side, _ in FACTOR_SIDES:
+            if side == "ls":       # a spread holds no names of its own
+                out[f"fac_{key}_ls"] = {
+                    "members": [], "sigma": {}, "rebalanced": blob["rebalanced"],
+                    "scored": blob["scored"], "n": d.get("n"),
+                    "win": blob.get("win"), "caveats": d.get("caveats", []),
+                }
+                continue
             out[f"fac_{key}_{side}"] = {
                 "members": [t for t, _ in blob[side]],
                 "sigma": {t: z for t, z in blob[side]},
@@ -476,11 +481,6 @@ def factor_meta():
                 "n": d.get("n"), "win": blob.get("win"),
                 "caveats": d.get("caveats", []),
             }
-        out[f"fac_{key}_ls"] = {
-            "members": [], "sigma": {}, "rebalanced": blob["rebalanced"],
-            "scored": blob["scored"], "n": d.get("n"), "win": blob.get("win"),
-            "caveats": d.get("caveats", []),
-        }
     return out
 
 

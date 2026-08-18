@@ -183,8 +183,14 @@ FACTORS = [
     ("ddepth",  "Shallow drawdown",   YEAR, s_ddepth,  "1Y"),
     ("trend",   "Trend stack",         200, s_trend,   "1Y"),
 ]
-# top 20 / bottom 20 / top-minus-bottom, per factor
-SIDES = [("hi", "top 20"), ("lo", "bottom 20"), ("ls", "top − bottom")]
+# Only the top of each rank ships. The bottom 20 and the top-minus-bottom
+# spread were built first and then cut: the bottom of a momentum rank is an
+# avoid-list, not a book anyone holds, and the spread exists to answer "did this
+# score sort anything at all", which is a question you ask once a year rather
+# than a line you want on a chart. The ranking below still computes both ends —
+# `snapshot` records the bottom 20 for reference, and putting them back on the
+# rail is this one list.
+SIDES = [("hi", "top 20")]
 
 
 def bucket_ids():
@@ -304,8 +310,9 @@ def build_series(cal, R, RA, picks):
             continue
         hp, ht = _levels(cal, R, RA, {i: v[0] for i, v in sel.items()})
         lp, lt = _levels(cal, R, RA, {i: v[1] for i, v in sel.items()})
-        for side, (rp, rt) in (("hi", (hp, ht)), ("lo", (lp, lt)),
-                               ("ls", (hp - lp, ht - lt))):
+        avail = {"hi": (hp, ht), "lo": (lp, lt), "ls": (hp - lp, ht - lt)}
+        for side, _ in SIDES:
+            rp, rt = avail[side]
             r = rp.dropna()
             t = rt.reindex(r.index)
             # A dollar-neutral spread has no dividend basis of its own: both legs
