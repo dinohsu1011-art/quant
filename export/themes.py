@@ -484,16 +484,19 @@ def build():
     cal = sorted(set().union(*[set(s.index) for s in
                                list(raw.values()) + list(stock_raw.values())]))
     cal = pd.DatetimeIndex(cal)
-    pos = {d: i for i, d in enumerate(cal)}
 
-    # The page's "as of" is the most common last bar, not the calendar's last
-    # date. Tokyo closes a calendar day ahead of New York, so on a Monday
-    # evening in Asia the union calendar already carries a date the US session
-    # hasn't reached — stamping that would claim a session that hasn't happened
-    # for the ~97% of the universe that trades in New York. Same rule as
-    # export/leaders.py.
+    # The page runs to the most common last bar, not the newest one. Tokyo closes
+    # a calendar day ahead of New York, so on a Monday evening in Asia the union
+    # calendar already carries a date the US session has not reached. Left in, the
+    # right edge of every chart would be a day on which ~97% of the universe was
+    # simply forward-filled, and any mixed basket would post a return built from
+    # four Tokyo names moving against sixteen frozen ones. Tokyo's extra bar waits
+    # a day rather than being blended into a session that has not happened. Same
+    # rule as export/leaders.py.
     as_of = Counter(s.index[-1] for s in
                     list(raw.values()) + list(stock_raw.values())).most_common(1)[0][0]
+    cal = cal[cal <= as_of]
+    pos = {d: i for i, d in enumerate(cal)}
 
     series = []
     for group, items in GROUPS:
