@@ -122,6 +122,9 @@ def s_mom1(C, i, ctx):
     return C[i] / C[i - 21] - 1.0
 
 
+# Named for the top of the rank, and the name has to survive the bottom of it
+# too: "Near 52-week high · bottom 20" is the 20 furthest below their highs,
+# which reads correctly. "Off 52-week high · top 20" did not.
 def s_offhigh(C, i, ctx):
     """Distance below the highest close of the last year (always <= 0). Where the
     stock is standing right now."""
@@ -174,10 +177,10 @@ FACTORS = [
     ("mom121",  "Momentum 12-1",      YEAR, s_mom121,  "1Y"),
     ("mom12",   "Momentum 12M",       YEAR, s_mom12,   "1Y"),
     ("mom1",    "1-month move",         21, s_mom1,    "1M"),
-    ("offhigh", "Off 52-week high",   YEAR, s_offhigh, "1Y"),
+    ("offhigh", "Near 52-week high",  YEAR, s_offhigh, "1Y"),
     ("vol",     "Volatility",           63, s_vol,     "3M"),
     ("beta",    "Beta vs SPY",        YEAR, s_beta,    "1Y"),
-    ("ddepth",  "Drawdown depth",     YEAR, s_ddepth,  "1Y"),
+    ("ddepth",  "Shallow drawdown",   YEAR, s_ddepth,  "1Y"),
     ("trend",   "Trend stack",         200, s_trend,   "1Y"),
 ]
 # top 20 / bottom 20 / top-minus-bottom, per factor

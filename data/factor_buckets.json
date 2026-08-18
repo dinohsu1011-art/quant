@@ -524,7 +524,7 @@
    ]
   },
   "offhigh": {
-   "label": "Off 52-week high",
+   "label": "Near 52-week high",
    "win": "1Y",
    "rebalanced": "2026-07-31",
    "scored": 605,
@@ -1037,7 +1037,7 @@
    ]
   },
   "ddepth": {
-   "label": "Drawdown depth",
+   "label": "Shallow drawdown",
    "win": "1Y",
    "rebalanced": "2026-07-31",
    "scored": 605,
