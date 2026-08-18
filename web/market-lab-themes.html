@@ -2281,7 +2281,7 @@
   // ---------- rail ----------
   function railRow(s, sub){
     const mem = (s.kind === 'basket' || s.kind === 'reco') && s.memberIds && s.memberIds.length;
-    const noun = s.kind === 'reco' ? 'names' : 'constituents';
+    const noun = (s.kind === 'reco' || s.fac) ? 'names' : 'constituents';
     return `<div class="row${sub ? ' sub' : ''}" data-id="${s.id}" title="${esc(memberTip(s))}">
         <span class="dot"></span><span class="lb">${esc(s.label)}</span>
         ${mem ? `<button class="caret" data-exp="${s.id}" title="show ${noun}">&#9654;</button>` : ''}

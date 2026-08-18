@@ -513,7 +513,14 @@ def build():
     # constituent lines use a lower floor than the 30-session rail floor so a
     # fresh IPO (e.g. SPCX, listed weeks ago) draws its drill-down line as soon
     # as it has ~3 weeks of history instead of waiting out a full 30 sessions.
-    listed_members = {t for ts in BASKETS.values() for t in ts} | reco_tickers
+    listed_members = ({t for ts in BASKETS.values() for t in ts} | reco_tickers
+                      # Factor screens are lists to trade, so every name in one
+                      # ships its own line. At 20 a side that is 178 unique names
+                      # against 96 already carried by the theme baskets, ~3 MB —
+                      # affordable in a way the 60-a-side version was not, and the
+                      # alternative is a drill-down that says "7 constituents" for
+                      # a bucket of 20.
+                      | {t for f in FACTOR_META.values() for t in f["members"]})
     members = sorted(listed_members | set(PE_TICKERS))
     stock_raw, stock_adj = {}, {}
     for t in members:
@@ -566,12 +573,6 @@ def build():
                 # Filed as a basket so the rail's existing drill-down works, but
                 # `fac` marks it as a screen: the constituent list is who ranked
                 # there at the last month end, not a standing membership.
-                # Deliberately NOT added to `listed_members`: a decile is ~61
-                # names out of the whole universe, and shipping a full price
-                # history for every name in all sixteen deciles would add ~10 MB
-                # to a page that already carries 16. The screen is listed in full
-                # as text; only the names that already have a line for another
-                # reason are drillable.
                 f = FACTOR_META[sid]
                 rec["kind"] = "basket"
                 rec["members"] = list(f["members"])

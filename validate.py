@@ -63,7 +63,13 @@ def main():
         if not ok:
             (fails if fatal else warns).append(name)
 
-    ref = q.hi.max()
+    # Anchor staleness to the most common last bar, not the newest one. Tokyo and
+    # Seoul close a calendar day ahead of New York, so on a Tuesday morning in Asia
+    # the newest bar in the store belongs to a session New York has not opened yet,
+    # and every US series — the spine included — reads as two days stale against
+    # it. The mode is the closed US session the great majority of the store shares.
+    # Same rule as export/themes.py and export/leaders.py.
+    ref = q.hi.value_counts().idxmax()
     thresh = ref - timedelta(days=3)
     print(f"files: {len(q)} · freshest date: {ref} · staleness threshold: {thresh}")
     if DATA_THROUGH_DATE is not None:
@@ -91,7 +97,13 @@ def main():
     # ~3-week 1999 Spring Festival, Taiwan/Korea Lunar New Year + Chuseok), so
     # they get a generous 22-day allowance — verified genuine market closures.
     FOREIGN_IDX = {"N225", "KS11", "TWII", "SSEC", "HSI", "FTSE"}
+    # ^GSPC's history reaches 1927, so it carries the 1933 Bank Holiday: the NYSE
+    # was shut 1933-03-06..03-14 by presidential proclamation. A real 12-day hole
+    # that no refetch will fill, and it only appears once Yahoo serves the deep
+    # history. (Its other long gap is the 7-day close after 2001-09-11.)
+    LONG_CLOSURE = {"GSPC": 14}
     def gap_limit(t):
+        if str(t) in LONG_CLOSURE: return LONG_CLOSURE[str(t)]
         if str(t) in FOREIGN_IDX: return 22
         if str(t).startswith(("JP", "KR")) or t == "japan": return 12
         return 10
