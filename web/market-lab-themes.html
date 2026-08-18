@@ -2351,8 +2351,8 @@
       // re-scored and re-sorted every month end, so this list is who ranked here
       // at the last rebalance and nothing more. The caveats ride along because a
       // line this steep is easy to misread as a strategy someone could have run.
-      const pct = Math.round(s.fac.cut * 100);
-      return `screen · ${s.fac.scored} names ranked ${s.fac.rebalanced}, top/bottom ${pct}%`
+      return `screen · ${s.fac.scored} names ranked ${s.fac.rebalanced}, `
+        + `top/bottom ${s.fac.n} · charts the last ${s.fac.win}`
         + (s.members.length ? `\n${s.members.join(', ')}` : '')
         + s.fac.caveats.map(c => `\n! ${c}`).join('');
     }
@@ -2366,6 +2366,14 @@
     // completing a book/coverage pair moves the window to the book's start, so
     // the shaded gap between the two is alpha and not a head start
     if (snapToBook()){ anchorSel.value = ''; syncCtl(); }
+    // A factor bucket is a claim about one stretch of tape: the 1-month screen was
+    // ranked on 21 sessions, the momentum screen on a year. Turning one on moves the
+    // window to the span it was ranked over, so the line you see is the line the
+    // rank was actually making a statement about.
+    const fac = SER[id] && SER[id].fac;
+    if (fac && fac.win && st.sel.includes(id)){
+      setSpan(fac.win); anchorSel.value = ''; syncCtl();
+    }
     syncRail(); render();
   }
   function selectSearchTicker(query){

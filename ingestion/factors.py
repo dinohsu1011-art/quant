@@ -36,10 +36,10 @@ OUT_JSON = Path(__file__).parent.parent / "data" / "factor_buckets.json"
 # Rules
 # ---------------------------------------------------------------------------
 YEAR = 252              # sessions in "a year", matching analysis/setups.py
-CUT = 0.10              # decile. 614 names / 5 would be a 123-name quintile,
-                        # which is diversified almost back into the index; a
-                        # decile is ~61 names, sharp enough to show a signal and
-                        # wide enough that one blow-up doesn't define the line.
+N_NAMES = 20            # names a side, fixed — not a decile, not a quintile. A
+                        # percentage slice grows with the universe and lands on a
+                        # basket nobody could actually hold; twenty is a book you
+                        # can read down in one screen and trade as a list.
 MIN_FRAC = 0.75         # of the tracked universe must be scoreable before any
                         # factor starts. See SURVIVORSHIP below — this is what
                         # sets the start date, and it is deliberately strict.
@@ -164,23 +164,28 @@ def s_trend(C, i, ctx):
                        for n in (20, 50, 200)], axis=0)
 
 
-# key, rail label, sessions of history required, scorer
+# key, rail label, sessions of history required, scorer, chart window.
+#
+# The window is the span the page jumps to when you click one of these lines. A
+# screen is a claim about a stretch of tape: ranking the last month and then
+# judging the result over three years asks a different question than the one the
+# rank answered. Clicking the bucket should show you the tape it was built from.
 FACTORS = [
-    ("mom121",  "Momentum 12-1",      YEAR, s_mom121),
-    ("mom12",   "Momentum 12M",       YEAR, s_mom12),
-    ("mom1",    "1-month move",         21, s_mom1),
-    ("offhigh", "Off 52-week high",   YEAR, s_offhigh),
-    ("vol",     "Volatility",           63, s_vol),
-    ("beta",    "Beta vs SPY",        YEAR, s_beta),
-    ("ddepth",  "Drawdown depth",     YEAR, s_ddepth),
-    ("trend",   "Trend stack",         200, s_trend),
+    ("mom121",  "Momentum 12-1",      YEAR, s_mom121,  "1Y"),
+    ("mom12",   "Momentum 12M",       YEAR, s_mom12,   "1Y"),
+    ("mom1",    "1-month move",         21, s_mom1,    "1M"),
+    ("offhigh", "Off 52-week high",   YEAR, s_offhigh, "1Y"),
+    ("vol",     "Volatility",           63, s_vol,     "3M"),
+    ("beta",    "Beta vs SPY",        YEAR, s_beta,    "1Y"),
+    ("ddepth",  "Drawdown depth",     YEAR, s_ddepth,  "1Y"),
+    ("trend",   "Trend stack",         200, s_trend,   "1Y"),
 ]
-# top decile / bottom decile / top-minus-bottom, per factor
-SIDES = [("hi", "top decile"), ("lo", "bottom decile"), ("ls", "top − bottom")]
+# top 20 / bottom 20 / top-minus-bottom, per factor
+SIDES = [("hi", "top 20"), ("lo", "bottom 20"), ("ls", "top − bottom")]
 
 
 def bucket_ids():
-    return [f"fac_{k}_{s}" for k, _, _, _ in FACTORS for s, _ in SIDES]
+    return [f"fac_{k}_{s}" for k, _, _, _, _ in FACTORS for s, _ in SIDES]
 
 
 def _panel():
@@ -225,13 +230,13 @@ def build_membership():
     # One shared start for all eight, set by the most demanding lookback. Judging
     # a factor against its neighbours only means something if they were measured
     # over the same stretch of tape.
-    need_max = max(n for _, _, n, _ in FACTORS)
+    need_max = max(n for _, _, n, _, _ in FACTORS)
     floor = MIN_FRAC * len(names)
     ends = [i for i in ends if eligible(i, need_max).sum() >= floor]
 
-    picks = {k: {} for k, _, _, _ in FACTORS}
+    picks = {k: {} for k, _, _, _, _ in FACTORS}
     snapshot = {}
-    for key, label, need, fn in FACTORS:
+    for key, label, need, fn, win in FACTORS:
         for i in ends:
             live = eligible(i, need)
             # A name that has not listed yet is an all-NaN slice inside the
@@ -245,7 +250,7 @@ def build_membership():
             z = np.full(len(raw), np.nan)
             z[ok] = _z(raw[ok])
             order = ok[np.argsort(-z[ok], kind="stable")]
-            n_cut = max(1, int(round(CUT * len(order))))
+            n_cut = min(N_NAMES, len(order) // 2)
 
             picks[key][i] = (order[:n_cut], order[-n_cut:])
         if picks[key]:
@@ -258,7 +263,7 @@ def build_membership():
             z = np.full(len(raw), np.nan)
             z[ok] = _z(raw[ok])
             snapshot[key] = {
-                "label": label, "rebalanced": str(cal[i].date()),
+                "label": label, "win": win, "rebalanced": str(cal[i].date()),
                 "scored": int(len(ok)), "per_side": int(len(hi)),
                 "hi": [[names[j], round(float(z[j]), 2)] for j in hi],
                 "lo": [[names[j], round(float(z[j]), 2)] for j in lo],
@@ -290,7 +295,7 @@ def _levels(cal, R, RA, sel):
 def build_series(cal, R, RA, picks):
     """{bucket id: (price level, total-return level)}, both starting at 100."""
     out = {}
-    for key, _, _, _ in FACTORS:
+    for key, _, _, _, _ in FACTORS:
         sel = picks[key]
         if not sel:
             continue
@@ -329,7 +334,7 @@ def write_parquets(series):
 def main():
     cal, names, R, RA, picks, snapshot = build_membership()
     series = build_series(cal, R, RA, picks)
-    for key, label, _, _ in FACTORS:
+    for key, label, _, _, _ in FACTORS:
         s = snapshot.get(key)
         if not s:
             print(f"{label}: not enough history")
@@ -342,7 +347,7 @@ def main():
         print()
         write_parquets(series)
         OUT_JSON.write_text(json.dumps(
-            {"rebalance": "month end", "cut": CUT, "min_dollar": MIN_DOLLAR,
+            {"rebalance": "month end", "n": N_NAMES, "min_dollar": MIN_DOLLAR,
              "start": str(cal[min(min(v) for v in picks.values() if v)].date()),
              "caveats": CAVEATS, "factors": snapshot},
             indent=1))

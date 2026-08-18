@@ -148,16 +148,17 @@ GROUPS = [
 
 # Cross-sectional factor buckets (see ingestion/factors.py). The whole universe is
 # re-scored and re-sorted every month end, so unlike a theme basket the membership
-# is a live screen rather than a curated list. Top and bottom deciles get their own
-# rail group; the dollar-neutral spread between them gets another, because a line
-# that can sit at 11 while its neighbours sit at 400 would wreck a shared axis if it
-# were filed next to them.
+# is a live screen rather than a curated list. Twenty names a side, fixed, so each
+# line is a book you could actually hold. Top and bottom get their own rail group;
+# the dollar-neutral spread between them gets another, because a line that can sit
+# at 11 while its neighbours sit at 400 would wreck a shared axis if it were filed
+# next to them.
 GROUPS += [
-    ("Factor deciles", [(f"fac_{k}_{sd}", f"{lab} · {word}")
-                        for k, lab, _, _ in FACTOR_DEFS
-                        for sd, word in (("hi", "top"), ("lo", "bottom"))]),
+    ("Factor 20s", [(f"fac_{k}_{sd}", f"{lab} · {word}")
+                    for k, lab, _, _, _ in FACTOR_DEFS
+                    for sd, word in (("hi", "top 20"), ("lo", "bottom 20"))]),
     ("Factor spreads", [(f"fac_{k}_ls", f"{lab} · top − bottom")
-                        for k, lab, _, _ in FACTOR_DEFS]),
+                        for k, lab, _, _, _ in FACTOR_DEFS]),
 ]
 
 # series whose *level* is not a total-return-like price (charting % change on
@@ -472,11 +473,12 @@ def factor_meta():
                 "members": [t for t, _ in blob[side]],
                 "sigma": {t: z for t, z in blob[side]},
                 "rebalanced": blob["rebalanced"], "scored": blob["scored"],
-                "cut": d.get("cut"), "caveats": d.get("caveats", []),
+                "n": d.get("n"), "win": blob.get("win"),
+                "caveats": d.get("caveats", []),
             }
         out[f"fac_{key}_ls"] = {
             "members": [], "sigma": {}, "rebalanced": blob["rebalanced"],
-            "scored": blob["scored"], "cut": d.get("cut"),
+            "scored": blob["scored"], "n": d.get("n"), "win": blob.get("win"),
             "caveats": d.get("caveats", []),
         }
     return out
@@ -575,7 +577,7 @@ def build():
                 rec["members"] = list(f["members"])
                 rec["memberIds"] = [t for t in f["members"] if t in stock_raw]
                 rec["fac"] = {k: f[k] for k in
-                              ("sigma", "rebalanced", "scored", "cut", "caveats")}
+                              ("sigma", "rebalanced", "scored", "n", "win", "caveats")}
             elif sid in BASKETS:
                 rec["kind"] = "basket"
                 if sid in AVG_BASKETS:
