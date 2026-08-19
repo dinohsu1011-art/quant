@@ -57,6 +57,14 @@ BASKETS = {
     "software":     ["CRM", "NOW", "ADBE", "INTU", "WDAY", "SNOW", "DDOG", "MDB",
                      "TEAM", "SHOP", "HUBS", "TWLO", "GTLB", "PATH", "RDDT", "PLTR"],
     "cyber":        ["PANW", "CRWD", "S", "OKTA", "ZS"],
+    # Pure-play biotechnology rather than broad pharmaceuticals or life-science
+    # tools. The first half is the commercial large/mid-cap leadership cohort;
+    # the second captures newer RNA, gene-editing, oncology and platform names.
+    # Equal weighting keeps AMGN/GILD from turning this into another cap-weighted
+    # IBB while still giving the clinical-stage companies a diversified basket.
+    "biotech":      ["AMGN", "GILD", "VRTX", "REGN", "BIIB", "ALNY", "UTHR", "ARGX",
+                     "INSM", "BMRN", "NBIX", "INCY", "MRNA", "CRSP", "BEAM", "NTLA",
+                     "RXRX", "RVMD", "VKTX", "TWST"],
     # physical economy / electrification
     "elecind":      ["ETN", "GEV", "CAT", "CMI", "AME", "HUBB", "GNRC", "MOD", "ENS", "POWL"],
     "epc":          ["PWR", "EME", "MTZ", "FIX", "STRL", "PRIM", "IESC", "MYRG", "FLR", "J", "ECG"],

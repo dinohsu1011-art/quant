@@ -59,6 +59,7 @@ THEME_LABEL = {
     "connectivity": "Connectivity", "networking": "Networking",
     "aiserver": "AI servers", "hyperscale": "Hyperscalers", "neocloud": "Neocloud",
     "cdnedge": "CDN/Edge", "software": "Software", "cyber": "Cybersecurity",
+    "biotech": "Biotechnology",
     "elecind": "Electrical industrials", "epc": "EPC", "nuclear": "Nuclear",
     "solutil": "Solar utility", "solresi": "Solar residential",
     "utilities": "Utilities", "defense": "Defense", "space": "Space",

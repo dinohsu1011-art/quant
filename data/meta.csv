@@ -30,6 +30,7 @@ ALGN,ALGN,"Align Technology, Inc.",Health Care,Medical Instruments & Supplies
 ALL,ALL,The Allstate Corporation,Financials,Insurance - Property & Casualty
 ALLE,ALLE,Allegion plc,Industrials,Security & Protection Services
 ALNT,ALNT,Allient Inc.,Information Technology,Electronic Components
+ALNY,ALNY,"Alnylam Pharmaceuticals, Inc.",Health Care,Biotechnology
 AMAT,AMAT,"Applied Materials, Inc.",Information Technology,Semiconductor Equipment & Materials
 AMBA,AMBA,"Ambarella, Inc.",Information Technology,Semiconductor Equipment & Materials
 AMBQ,AMBQ,"Ambiq Micro, Inc.",Information Technology,Semiconductors
@@ -54,6 +55,7 @@ APTV,APTV,Aptiv PLC,Consumer Discretionary,Auto Parts
 ARBE,ARBE,Arbe Robotics Ltd.,Information Technology,Scientific & Technical Instruments
 ARE,ARE,"Alexandria Real Estate Equities, Inc.",Real Estate,REIT - Office
 ARES,ARES,Ares Management Corporation,Financials,Asset Management
+ARGX,ARGX,argenx SE,Health Care,Biotechnology
 ARM,ARM,Arm Holdings plc,Information Technology,Semiconductors
 ARRY,ARRY,"Array Technologies, Inc.",Information Technology,Solar
 ASML,ASML,ASML Holding N.V.,Information Technology,Semiconductor Equipment & Materials
@@ -78,6 +80,7 @@ BAX,BAX,Baxter International Inc.,Health Care,Medical Instruments & Supplies
 BBY,BBY,"Best Buy Co., Inc.",Consumer Discretionary,Specialty Retail
 BDX,BDX,"Becton, Dickinson and Company",Health Care,Medical Instruments & Supplies
 BE,BE,Bloom Energy Corporation,Industrials,Electrical Equipment & Parts
+BEAM,BEAM,Beam Therapeutics Inc.,Health Care,Biotechnology
 BEN,BEN,"Franklin Resources, Inc.",Financials,Asset Management
 BEP,BEP,Brookfield Renewable Partners L.P.,Utilities,Utilities - Renewable
 BF-B,BF-B,Brown-Forman Corporation,Consumer Staples,Beverages - Wineries & Distilleries
@@ -87,6 +90,7 @@ BKNG,BKNG,Booking Holdings Inc.,Consumer Discretionary,Travel Services
 BKR,BKR,Baker Hughes Company,Energy,Oil & Gas Equipment & Services
 BLDR,BLDR,"Builders FirstSource, Inc.",Industrials,Building Products & Equipment
 BLK,BLK,"BlackRock, Inc.",Financials,Asset Management
+BMRN,BMRN,BioMarin Pharmaceutical Inc.,Health Care,Biotechnology
 BMY,BMY,Bristol-Myers Squibb Company,Health Care,Drug Manufacturers - General
 BNY,BNY,The Bank of New York Mellon Cor,Financials,Banks - Diversified
 BR,BR,"Broadridge Financial Solutions, Inc.",Information Technology,Information Technology Services
@@ -146,6 +150,7 @@ CRDO,CRDO,Credo Technology Group Holding Ltd,Information Technology,Semiconducto
 CRH,CRH,CRH plc,Materials,Building Materials
 CRL,CRL,"Charles River Laboratories International, Inc.",Health Care,Diagnostics & Research
 CRM,CRM,"Salesforce, Inc.",Information Technology,Software - Application
+CRSP,CRSP,CRISPR Therapeutics AG,Health Care,Biotechnology
 CRWD,CRWD,"CrowdStrike Holdings, Inc.",Information Technology,Software - Infrastructure
 CRWV,CRWV,"CoreWeave, Inc.",Information Technology,Software - Infrastructure
 CSCO,CSCO,"Cisco Systems, Inc.",Information Technology,Communication Equipment
@@ -305,6 +310,7 @@ IFF,IFF,International Flavors & Fragrances Inc.,Materials,Specialty Chemicals
 INCY,INCY,Incyte Corporation,Health Care,Biotechnology
 INDI,INDI,"indie Semiconductor, Inc.",Information Technology,Semiconductors
 INIO,INIO,Innio N.V.,Industrials,Specialty Industrial Machinery
+INSM,INSM,Insmed Incorporated,Health Care,Biotechnology
 INTC,INTC,Intel Corporation,Information Technology,Semiconductors
 INTU,INTU,Intuit Inc.,Information Technology,Software - Application
 INVH,INVH,Invitation Homes Inc.,Real Estate,REIT - Residential
@@ -412,6 +418,7 @@ MTZ,MTZ,"MasTec, Inc.",Industrials,Engineering & Construction
 MU,MU,"Micron Technology, Inc.",Information Technology,Semiconductors
 MYRG,MYRG,MYR Group Inc.,Industrials,Engineering & Construction
 NBIS,NBIS,Nebius Group N.V.,Communication Services,Internet Content & Information
+NBIX,NBIX,"Neurocrine Biosciences, Inc.",Health Care,Drug Manufacturers - Specialty & Generic
 NCLH,NCLH,Norwegian Cruise Line Holdings Ltd.,Consumer Discretionary,Travel Services
 NDAQ,NDAQ,"Nasdaq, Inc.",Financials,Financial Data & Stock Exchanges
 NDSN,NDSN,Nordson Corporation,Industrials,Specialty Industrial Machinery
@@ -427,6 +434,7 @@ NOW,NOW,"ServiceNow, Inc.",Information Technology,Software - Application
 NRG,NRG,"NRG Energy, Inc.",Utilities,Utilities - Independent Power Producers
 NSC,NSC,Norfolk Southern Corporation,Industrials,Railroads
 NTAP,NTAP,"NetApp, Inc.",Information Technology,Software - Infrastructure
+NTLA,NTLA,"Intellia Therapeutics, Inc.",Health Care,Biotechnology
 NTRS,NTRS,Northern Trust Corporation,Financials,Asset Management
 NUE,NUE,Nucor Corporation,Materials,Steel
 NVDA,NVDA,NVIDIA Corporation,Information Technology,Semiconductors
@@ -508,7 +516,9 @@ RR,RR,Richtech Robotics Inc.,Industrials,Specialty Industrial Machinery
 RSG,RSG,"Republic Services, Inc.",Industrials,Waste Management
 RTX,RTX,RTX Corporation,Industrials,Aerospace & Defense
 RUN,RUN,Sunrun Inc.,Information Technology,Solar
+RVMD,RVMD,"Revolution Medicines, Inc.",Health Care,Biotechnology
 RVTY,RVTY,"Revvity, Inc.",Health Care,Diagnostics & Research
+RXRX,RXRX,"Recursion Pharmaceuticals, Inc.",Health Care,Biotechnology
 S,S,"SentinelOne, Inc.",Information Technology,Software - Infrastructure
 SBAC,SBAC,SBA Communications Corporation,Real Estate,REIT - Specialty
 SBUX,SBUX,Starbucks Corporation,Consumer Discretionary,Restaurants
@@ -578,6 +588,7 @@ TT,TT,Trane Technologies plc,Industrials,Building Products & Equipment
 TTD,TTD,"The Trade Desk, Inc.",Communication Services,Advertising Agencies
 TTWO,TTWO,"Take-Two Interactive Software, Inc.",Communication Services,Electronic Gaming & Multimedia
 TWLO,TWLO,Twilio Inc.,Information Technology,Software - Infrastructure
+TWST,TWST,Twist Bioscience Corporation,Health Care,Diagnostics & Research
 TXN,TXN,Texas Instruments Incorporated,Information Technology,Semiconductors
 TXT,TXT,Textron Inc.,Industrials,Aerospace & Defense
 TYL,TYL,"Tyler Technologies, Inc.",Information Technology,Software - Application
@@ -593,11 +604,13 @@ UPS,UPS,"United Parcel Service, Inc.",Industrials,Integrated Freight & Logistics
 URI,URI,"United Rentals, Inc.",Industrials,Rental & Leasing Services
 USAR,USAR,"USA Rare Earth, Inc.",Materials,Other Industrial Metals & Mining
 USB,USB,U.S. Bancorp,Financials,Banks - Regional
+UTHR,UTHR,United Therapeutics Corporation,Health Care,Drug Manufacturers - Specialty & Generic
 UUUU,UUUU,Energy Fuels Inc.,Energy,Uranium
 V,V,Visa Inc.,Financials,Credit Services
 VEEV,VEEV,Veeva Systems Inc.,Health Care,Health Information Services
 VIAV,VIAV,Viavi Solutions Inc.,Information Technology,Communication Equipment
 VICI,VICI,VICI Properties Inc.,Real Estate,REIT - Diversified
+VKTX,VKTX,"Viking Therapeutics, Inc.",Health Care,Biotechnology
 VLO,VLO,Valero Energy Corporation,Energy,Oil & Gas Refining & Marketing
 VLTO,VLTO,Veralto Corporation,Industrials,Pollution & Treatment Controls
 VMC,VMC,Vulcan Materials Company,Materials,Building Materials

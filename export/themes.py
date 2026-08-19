@@ -133,6 +133,9 @@ GROUPS = [
     ("Software — baskets", [
         ("software", "Software"), ("cyber", "Cybersecurity"),
     ]),
+    ("Healthcare — baskets", [
+        ("biotech", "Biotechnology"),
+    ]),
     ("Power & industrial — baskets", [
         ("utilities", "Utilities & IPPs"), ("elecind", "Electric Industrial"),
         ("gas", "Gas Power"), ("epc", "EPC"), ("nuclear", "Nuclear"),
