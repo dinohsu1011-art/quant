@@ -13,10 +13,12 @@ ADM,ADM,Archer-Daniels-Midland Company,Consumer Staples,Farm Products
 ADP,ADP,"Automatic Data Processing, Inc.",Information Technology,Software - Application
 ADSK,ADSK,"Autodesk, Inc.",Information Technology,Software - Application
 AEE,AEE,Ameren Corporation,Utilities,Utilities - Regulated Electric
+AEM,AEM,Agnico Eagle Mines Limited,Materials,Gold
 AEP,AEP,"American Electric Power Company, Inc.",Utilities,Utilities - Regulated Electric
 AES,AES,The AES Corporation,Utilities,Utilities - Diversified
 AEVA,AEVA,"Aeva Technologies, Inc.",Information Technology,Software - Infrastructure
 AFL,AFL,Aflac Incorporated,Financials,Insurance - Life
+AG,AG,First Majestic Silver Corp.,Materials,Silver
 AIG,AIG,"American International Group, Inc.",Financials,Insurance - Diversified
 AIZ,AIZ,"Assurant, Inc.",Financials,Insurance - Property & Casualty
 AJG,AJG,Arthur J. Gallagher & Co.,Financials,Insurance Brokers
@@ -57,6 +59,7 @@ ARRY,ARRY,"Array Technologies, Inc.",Information Technology,Solar
 ASML,ASML,ASML Holding N.V.,Information Technology,Semiconductor Equipment & Materials
 ASTS,ASTS,"AST SpaceMobile, Inc.",Information Technology,Communication Equipment
 ATO,ATO,Atmos Energy Corporation,Utilities,Utilities - Regulated Gas
+AU,AU,AngloGold Ashanti plc,Materials,Gold
 AUR,AUR,"Aurora Innovation, Inc.",Consumer Discretionary,Auto Parts
 AVAV,AVAV,"AeroVironment, Inc.",Industrials,Aerospace & Defense
 AVB,AVB,"AvalonBay Communities, Inc.",Real Estate,REIT - Residential
@@ -67,6 +70,7 @@ AXON,AXON,"Axon Enterprise, Inc.",Industrials,Aerospace & Defense
 AXP,AXP,American Express Company,Financials,Credit Services
 AXTI,AXTI,"AXT, Inc.",Information Technology,Semiconductor Equipment & Materials
 AZO,AZO,"AutoZone, Inc.",Consumer Discretionary,Auto Parts
+B,B,Barrick Mining Corporation,Materials,Gold
 BA,BA,The Boeing Company,Industrials,Aerospace & Defense
 BAC,BAC,Bank of America Corporation,Financials,Banks - Diversified
 BALL,BALL,Ball Corporation,Consumer Discretionary,Packaging & Containers
@@ -89,6 +93,7 @@ BR,BR,"Broadridge Financial Solutions, Inc.",Information Technology,Information 
 BRK-B,BRK-B,Berkshire Hathaway Inc.,Financials,Insurance - Diversified
 BRO,BRO,"Brown & Brown, Inc.",Financials,Insurance Brokers
 BSX,BSX,Boston Scientific Corporation,Health Care,Medical Devices
+BTG,BTG,B2Gold Corp.,Materials,Gold
 BWXT,BWXT,"BWX Technologies, Inc.",Industrials,Aerospace & Defense
 BX,BX,Blackstone Inc.,Financials,Asset Management
 BXP,BXP,"BXP, Inc.",Real Estate,REIT - Office
@@ -103,6 +108,7 @@ CBRE,CBRE,"CBRE Group, Inc.",Real Estate,Real Estate Services
 CCI,CCI,Crown Castle Inc.,Real Estate,REIT - Specialty
 CCJ,CCJ,Cameco Corporation,Energy,Uranium
 CCL,CCL,Carnival Corporation Ltd.,Consumer Discretionary,Travel Services
+CDE,CDE,"Coeur Mining, Inc.",Materials,Gold
 CDNS,CDNS,"Cadence Design Systems, Inc.",Information Technology,Software - Application
 CDW,CDW,CDW Corporation,Information Technology,Information Technology Services
 CEG,CEG,Constellation Energy Corporation,Utilities,Utilities - Independent Power Producers
@@ -201,6 +207,7 @@ EQIX,EQIX,"Equinix, Inc.",Real Estate,REIT - Specialty
 EQR,EQR,Equity Residential,Real Estate,REIT - Residential
 EQT,EQT,EQT Corporation,Energy,Oil & Gas E&P
 ERIE,ERIE,Erie Indemnity Company,Financials,Insurance Brokers
+ERO,ERO,Ero Copper Corp.,Materials,Copper
 ES,ES,Eversource Energy,Utilities,Utilities - Regulated Electric
 ESS,ESS,"Essex Property Trust, Inc.",Real Estate,REIT - Residential
 ETN,ETN,Eaton Corporation plc,Industrials,Specialty Industrial Machinery
@@ -209,6 +216,7 @@ EVRG,EVRG,"Evergy, Inc.",Utilities,Utilities - Regulated Electric
 EW,EW,Edwards Lifesciences Corporation,Health Care,Medical Devices
 EXC,EXC,Exelon Corporation,Utilities,Utilities - Regulated Electric
 EXE,EXE,Expand Energy Corporation,Energy,Oil & Gas E&P
+EXK,EXK,Endeavour Silver Corp.,Materials,Silver
 EXPD,EXPD,"Expeditors International of Washington, Inc.",Industrials,Integrated Freight & Logistics
 EXPE,EXPE,"Expedia Group, Inc.",Consumer Discretionary,Travel Services
 EXR,EXR,Extra Space Storage Inc.,Real Estate,REIT - Industrial
@@ -232,6 +240,7 @@ FLNC,FLNC,"Fluence Energy, Inc.",Utilities,Utilities - Renewable
 FLR,FLR,Fluor Corporation,Industrials,Engineering & Construction
 FLY,FLY,Firefly Aerospace Inc.,Industrials,Aerospace & Defense
 FN,FN,Fabrinet,Information Technology,Electronic Components
+FNV,FNV,Franco-Nevada Corporation,Materials,Gold
 FOX,FOX,Fox Corporation,Communication Services,Entertainment
 FOXA,FOXA,Fox Corporation,Communication Services,Entertainment
 FPS,FPS,"Forgent Power Solutions, Inc.",Industrials,Electrical Equipment & Parts
@@ -246,6 +255,7 @@ GE,GE,GE Aerospace,Industrials,Aerospace & Defense
 GEHC,GEHC,GE HealthCare Technologies Inc.,Health Care,Medical Devices
 GEN,GEN,Gen Digital Inc.,Information Technology,Software - Infrastructure
 GEV,GEV,GE Vernova Inc.,Industrials,Specialty Industrial Machinery
+GFI,GFI,Gold Fields Limited,Materials,Gold
 GILD,GILD,"Gilead Sciences, Inc.",Health Care,Drug Manufacturers - General
 GIS,GIS,"General Mills, Inc.",Consumer Staples,Packaged Foods
 GL,GL,Globe Life Inc.,Financials,Insurance - Life
@@ -269,6 +279,7 @@ HD,HD,"The Home Depot, Inc.",Consumer Discretionary,Home Improvement Retail
 HEI,HEI,HEICO Corporation,Industrials,Aerospace & Defense
 HIG,HIG,"The Hartford Insurance Group, Inc.",Financials,Insurance - Diversified
 HII,HII,"Huntington Ingalls Industries, Inc.",Industrials,Aerospace & Defense
+HL,HL,Hecla Mining Company,Materials,Other Precious Metals & Mining
 HLT,HLT,Hilton Worldwide Holdings Inc.,Consumer Discretionary,Lodging
 HON,HON,Honeywell International Inc.,Industrials,Conglomerates
 HONA,HONA,Honeywell Aerospace Inc.,Industrials,Aerospace & Defense
@@ -283,6 +294,7 @@ HUBB,HUBB,Hubbell Incorporated,Industrials,Electrical Equipment & Parts
 HUBS,HUBS,"HubSpot, Inc.",Information Technology,Software - Application
 HUM,HUM,Humana Inc.,Health Care,Healthcare Plans
 HWM,HWM,Howmet Aerospace Inc.,Industrials,Aerospace & Defense
+IAG,IAG,IAMGOLD Corporation,Materials,Gold
 IBKR,IBKR,"Interactive Brokers Group, Inc.",Financials,Capital Markets
 IBM,IBM,International Business Machines Corporation,Information Technology,Information Technology Services
 ICE,ICE,"Intercontinental Exchange, Inc.",Financials,Financial Data & Stock Exchanges
@@ -325,6 +337,7 @@ JPM,JPM,JPMorgan Chase & Co.,Financials,Banks - Diversified
 KDP,KDP,Keurig Dr Pepper Inc.,Consumer Staples,Beverages - Non-Alcoholic
 KEY,KEY,KeyCorp,Financials,Banks - Regional
 KEYS,KEYS,"Keysight Technologies, Inc.",Information Technology,Scientific & Technical Instruments
+KGC,KGC,Kinross Gold Corporation,Materials,Gold
 KHC,KHC,The Kraft Heinz Company,Consumer Staples,Packaged Foods
 KIM,KIM,Kimco Realty Corporation,Real Estate,REIT - Retail
 KITT,KITT,"Nauticus Robotics, Inc.",Industrials,Aerospace & Defense
@@ -436,6 +449,7 @@ OSK,OSK,Oshkosh Corporation,Industrials,Farm & Heavy Construction Machinery
 OTIS,OTIS,Otis Worldwide Corporation,Industrials,Specialty Industrial Machinery
 OUST,OUST,"Ouster, Inc.",Information Technology,Electronic Components
 OXY,OXY,Occidental Petroleum Corporation,Energy,Oil & Gas E&P
+PAAS,PAAS,Pan American Silver Corp.,Materials,Gold
 PANW,PANW,"Palo Alto Networks, Inc.",Information Technology,Software - Infrastructure
 PATH,PATH,"UiPath, Inc.",Information Technology,Software - Infrastructure
 PAYX,PAYX,"Paychex, Inc.",Information Technology,Software - Application
@@ -481,6 +495,7 @@ RDW,RDW,Redwire Corporation,Industrials,Aerospace & Defense
 REG,REG,Regency Centers Corporation,Real Estate,REIT - Retail
 REGN,REGN,"Regeneron Pharmaceuticals, Inc.",Health Care,Biotechnology
 RF,RF,Regions Financial Corporation,Financials,Banks - Regional
+RGLD,RGLD,"Royal Gold, Inc.",Materials,Gold
 RJF,RJF,"Raymond James Financial, Inc.",Financials,Asset Management
 RKLB,RKLB,Rocket Lab Corporation,Industrials,Aerospace & Defense
 RL,RL,Ralph Lauren Corporation,Consumer Discretionary,Apparel Manufacturing
@@ -609,6 +624,7 @@ WM,WM,"Waste Management, Inc.",Industrials,Waste Management
 WMB,WMB,"The Williams Companies, Inc.",Energy,Oil & Gas Midstream
 WMT,WMT,Walmart Inc.,Consumer Staples,Discount Stores
 WOLF,WOLF,"Wolfspeed, Inc.",Information Technology,Semiconductors
+WPM,WPM,Wheaton Precious Metals Corp.,Materials,Gold
 WRB,WRB,W. R. Berkley Corporation,Financials,Insurance - Property & Casualty
 WSM,WSM,"Williams-Sonoma, Inc.",Consumer Discretionary,Specialty Retail
 WST,WST,"West Pharmaceutical Services, Inc.",Health Care,Medical Instruments & Supplies

@@ -75,8 +75,20 @@ BASKETS = {
     "robotics":     ["ROK", "EMR", "PH", "APH", "ZBRA", "CGNX", "NOVT", "LSCC", "AMBA", "MBLY",
                      "SYM", "AUR", "OUST", "AEVA", "INDI", "TSLA", "XPEV", "SERV", "RR",
                      "ARBE", "KITT", "ALNT", "VPG", "AMBQ"],
-    # resources
-    "miners":       ["FCX", "SCCO", "NEM", "TECK", "HBM"],
+    # Copper, gold and silver producers plus the three major precious-metals
+    # royalty/streaming companies. Keep this to liquid US listings so every
+    # constituent shares the basket's trading calendar. Barrick trades as B
+    # (not GOLD) on the NYSE since May 2025; GOLD remains the repo's GC=F stem.
+    "miners":       [
+        # copper / diversified copper-gold
+        "FCX", "SCCO", "TECK", "HBM", "ERO", "B",
+        # gold producers
+        "NEM", "AEM", "KGC", "AU", "GFI", "BTG", "IAG",
+        # silver producers
+        "PAAS", "AG", "HL", "CDE", "EXK",
+        # royalties and streaming
+        "RGLD", "FNV", "WPM",
+    ],
     "materials":    ["MP", "ALB", "NUE", "STLD", "CLF", "USAR", "SOLS"],
     # Japan — the one deliberate exception to the US-listings rule. These trade on
     # the Tokyo calendar; the basket level is built from the members' mutual TSE

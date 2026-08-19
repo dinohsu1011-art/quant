@@ -25,7 +25,7 @@ class UpdateRetryTests(unittest.TestCase):
                 update.retry_stale_downloads(["FRESH", "STALE"])
 
             download.assert_called_once_with(
-                "STALE", period="max", auto_adjust=True, progress=False,
+                "STALE", period="max", auto_adjust=False, progress=False,
                 group_by="ticker", threads=False,
             )
             store.assert_called_once_with(frame, "STALE")
