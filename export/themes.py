@@ -26,6 +26,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 from config import file_stem
 from ingestion.baskets import BASKETS
+from ingestion.consumer import (
+    CONSUMER_DISCRETIONARY,
+    CONSUMER_STAPLES as ALL_CONSUMER_STAPLES,
+    CONSUMER_STAPLES_SP500,
+    RESTAURANTS,
+)
 from ingestion.factors import FACTORS as FACTOR_DEFS
 from ingestion.factors import SIDES as FACTOR_SIDES
 from ingestion.recos import LEDGER, walk, held_windows
@@ -35,38 +41,14 @@ START = "2000-01-01"  # calendar floor; individual series start when they start
 PE_INPUT = Path(__file__).parent.parent / "data" / "eps" / "annual_eps.json"
 EARNINGS_INPUT = Path(__file__).parent.parent / "data" / "earnings_dates.json"
 
-# The full S&P 500 Consumer Staples cohort, plus the six restaurant names the
-# index classifies as Consumer Discretionary. These are visible rail equities,
-# not synthetic baskets: every line is the company's own full price history.
-# Large, commonly compared names lead each list; the rest complete the sector.
-CONSUMER_STAPLES = [
-    ("COST", "Costco · COST"), ("WMT", "Walmart · WMT"),
-    ("PG", "Procter & Gamble · PG"), ("KO", "Coca-Cola · KO"),
-    ("PEP", "PepsiCo · PEP"), ("PM", "Philip Morris · PM"),
-    ("MO", "Altria · MO"), ("MDLZ", "Mondelez · MDLZ"),
-    ("MNST", "Monster Beverage · MNST"), ("CL", "Colgate-Palmolive · CL"),
-    ("KDP", "Keurig Dr Pepper · KDP"), ("TGT", "Target · TGT"),
-    ("KR", "Kroger · KR"), ("SYY", "Sysco · SYY"),
-    ("ADM", "Archer-Daniels-Midland · ADM"), ("BF-B", "Brown-Forman · BF-B"),
-    ("BG", "Bunge Global · BG"), ("CASY", "Casey's General Stores · CASY"),
-    ("CHD", "Church & Dwight · CHD"), ("CLX", "Clorox · CLX"),
-    ("DG", "Dollar General · DG"), ("DLTR", "Dollar Tree · DLTR"),
-    ("EL", "Estée Lauder · EL"), ("GIS", "General Mills · GIS"),
-    ("HRL", "Hormel Foods · HRL"), ("HSY", "Hershey · HSY"),
-    ("KHC", "Kraft Heinz · KHC"), ("KMB", "Kimberly-Clark · KMB"),
-    ("KVUE", "Kenvue · KVUE"), ("MKC", "McCormick · MKC"),
-    ("SJM", "J.M. Smucker · SJM"), ("STZ", "Constellation Brands · STZ"),
-    ("TAP", "Molson Coors · TAP"), ("TSN", "Tyson Foods · TSN"),
-]
-RESTAURANTS = [
-    ("SBUX", "Starbucks · SBUX"), ("CMG", "Chipotle · CMG"),
-    ("MCD", "McDonald's · MCD"), ("YUM", "Yum! Brands · YUM"),
-    ("DRI", "Darden Restaurants · DRI"), ("DPZ", "Domino's · DPZ"),
-]
+# Backwards-compatible alias used by the current-index membership test.  The
+# rail itself uses ALL_CONSUMER_STAPLES, which also includes the completion set.
+CONSUMER_STAPLES = CONSUMER_STAPLES_SP500
 
-# id -> (label, group). Order within a group drives the rail order, and the
-# order of the groups here drives the rail top-to-bottom: broad market context
-# first (Indices -> Macro -> Sectors -> Thematic ETFs), then the pure-play baskets.
+# id -> (label, group). Order within a group drives the rail order.  Coverage
+# stays pinned first; everything else follows an economic hierarchy from market
+# context through sectors, technology, physical infrastructure, health,
+# consumer, defense, regions, residual ETFs and finally factor screens.
 GROUPS = [
     ("My Coverage", [
         ("mycoverage_reco", "Recommended"),
@@ -80,49 +62,36 @@ GROUPS = [
         ("fredcoverage", "Fred Active Coverage"),
         ("fredcoverage1", "Fred Original Coverage"),
     ]),
-    ("Indices", [
+    ("Market benchmarks — US", [
         ("spy", "S&P 500 · SPY"), ("qqq", "Nasdaq-100 · QQQ"),
         ("ixic", "Nasdaq Composite"),
         ("rut", "Russell 2000"), ("iwm", "Russell 2000 · IWM"),
         ("mdy", "S&P Midcap 400 · MDY"), ("rsp", "S&P 500 Equal Weight · RSP"),
+    ]),
+    ("Market benchmarks — international", [
         ("n225", "Nikkei 225 · Japan"), ("ks11", "KOSPI · Korea"),
         ("twii", "TAIEX · Taiwan"), ("ssec", "Shanghai Composite"),
         ("hsi", "Hang Seng · China"), ("ftse", "FTSE 100 · London"),
     ]),
-    ("Korea — single names", [
-        ("kr005930", "Samsung Electronics · Korea"),
-        ("kr000660", "SK hynix · Korea"),
-    ]),
-    ("Europe — single names", [
-        ("siemens_energy", "Siemens Energy · Germany"),
-    ]),
-    ("Consumer staples — single names", CONSUMER_STAPLES),
-    ("Restaurants — single names", RESTAURANTS),
-    ("Macro & cross-asset", [
+    ("Macro & commodities", [
         ("gold", "Gold"), ("silver", "Silver"), ("copper", "Copper"), ("wti", "WTI Crude"),
         ("tlt", "20Y Treasuries · TLT"), ("ief", "7-10Y Treasuries · IEF"),
         ("hyg", "High Yield · HYG"), ("lqd", "IG Credit · LQD"),
         ("uup", "US Dollar · UUP"), ("tnx", "10Y Yield · TNX"),
         ("vix", "VIX"), ("vix3m", "VIX 3-Month"),
     ]),
-    ("Sectors", [
+    ("Sector ETFs", [
         ("xlk", "Technology · XLK"), ("xlc", "Comm. Svcs · XLC"), ("xly", "Cons. Disc. · XLY"),
         ("xli", "Industrials · XLI"), ("xlf", "Financials · XLF"), ("xlv", "Health Care · XLV"),
         ("xle", "Energy · XLE"), ("xlb", "Materials · XLB"), ("xlu", "Utilities · XLU"),
         ("xlp", "Cons. Staples · XLP"), ("xlre", "Real Estate · XLRE"),
     ]),
-    ("Thematic ETFs", [
+    ("Technology & AI — ETFs", [
         ("smh", "Semis · SMH"), ("igv", "Software · IGV"), ("cibr", "Cybersecurity · CIBR"),
-        ("botz", "Robotics · BOTZ"), ("ign", "Networking · IGN"), ("ura", "Uranium · URA"),
-        ("grid", "Electrification · GRID"), ("pave", "Infrastructure · PAVE"),
-        ("fivg", "5G · FIVG"), ("ita", "Defense & Aero · ITA"), ("ufo", "Space · UFO"),
-        ("idrv", "EV / Auto · IDRV"), ("tan", "Solar · TAN"), ("icln", "Clean Energy · ICLN"),
-        ("arkk", "Innovation · ARKK"), ("ibit", "Bitcoin · IBIT"), ("kweb", "China Internet · KWEB"),
-        ("xbi", "Biotech · XBI"), ("kre", "Regional Banks · KRE"), ("gdx", "Gold Miners · GDX"),
-        ("xme", "Metals & Mining · XME"), ("xop", "Oil E&P · XOP"), ("oih", "Oil Services · OIH"),
-        ("xhb", "Homebuilders · XHB"), ("xrt", "Retail · XRT"), ("jets", "Airlines · JETS"),
+        ("botz", "Robotics · BOTZ"), ("ign", "Networking · IGN"),
+        ("fivg", "5G · FIVG"), ("arkk", "Innovation · ARKK"),
     ]),
-    ("AI & semis — baskets", [
+    ("Technology & AI — baskets", [
         ("gpu", "GPU"), ("cpuasic", "CPU + ASIC"),
         ("memory", "Memory"), ("semicap", "Semicap"), ("powersemi", "Power Semis"),
         ("photonics", "Photonics"), ("connectivity", "Connectivity"),
@@ -133,20 +102,49 @@ GROUPS = [
     ("Software — baskets", [
         ("software", "Software"), ("cyber", "Cybersecurity"),
     ]),
-    ("Healthcare — baskets", [
-        ("biotech", "Biotechnology"),
+    ("Power, infrastructure & resources — ETFs", [
+        ("ura", "Uranium · URA"), ("grid", "Electrification · GRID"),
+        ("pave", "Infrastructure · PAVE"), ("tan", "Solar · TAN"),
+        ("icln", "Clean Energy · ICLN"), ("gdx", "Gold Miners · GDX"),
+        ("xme", "Metals & Mining · XME"), ("xop", "Oil E&P · XOP"),
+        ("oih", "Oil Services · OIH"),
     ]),
-    ("Power & industrial — baskets", [
+    ("Power, infrastructure & resources — baskets", [
         ("utilities", "Utilities & IPPs"), ("elecind", "Electric Industrial"),
         ("gas", "Gas Power"), ("epc", "EPC"), ("nuclear", "Nuclear"),
         ("solutil", "Industrial Solar"), ("solresi", "Residential Solar"),
         ("materials", "Materials"), ("miners", "Metals — Miners"),
     ]),
+    ("Healthcare & biotech", [
+        ("biotech", "Biotechnology"), ("xbi", "Biotech · XBI"),
+    ]),
+    ("Consumer — ETFs", [
+        ("idrv", "EV / Auto · IDRV"), ("xhb", "Homebuilders · XHB"),
+        ("xrt", "Retail · XRT"), ("jets", "Airlines · JETS"),
+    ]),
+    ("Consumer — baskets", [
+        ("consumerdisc", "Consumer Discretionary"),
+        ("consumerstaples", "Consumer Staples"),
+    ]),
+    ("Consumer discretionary — single names", CONSUMER_DISCRETIONARY),
+    ("Consumer staples — single names", ALL_CONSUMER_STAPLES),
+    ("Defense, aerospace & frontier — ETFs", [
+        ("ita", "Defense & Aero · ITA"), ("ufo", "Space · UFO"),
+    ]),
     ("Defense & frontier — baskets", [
         ("defense", "Defense & Aero"), ("space", "Space"), ("robotics", "Robotics"),
     ]),
-    ("Japan — baskets", [
+    ("Regional companies", [
+        ("kr005930", "Samsung Electronics · Korea"),
+        ("kr000660", "SK hynix · Korea"),
+        ("siemens_energy", "Siemens Energy · Germany"),
+    ]),
+    ("Regional baskets", [
         ("japan", "Japan · elec & grid"),
+    ]),
+    ("Other thematic ETFs", [
+        ("ibit", "Bitcoin · IBIT"), ("kweb", "China Internet · KWEB"),
+        ("kre", "Regional Banks · KRE"),
     ]),
 ]
 
@@ -167,7 +165,7 @@ GROUPS += [
 NOT_INVESTABLE = {"vix", "vix3m", "tnx"}
 SINGLE_NAMES = (
     {"kr005930", "kr000660", "siemens_energy"}
-    | {ticker for ticker, _ in CONSUMER_STAPLES + RESTAURANTS}
+    | {ticker for ticker, _ in CONSUMER_DISCRETIONARY + ALL_CONSUMER_STAPLES}
 )
 
 # Coverage-book handoffs, one per person. The prior book is measured from

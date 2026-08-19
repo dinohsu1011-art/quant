@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import db
 from config import DAILY_DIR, PRICE_SCALE, file_stem
 from ingestion.fetch import run
+from ingestion.consumer import CONSUMER_DISCRETIONARY, CONSUMER_STAPLES, tickers
 from ingestion.recos import LEDGER, walk
 from ingestion.store import SCHEMA
 
@@ -65,6 +66,10 @@ BASKETS = {
     "biotech":      ["AMGN", "GILD", "VRTX", "REGN", "BIIB", "ALNY", "UTHR", "ARGX",
                      "INSM", "BMRN", "NBIX", "INCY", "MRNA", "CRSP", "BEAM", "NTLA",
                      "RXRX", "RVMD", "VKTX", "TWST"],
+    # Broad consumer reads: complete S&P 500 sector cohorts plus a compact set
+    # of liquid mid-cap/category leaders (MTN, CAVA, CELH, ELF, etc.).
+    "consumerdisc": tickers(CONSUMER_DISCRETIONARY),
+    "consumerstaples": tickers(CONSUMER_STAPLES),
     # physical economy / electrification
     "elecind":      ["ETN", "GEV", "CAT", "CMI", "AME", "HUBB", "GNRC", "MOD", "ENS", "POWL"],
     "epc":          ["PWR", "EME", "MTZ", "FIX", "STRL", "PRIM", "IESC", "MYRG", "FLR", "J", "ECG"],

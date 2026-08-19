@@ -16,9 +16,9 @@ class BiotechThemeTests(unittest.TestCase):
         self.assertTrue({"MRNA", "CRSP", "BEAM", "NTLA", "RXRX"}.issubset(members))
         self.assertEqual(len(members), 20)
 
-    def test_theme_is_exposed_everywhere_without_reordering_existing_groups(self):
+    def test_theme_is_exposed_everywhere(self):
         groups = dict(GROUPS)
-        self.assertIn(("biotech", "Biotechnology"), groups["Healthcare — baskets"])
+        self.assertIn(("biotech", "Biotechnology"), groups["Healthcare & biotech"])
         self.assertEqual(THEME_LABEL["biotech"], "Biotechnology")
         cube = (ROOT / "export" / "cube.py").read_text()
         self.assertIn('{"id": "biotech", "label": "Biotechnology (basket)"}', cube)

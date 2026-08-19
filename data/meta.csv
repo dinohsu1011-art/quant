@@ -42,6 +42,7 @@ AMP,AMP,"Ameriprise Financial, Inc.",Financials,Asset Management
 AMT,AMT,American Tower Corporation,Real Estate,REIT - Specialty
 AMZN,AMZN,"Amazon.com, Inc.",Consumer Discretionary,Internet Retail
 ANET,ANET,"Arista Networks, Inc.",Information Technology,Computer Hardware
+ANF,ANF,Abercrombie & Fitch Co.,Consumer Discretionary,Apparel Retail
 AON,AON,Aon plc,Financials,Insurance Brokers
 AOS,AOS,A. O. Smith Corporation,Industrials,Specialty Industrial Machinery
 AOSL,AOSL,Alpha and Omega Semiconductor Limited,Information Technology,Semiconductors
@@ -86,6 +87,8 @@ BEP,BEP,Brookfield Renewable Partners L.P.,Utilities,Utilities - Renewable
 BF-B,BF-B,Brown-Forman Corporation,Consumer Staples,Beverages - Wineries & Distilleries
 BG,BG,Bunge Global SA,Consumer Staples,Farm Products
 BIIB,BIIB,Biogen Inc.,Health Care,Drug Manufacturers - General
+BIRK,BIRK,Birkenstock Holding plc,Consumer Discretionary,Footwear & Accessories
+BJ,BJ,"BJ's Wholesale Club Holdings, Inc.",Consumer Staples,Discount Stores
 BKNG,BKNG,Booking Holdings Inc.,Consumer Discretionary,Travel Services
 BKR,BKR,Baker Hughes Company,Energy,Oil & Gas Equipment & Services
 BLDR,BLDR,"Builders FirstSource, Inc.",Industrials,Building Products & Equipment
@@ -96,16 +99,19 @@ BNY,BNY,The Bank of New York Mellon Cor,Financials,Banks - Diversified
 BR,BR,"Broadridge Financial Solutions, Inc.",Information Technology,Information Technology Services
 BRK-B,BRK-B,Berkshire Hathaway Inc.,Financials,Insurance - Diversified
 BRO,BRO,"Brown & Brown, Inc.",Financials,Insurance Brokers
+BROS,BROS,Dutch Bros Inc.,Consumer Discretionary,Restaurants
 BSX,BSX,Boston Scientific Corporation,Health Care,Medical Devices
 BTG,BTG,B2Gold Corp.,Materials,Gold
 BWXT,BWXT,"BWX Technologies, Inc.",Industrials,Aerospace & Defense
 BX,BX,Blackstone Inc.,Financials,Asset Management
 BXP,BXP,"BXP, Inc.",Real Estate,REIT - Office
 C,C,Citigroup Inc.,Financials,Banks - Diversified
+CAG,CAG,"Conagra Brands, Inc.",Consumer Staples,Packaged Foods
 CAH,CAH,"Cardinal Health, Inc.",Health Care,Medical Distribution
 CARR,CARR,Carrier Global Corporation,Industrials,Building Products & Equipment
 CASY,CASY,"Casey's General Stores, Inc.",Consumer Discretionary,Specialty Retail
 CAT,CAT,Caterpillar Inc.,Industrials,Farm & Heavy Construction Machinery
+CAVA,CAVA,"CAVA Group, Inc.",Consumer Discretionary,Restaurants
 CB,CB,Chubb Limited,Financials,Insurance - Property & Casualty
 CBOE,CBOE,"Cboe Global Markets, Inc.",Financials,Financial Data & Stock Exchanges
 CBRE,CBRE,"CBRE Group, Inc.",Real Estate,Real Estate Services
@@ -116,10 +122,12 @@ CDE,CDE,"Coeur Mining, Inc.",Materials,Gold
 CDNS,CDNS,"Cadence Design Systems, Inc.",Information Technology,Software - Application
 CDW,CDW,CDW Corporation,Information Technology,Information Technology Services
 CEG,CEG,Constellation Energy Corporation,Utilities,Utilities - Independent Power Producers
+CELH,CELH,"Celsius Holdings, Inc.",Consumer Staples,Beverages - Non-Alcoholic
 CF,CF,"CF Industries Holdings, Inc.",Materials,Agricultural Inputs
 CFG,CFG,"Citizens Financial Group, Inc.",Financials,Banks - Regional
 CGNX,CGNX,Cognex Corporation,Information Technology,Scientific & Technical Instruments
 CHD,CHD,"Church & Dwight Co., Inc.",Consumer Staples,Household & Personal Products
+CHDN,CHDN,Churchill Downs Incorporated,Consumer Discretionary,Gambling
 CHRW,CHRW,"C.H. Robinson Worldwide, Inc.",Industrials,Integrated Freight & Logistics
 CHTR,CHTR,"Charter Communications, Inc.",Communication Services,Telecom Services
 CI,CI,The Cigna Group,Health Care,Healthcare Plans
@@ -143,13 +151,16 @@ COO,COO,"The Cooper Companies, Inc.",Health Care,Medical Instruments & Supplies
 COP,COP,ConocoPhillips,Energy,Oil & Gas E&P
 COR,COR,"Cencora, Inc.",Health Care,Medical Distribution
 COST,COST,Costco Wholesale Corporation,Consumer Staples,Discount Stores
+COTY,COTY,Coty Inc.,Consumer Staples,Household & Personal Products
 CPAY,CPAY,"Corpay, Inc.",Information Technology,Software - Infrastructure
+CPB,CPB,The Campbell's Company,Consumer Staples,Packaged Foods
 CPRT,CPRT,"Copart, Inc.",Industrials,Specialty Business Services
 CPT,CPT,Camden Property Trust,Real Estate,REIT - Residential
 CRDO,CRDO,Credo Technology Group Holding Ltd,Information Technology,Semiconductors
 CRH,CRH,CRH plc,Materials,Building Materials
 CRL,CRL,"Charles River Laboratories International, Inc.",Health Care,Diagnostics & Research
 CRM,CRM,"Salesforce, Inc.",Information Technology,Software - Application
+CROX,CROX,"Crocs, Inc.",Consumer Discretionary,Footwear & Accessories
 CRSP,CRSP,CRISPR Therapeutics AG,Health Care,Biotechnology
 CRWD,CRWD,"CrowdStrike Holdings, Inc.",Information Technology,Software - Infrastructure
 CRWV,CRWV,"CoreWeave, Inc.",Information Technology,Software - Infrastructure
@@ -178,6 +189,7 @@ DHI,DHI,"D.R. Horton, Inc.",Consumer Discretionary,Residential Construction
 DHR,DHR,Danaher Corporation,Health Care,Diagnostics & Research
 DIOD,DIOD,Diodes Incorporated,Information Technology,Semiconductors
 DIS,DIS,The Walt Disney Company,Communication Services,Entertainment
+DKS,DKS,"DICK'S Sporting Goods, Inc.",Consumer Discretionary,Specialty Retail
 DLR,DLR,"Digital Realty Trust, Inc.",Real Estate,REIT - Specialty
 DLTR,DLTR,"Dollar Tree, Inc.",Consumer Staples,Discount Stores
 DOC,DOC,"Healthpeak Properties, Inc.",Real Estate,REIT - Healthcare Facilities
@@ -201,6 +213,7 @@ EFX,EFX,Equifax Inc.,Industrials,Consulting Services
 EG,EG,"Everest Group, Ltd.",Financials,Insurance - Reinsurance
 EIX,EIX,Edison International,Utilities,Utilities - Regulated Electric
 EL,EL,The Estée Lauder Companies Inc.,Consumer Staples,Household & Personal Products
+ELF,ELF,"e.l.f. Beauty, Inc.",Consumer Staples,Household & Personal Products
 ELV,ELV,"Elevance Health, Inc.",Health Care,Healthcare Plans
 EME,EME,"EMCOR Group, Inc.",Industrials,Engineering & Construction
 EMR,EMR,Emerson Electric Co.,Industrials,Specialty Industrial Machinery
@@ -414,6 +427,7 @@ MSFT,MSFT,Microsoft Corporation,Information Technology,Software - Infrastructure
 MSI,MSI,"Motorola Solutions, Inc.",Information Technology,Communication Equipment
 MTB,MTB,M&T Bank Corporation,Financials,Banks - Regional
 MTD,MTD,Mettler-Toledo International Inc.,Health Care,Diagnostics & Research
+MTN,MTN,"Vail Resorts, Inc.",Consumer Discretionary,Resorts & Casinos
 MTZ,MTZ,"MasTec, Inc.",Industrials,Engineering & Construction
 MU,MU,"Micron Technology, Inc.",Information Technology,Semiconductors
 MYRG,MYRG,MYR Group Inc.,Industrials,Engineering & Construction
@@ -451,6 +465,7 @@ OKLO,OKLO,Oklo Inc.,Utilities,Utilities - Independent Power Producers
 OKTA,OKTA,"Okta, Inc.",Information Technology,Software - Infrastructure
 OMC,OMC,Omnicom Group Inc.,Communication Services,Advertising Agencies
 ON,ON,ON Semiconductor Corporation,Information Technology,Semiconductors
+ONON,ONON,On Holding AG,Consumer Discretionary,Footwear & Accessories
 ORCL,ORCL,Oracle Corporation,Information Technology,Software - Infrastructure
 ORLY,ORLY,"O'Reilly Automotive, Inc.",Consumer Discretionary,Auto Parts
 OSK,OSK,Oshkosh Corporation,Industrials,Farm & Heavy Construction Machinery
@@ -468,6 +483,7 @@ PENG,PENG,"Penguin Solutions, Inc.",Information Technology,Information Technolog
 PEP,PEP,"PepsiCo, Inc.",Consumer Staples,Beverages - Non-Alcoholic
 PFE,PFE,Pfizer Inc.,Health Care,Drug Manufacturers - General
 PFG,PFG,"Principal Financial Group, Inc.",Financials,Asset Management
+PFGC,PFGC,Performance Food Group Company,Consumer Staples,Food Distribution
 PG,PG,The Procter & Gamble Company,Consumer Staples,Household & Personal Products
 PGR,PGR,The Progressive Corporation,Financials,Insurance - Property & Casualty
 PH,PH,Parker-Hannifin Corporation,Industrials,Specialty Industrial Machinery
@@ -475,6 +491,7 @@ PHM,PHM,"PulteGroup, Inc.",Consumer Discretionary,Residential Construction
 PKG,PKG,Packaging Corporation of America,Consumer Discretionary,Packaging & Containers
 PL,PL,Planet Labs PBC,Industrials,Aerospace & Defense
 PLD,PLD,"Prologis, Inc.",Real Estate,REIT - Industrial
+PLNT,PLNT,"Planet Fitness, Inc.",Consumer Discretionary,Leisure
 PLTR,PLTR,Palantir Technologies Inc.,Information Technology,Software - Infrastructure
 PLUG,PLUG,Plug Power Inc.,Industrials,Electrical Equipment & Parts
 PM,PM,Philip Morris International Inc.,Consumer Staples,Tobacco
@@ -482,8 +499,10 @@ PNC,PNC,"The PNC Financial Services Group, Inc.",Financials,Banks - Regional
 PNR,PNR,Pentair plc,Industrials,Specialty Industrial Machinery
 PNW,PNW,Pinnacle West Capital Corporation,Utilities,Utilities - Regulated Electric
 PODD,PODD,Insulet Corporation,Health Care,Medical Devices
+POST,POST,"Post Holdings, Inc.",Consumer Staples,Packaged Foods
 POWI,POWI,"Power Integrations, Inc.",Information Technology,Semiconductors
 POWL,POWL,"Powell Industries, Inc.",Industrials,Electrical Equipment & Parts
+PPC,PPC,Pilgrim's Pride Corporation,Consumer Staples,Packaged Foods
 PPG,PPG,"PPG Industries, Inc.",Materials,Specialty Chemicals
 PPL,PPL,PPL Corporation,Utilities,Utilities - Regulated Electric
 PRIM,PRIM,Primoris Services Corporation,Industrials,Engineering & Construction
@@ -504,6 +523,7 @@ REG,REG,Regency Centers Corporation,Real Estate,REIT - Retail
 REGN,REGN,"Regeneron Pharmaceuticals, Inc.",Health Care,Biotechnology
 RF,RF,Regions Financial Corporation,Financials,Banks - Regional
 RGLD,RGLD,"Royal Gold, Inc.",Materials,Gold
+RIVN,RIVN,"Rivian Automotive, Inc.",Consumer Discretionary,Auto Manufacturers
 RJF,RJF,"Raymond James Financial, Inc.",Financials,Asset Management
 RKLB,RKLB,Rocket Lab Corporation,Industrials,Aerospace & Defense
 RL,RL,Ralph Lauren Corporation,Consumer Discretionary,Apparel Manufacturing
@@ -520,12 +540,14 @@ RVMD,RVMD,"Revolution Medicines, Inc.",Health Care,Biotechnology
 RVTY,RVTY,"Revvity, Inc.",Health Care,Diagnostics & Research
 RXRX,RXRX,"Recursion Pharmaceuticals, Inc.",Health Care,Biotechnology
 S,S,"SentinelOne, Inc.",Information Technology,Software - Infrastructure
+SAM,SAM,"The Boston Beer Company, Inc.",Consumer Staples,Beverages - Brewers
 SBAC,SBAC,SBA Communications Corporation,Real Estate,REIT - Specialty
 SBUX,SBUX,Starbucks Corporation,Consumer Discretionary,Restaurants
 SCCO,SCCO,Southern Copper Corporation,Materials,Copper
 SCHW,SCHW,The Charles Schwab Corporation,Financials,Capital Markets
 SEDG,SEDG,"SolarEdge Technologies, Inc.",Information Technology,Solar
 SERV,SERV,Serve Robotics Inc.,Industrials,Specialty Industrial Machinery
+SFM,SFM,"Sprouts Farmers Market, Inc.",Consumer Staples,Grocery Stores
 SHLS,SHLS,"Shoals Technologies Group, Inc.",Information Technology,Solar
 SHOP,SHOP,Shopify Inc.,Information Technology,Software - Application
 SHW,SHW,The Sherwin-Williams Company,Materials,Specialty Chemicals
@@ -574,6 +596,7 @@ TJX,TJX,"The TJX Companies, Inc.",Consumer Discretionary,Apparel Retail
 TKO,TKO,"TKO Group Holdings, Inc.",Communication Services,Entertainment
 TMO,TMO,Thermo Fisher Scientific Inc.,Health Care,Diagnostics & Research
 TMUS,TMUS,"T-Mobile US, Inc.",Communication Services,Telecom Services
+TOL,TOL,"Toll Brothers, Inc.",Consumer Discretionary,Residential Construction
 TPL,TPL,Texas Pacific Land Corporation,Energy,Oil & Gas E&P
 TPR,TPR,"Tapestry, Inc.",Consumer Discretionary,Luxury Goods
 TRGP,TRGP,Targa Resources Corp.,Energy,Oil & Gas Midstream
@@ -590,6 +613,7 @@ TTWO,TTWO,"Take-Two Interactive Software, Inc.",Communication Services,Electroni
 TWLO,TWLO,Twilio Inc.,Information Technology,Software - Infrastructure
 TWST,TWST,Twist Bioscience Corporation,Health Care,Diagnostics & Research
 TXN,TXN,Texas Instruments Incorporated,Information Technology,Semiconductors
+TXRH,TXRH,"Texas Roadhouse, Inc.",Consumer Discretionary,Restaurants
 TXT,TXT,Textron Inc.,Industrials,Aerospace & Defense
 TYL,TYL,"Tyler Technologies, Inc.",Information Technology,Software - Application
 UAL,UAL,"United Airlines Holdings, Inc.",Industrials,Airlines
@@ -604,6 +628,7 @@ UPS,UPS,"United Parcel Service, Inc.",Industrials,Integrated Freight & Logistics
 URI,URI,"United Rentals, Inc.",Industrials,Rental & Leasing Services
 USAR,USAR,"USA Rare Earth, Inc.",Materials,Other Industrial Metals & Mining
 USB,USB,U.S. Bancorp,Financials,Banks - Regional
+USFD,USFD,US Foods Holding Corp.,Consumer Staples,Food Distribution
 UTHR,UTHR,United Therapeutics Corporation,Health Care,Drug Manufacturers - Specialty & Generic
 UUUU,UUUU,Energy Fuels Inc.,Energy,Uranium
 V,V,Visa Inc.,Financials,Credit Services
@@ -633,6 +658,7 @@ WDC,WDC,Western Digital Corporation,Information Technology,Computer Hardware
 WEC,WEC,"WEC Energy Group, Inc.",Utilities,Utilities - Regulated Electric
 WELL,WELL,Welltower Inc.,Real Estate,REIT - Healthcare Facilities
 WFC,WFC,Wells Fargo & Company,Financials,Banks - Diversified
+WING,WING,Wingstop Inc.,Consumer Discretionary,Restaurants
 WM,WM,"Waste Management, Inc.",Industrials,Waste Management
 WMB,WMB,"The Williams Companies, Inc.",Energy,Oil & Gas Midstream
 WMT,WMT,Walmart Inc.,Consumer Staples,Discount Stores
