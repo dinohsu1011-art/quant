@@ -10,6 +10,10 @@
       --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
       --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7;
       --up:#3f9d6a; --down:#b8484f; --rose:#e3b9bc;
+      /* RSI is a temperature, not a profit. Colouring it green/red would read
+         as good/bad when the number says stretched/washed-out, so it gets its
+         own cold and hot pair and borrows nothing from the return columns. */
+      --cold:#1d7fc4; --cold-wash:#e8f3fb; --hot:#b0691c; --hot-wash:#fbf1e2;
       --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
       --serif:ui-serif,"Iowan Old Style","Charter","Palatino",Georgia,serif;
       --mono:ui-monospace,"SF Mono","JetBrains Mono","Menlo",monospace;
@@ -151,6 +155,11 @@
     .tag.rc { border-color:var(--platinum); color:var(--ink); background:var(--fog); }
     td.key { font-size:13px; font-weight:600; }
     .pos { color:var(--up); } .neg { color:var(--down); }
+    /* Only the tails are tinted. A stock at 52 is not telling you anything and
+       should not look like it is. */
+    td .rsiv { padding:1px 4px; border-radius:3px; }
+    td .rsiv.cold { color:var(--cold); background:var(--cold-wash); }
+    td .rsiv.hot  { color:var(--hot);  background:var(--hot-wash); }
     .rk { color:var(--steel); font-size:11px; }
     .bar { display:inline-block; height:8px; background:var(--sky); border-radius:1px;
            vertical-align:middle; }
@@ -203,6 +212,7 @@
     </div>
     <div class="cgrp" id="months" hidden><span class="lbl">Month</span></div>
     <div class="cgrp" id="liq"><span class="lbl">Min $ vol</span></div>
+    <div class="cgrp" id="rsis" title="Wilder's Relative Strength Index over the chosen number of sessions. Below 30 is conventionally oversold, above 70 overbought. It is a readout of where the share price sits in its own recent range, not a buy or sell signal — see the note under the table."><span class="lbl">RSI</span></div>
     <div class="cgrp" id="basis" title="Off = price return, the move in the share price alone. On = total return, dividends reinvested on the ex-date. Applies to every page. 52-week, moving-average, volatility and liquidity columns always describe the share price."><span class="lbl">Dividends</span></div>
     <div class="cgrp" id="clearwrap"><button id="clear">Clear filters</button></div>
   </div>
@@ -285,16 +295,26 @@
   // best-first, so the bottom 10 sits at the bottom of a 500-row table.
   const st = { windows:['YTD'], view:'table', uni:'all', rank:'best', dir:-1, top:10, q:'',
                sector:'', theme:'', minAdv:0, sortK:'win', sortDir:-1, route:0,
-               month:new Date().getMonth(), tr:readBasis() };
+               month:new Date().getMonth(), tr:readBasis(), rsiN:14 };
+  // The lookbacks the bundle actually shipped, so the buttons can never offer a
+  // period the data does not carry.
+  const RSIN = (M.rsi_periods || [7,14,21]).map(Number);
+  if (!RSIN.includes(st.rsiN)) st.rsiN = RSIN[Math.min(1, RSIN.length - 1)];
+  const rsiOf = r => r.rsi ? r.rsi[String(st.rsiN)] : null;
   const sortByRank = () => {
-    st.sortK = st.rank === 'sigma' ? 'sigma' : st.rank === 'month' ? 'month' : 'win';
-    st.sortDir = st.rank === 'worst' ? 1 : -1;
+    st.sortK = st.rank === 'sigma' ? 'sigma' : st.rank === 'rvol' ? 'rvol'
+      : st.rank === 'month' ? 'month' : st.rank === 'rsi' ? 'rsi' : 'win';
+    // RSI ranks lowest-first. Every other mode puts the biggest number on top,
+    // but the reason to sort a screen by RSI is to find what has been sold off,
+    // so rank 1 is the most washed-out name and the header still flips it.
+    st.sortDir = (st.rank === 'worst' || st.rank === 'rsi') ? 1 : -1;
   };
 
   const UNIS = [['all','All tracked'], ['sp','S&P 500'], ['reco','My coverage']];
   // Month is a rank mode, not a window: it ignores the window entirely and asks
   // what this name usually does in that calendar month across its whole history.
-  const DIRS = [['best','Best'], ['worst','Worst'], ['sigma','Sigma'], ['month','Month']];
+  const DIRS = [['best','Best'], ['worst','Worst'], ['sigma','Sigma'],
+                ['rvol','Relative volume'], ['month','Month'], ['rsi','RSI']];
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const TOPS = [10, 25, 50, 100];
   const LIQ  = [[0,'—'], [50,'50M'], [250,'250M'], [1000,'1B']];
@@ -331,8 +351,12 @@
 
   const fmtP = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
   const fmtS = v => v == null ? '—' : v.toFixed(1) + 'σ';
+  const fmtRV = v => v == null ? '—' : '×' + v.toFixed(2);
   const cls  = v => v == null ? '' : v >= 0 ? 'pos' : 'neg';
   const fmtM = v => v == null ? '—' : v >= 1000 ? (v/1000).toFixed(1) + 'B' : v.toFixed(0) + 'M';
+  // RSI carries no sign and no unit, so it gets neither a plus nor a percent.
+  const fmtRSI = v => v == null ? '—' : v.toFixed(0);
+  const OVERSOLD = 30, OVERBOUGHT = 70;
   // [average %, sample count] for the selected calendar month, or null
   const monthStat = r => (r.m && r.m[st.month]) || null;
   // Two is the floor: below that there is no average, only a single month being
@@ -344,6 +368,8 @@
   const MIN_MONTHS = 2;
   const THIN_MONTHS = 5;
   const rankValue = (r, win) => st.rank === 'sigma' ? r.z?.[win]
+    : st.rank === 'rvol' ? r.rv?.[win]
+    : st.rank === 'rsi' ? rsiOf(r)
     : st.rank === 'month' ? (monthStat(r)?.[1] >= MIN_MONTHS ? monthStat(r)[0] : null)
     : r.r[win];
   // What it takes for a name to be counted at all, said in words. The second
@@ -353,8 +379,11 @@
   // why a basket of 2024 listings shows two names there whatever window is lit.
   const rankableNote = () => st.rank === 'month'
     ? `with ${MIN_MONTHS}+ years of ${MON[st.month]}`
+    : st.rank === 'rvol' ? `with a ${rankWin()} relative-volume number`
+    : st.rank === 'rsi' ? `with an RSI(${st.rsiN})`
     : `with a ${rankWin()} number`;
-  const fmtRank = v => st.rank === 'sigma' ? fmtS(v) : fmtP(v);
+  const fmtRank = v => st.rank === 'sigma' ? fmtS(v) : st.rank === 'rvol' ? fmtRV(v)
+    : st.rank === 'rsi' ? fmtRSI(v) : fmtP(v);
   const fmtRankValue = (r, win) => fmtRank(rankValue(r,win));
 
   // ---------- selection ----------
@@ -380,7 +409,14 @@
   // cohort has to mean one thing, or "top 10" stops being comparable to itself.
   const ranked = p => {
     const win = rankWin();
-    return p.slice().sort((a,b) => st.dir * (rankValue(a,win) - rankValue(b,win)));
+    // st.dir is the Best/Worst switch and stays -1 outside 'worst'. RSI is the
+    // one mode whose rank 1 is the *smallest* value, so it inverts here.
+    const dir = st.rank === 'rsi' ? -st.dir : st.dir;
+    return p.slice().sort((a,b) => {
+      const x = rankValue(a,win), y = rankValue(b,win);
+      if (x == null) return 1; if (y == null) return -1;
+      return dir * (x - y);
+    });
   };
 
   const median = xs => {
@@ -527,6 +563,19 @@
       get:r=>fmtP(r.r[win]), v:r=>r.r[win], colour:true};
     const sigmaCol = {k:'sigma', l:win+' σ', key:st.rank === 'sigma',
       get:r=>sigmaCell(r,win), v:r=>r.z?.[win]};
+    const rvolCol = {k:'rvol', l:win+' RVol', key:st.rank === 'rvol',
+      get:r=>fmtRV(r.rv?.[win]), v:r=>r.rv?.[win]};
+    // The lookback is in the header because the same name reads 22 on RSI(7)
+    // and 41 on RSI(21), and a column labelled just "RSI" invites the reader to
+    // forget which one they picked.
+    const rsiCol = {k:'rsi', l:'RSI '+st.rsiN, key:st.rank === 'rsi',
+      get:r=>{ const v = rsiOf(r); if (v == null) return '—';
+        const band = v <= OVERSOLD ? ' cold' : v >= OVERBOUGHT ? ' hot' : '';
+        const note = v <= OVERSOLD ? `oversold — ${st.rsiN}-session RSI at or under ${OVERSOLD}`
+          : v >= OVERBOUGHT ? `overbought — ${st.rsiN}-session RSI at or over ${OVERBOUGHT}`
+          : `${st.rsiN}-session RSI`;
+        return `<span class="rsiv${band}" title="${note}">${fmtRSI(v)}</span>`; },
+      v:r=>rsiOf(r)};
     const monthCol = {k:'month', l:'avg '+MON[st.month], key:true,
       // A thin sample is shown, not hidden — but it says so, because two Augusts
       // averaging +12% and thirty averaging +2% are not the same claim.
@@ -544,13 +593,17 @@
     {k:'th',   l:'Themes',   left:true, nosort:true, get:r=> r.th.map(t =>
                  `<span class="tag${t === st.theme ? ' hot' : ''}">${esc(THEMES[t] || t)}</span>`).join('')
                  + (r.rc ? '<span class="tag rc">coverage</span>' : '')},
-    ...(st.rank === 'month' ? [monthCol,returnCol,sigmaCol]
-        : st.rank === 'sigma' ? [sigmaCol,returnCol] : [returnCol,sigmaCol]),
+    ...(st.rank === 'month' ? [monthCol,returnCol,sigmaCol,rvolCol]
+        : st.rank === 'sigma' ? [sigmaCol,returnCol,rvolCol]
+        : st.rank === 'rvol' ? [rvolCol,returnCol,sigmaCol]
+        : st.rank === 'rsi' ? [rsiCol,returnCol,sigmaCol]
+        : [returnCol,sigmaCol,rvolCol]),
     ...WINDOWS.filter(w => w !== win).map(w =>
     ({k:'w:'+w, l:w, get:r=>fmtP(r.r[w]), v:r=>r.r[w], colour:true})),
     {k:'off52',l:'off 52wH', get:r=>fmtP(r.off52), v:r=>r.off52, colour:true},
     {k:'ma50', l:'vs 50d',   get:r=>fmtP(r.ma50),  v:r=>r.ma50,  colour:true},
     {k:'ma200',l:'vs 200d',  get:r=>fmtP(r.ma200), v:r=>r.ma200, colour:true},
+    ...(st.rank === 'rsi' ? [] : [rsiCol]),
     {k:'vol',  l:'ann vol',  get:r=>r.vol == null ? '—' : r.vol.toFixed(0) + '%', v:r=>r.vol},
     {k:'adv',  l:'$ vol',    get:r=>fmtM(r.adv), v:r=>r.adv},
     ];
@@ -811,11 +864,18 @@
     ctx.strokeStyle='#8f8a83'; ctx.lineWidth=1.05; ctx.stroke();
 
     // Altitude is the active ranking metric: return, loss severity, or sigma.
-    const score = r => st.rank==='sigma' || st.rank==='month' ? rankValue(r,win)
+    // The mountain climbs, so altitude must rise with rank. RSI is the one
+    // metric where rank 1 is the low number, so it is plotted negated and the
+    // axis labels flip the sign back.
+    const NEG = st.rank==='rsi';
+    const BY_VALUE = st.rank==='sigma' || st.rank==='rvol' || st.rank==='month' || NEG;
+    const score = r => NEG ? -rankValue(r,win)
+      : BY_VALUE ? rankValue(r,win)
       : st.dir<0 ? r.r[win] : -r.r[win];
-    const unscore = v => st.rank==='sigma' || st.rank==='month' ? v : st.dir<0 ? v : -v;
+    const unscore = v => NEG ? -v : BY_VALUE ? v : st.dir<0 ? v : -v;
     const scores=cohort.map(score).filter(Number.isFinite);
-    let lo=Math.min(0,...scores), hi=Math.max(0,...scores);
+    let lo=NEG ? Math.min(...scores) : Math.min(0,...scores),
+        hi=NEG ? Math.max(...scores) : Math.max(0,...scores);
     const spread=Math.max(1,hi-lo);
     lo-=spread*.05; hi+=spread*.08;
     const yScore = v => baseY-8-(v-lo)/(hi-lo)*(baseY-summitY-22);
@@ -824,6 +884,8 @@
     ctx.beginPath(); ctx.moveTo(axisX,summitY); ctx.lineTo(axisX,baseY); ctx.stroke();
     ctx.fillStyle='#57534e'; ctx.font='9px ui-monospace, "SF Mono", Menlo, monospace';
     const axisTitle=st.rank==='sigma' ? `${win} SIGMA (σ)`
+      : st.rank==='rsi' ? `RSI ${st.rsiN}`
+      : st.rank==='rvol' ? `${win} RELATIVE VOLUME (×)`
       : st.rank==='month' ? `MEAN ${MON[st.month].toUpperCase()} RETURN (%)`
       : `${win} ${st.dir<0?'RETURN':'LOSS'} (%)`;
     ctx.textAlign='right'; ctx.fillText(axisTitle,width-8,18);
@@ -831,7 +893,8 @@
       const s=lo+(hi-lo)*i/5, y=yScore(s);
       ctx.beginPath(); ctx.moveTo(axisX-4,y); ctx.lineTo(axisX+4,y); ctx.stroke();
       ctx.textAlign='right';
-      ctx.fillText(unscore(s).toFixed(st.rank==='best'||st.rank==='worst' ? 0 : 1),width-7,y);
+      ctx.fillText(unscore(s).toFixed(
+        st.rank==='best'||st.rank==='worst'||st.rank==='rsi' ? 0 : 1),width-7,y);
     }
 
     const ascent=cohort.slice().reverse();
@@ -877,7 +940,10 @@
       const textWidth=ctx.measureText(text).width;
       ctx.font='600 8px ui-monospace, "SF Mono", Menlo, monospace';
       const sub=st.rank==='sigma'
-        ? `${fmtS(p.r.z?.[win])} · ${fmtP(p.r.r[win])}` : fmtP(p.r.r[win]);
+        ? `${fmtS(p.r.z?.[win])} · ${fmtP(p.r.r[win])}`
+        : st.rank==='rvol' ? `${fmtRV(p.r.rv?.[win])} · ${fmtP(p.r.r[win])}`
+        : st.rank==='rsi' ? `RSI ${fmtRSI(rsiOf(p.r))} · ${fmtP(p.r.r[win])}`
+        : fmtP(p.r.r[win]);
       const subWidth=ctx.measureText(sub).width;
       const fw=Math.max(62,textWidth+18,subWidth+18);
       const fy=poleTop, fx=p.x-fw-1;
@@ -976,6 +1042,8 @@
     const secs = composition(cohort, p, r => r.s === '—' ? [] : [r.s], k => k);
     const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);
     const medianLabel = st.rank === 'sigma' ? `${win} σ`
+      : st.rank === 'rvol' ? `${win} RVol`
+      : st.rank === 'rsi' ? `RSI ${st.rsiN}`
       : st.rank === 'month' ? `avg ${MON[st.month]}` : win;
     // Both panels list every group in the filtered pool, so say what the pair of
     // numbers means rather than leaving "2/7" to be guessed at.
@@ -990,9 +1058,12 @@
     const uni = UNIS.find(u => u[0] === st.uni)[1];
     document.getElementById('verdict').innerHTML = cohort.length
       ? `<b>${st.rank==='sigma' ? 'Top '+cohort.length+' by sigma'
+          : st.rank==='rvol' ? 'Top '+cohort.length+' by relative volume'
+          : st.rank==='rsi' ? `${cohort.length} most oversold`
           : st.rank==='month' ? `Top ${cohort.length} in ${MON[st.month]}`
           : (st.dir < 0 ? 'Top ' : 'Bottom ')+cohort.length}</b> · ${esc(uni)} · `
-        + `${st.rank==='month' ? `mean ${MON[st.month]} return, whole history` : win}`
+        + `${st.rank==='month' ? `mean ${MON[st.month]} return, whole history`
+            : st.rank==='rsi' ? `Wilder RSI over ${st.rsiN} sessions` : win}`
         + ` · ${p.length} filtered · median ${fmtRank(med)}`
       : '';
 
@@ -1021,7 +1092,24 @@
           + `to appear at all, since one month is not an average. Each month's extremes `
           + `are clipped to its own 10th/90th percentile, so one broken split adjustment `
           + `in 1993 cannot set a 36-year average.`
-        : '');
+        : st.rank === 'rvol'
+          ? `<br><b>Relative volume</b> is average daily share volume over the selected `
+            + `window divided by average daily volume in the prior 252 sessions. The `
+            + `comparison period ends before the selected window, so the event does not `
+            + `inflate its own baseline.`
+        : st.rank === 'rsi'
+          ? `<br><b>RSI</b> is Wilder's, over ${st.rsiN} sessions, on the share price. `
+            + `It is a readout of where a name sits in its own recent range — not a `
+            + `signal, and not part of any score on this site. Tested against this `
+            + `database, the middle of the range did nothing: RSI 50–65, pullbacks into `
+            + `40–55, and crosses above 60 on heavy volume all landed inside a coin flip, `
+            + `and most were beaten by simply buying any liquid stock. Only the tails had `
+            + `a consistent sign — since 2015, names under ${OVERSOLD} beat the market over `
+            + `the following month and names over ${OVERBOUGHT} lagged it — and even there `
+            + `the edge is a fraction of a percent, the extremes fire rarely, and the `
+            + `universe is today's index, so companies that fell and never recovered are `
+            + `missing from the test. Use it to decide what to look at, not what to buy.`
+          : '');
   }
 
   // ---------- controls ----------
@@ -1044,6 +1132,7 @@
   mkBtns(document.getElementById('tops'), TOPS.map(t => [t, 'Top ' + t]), v => st.top = +v);
   mkBtns(document.getElementById('views'), VIEWS, v => setView(v));
   mkBtns(document.getElementById('liq'),  LIQ,  v => st.minAdv = +v);
+  mkBtns(document.getElementById('rsis'), RSIN.map(n => [n, String(n)]), v => st.rsiN = +v);
   mkBtns(document.getElementById('basis'), [['pr','Off'], ['tr','On']], v => {
     st.tr = v === 'tr'; writeBasis(st.tr); applyBasis();
   });
@@ -1080,6 +1169,7 @@
     });
     on('unis', st.uni); on('dirs', st.rank); on('tops', st.top);
     on('views', st.view); on('liq', st.minAdv); on('months', st.month);
+    on('rsis', st.rsiN);
     on('basis', st.tr ? 'tr' : 'pr');
     document.getElementById('months').hidden = st.rank !== 'month';
     secSel.value = st.sector; thmSel.value = st.theme;
@@ -1089,11 +1179,11 @@
   function writeHash(){
     history.replaceState(null, '', '#' + [rankWin(), st.uni, st.rank,
       st.top, st.minAdv, st.sector, st.theme, st.view, st.windows.join(','), st.route,
-      st.month, st.tr ? 'div1' : 'div0'].map(encodeURIComponent).join('|'));
+      st.month, st.tr ? 'div1' : 'div0', st.rsiN].map(encodeURIComponent).join('|'));
   }
   function readHash(){
     const h = location.hash.slice(1); if (!h) return;
-    const [w, u, d, t, adv, sec, thm, view, wins, route, mon, divs] =
+    const [w, u, d, t, adv, sec, thm, view, wins, route, mon, divs, rsin] =
       h.split('|').map(decodeURIComponent);
     // A shared link states its basis outright, so honour it AND adopt it — the
     // setting is site-wide, and a link that silently meant something else on the
@@ -1118,6 +1208,10 @@
     if (st.view !== 'loom' && st.windows.length > 1) st.windows=[rankWin()];
     if (Number.isFinite(+route)) st.route=+route;
     if (mon !== undefined && +mon >= 0 && +mon <= 11) st.month=+mon;
+    if (RSIN.includes(+rsin)) st.rsiN=+rsin;
+    // The rank mode is read before the lookback, so re-derive the sort key now
+    // that both are known.
+    if (st.rank === 'rsi') sortByRank();
   }
 
   document.getElementById('asof').textContent = 'as of ' + M.as_of;

@@ -14,8 +14,8 @@ and a screen is read at standard horizons anyway.
 
 Returns ship twice, on price (`r`) and total-return (`rt`) bases, so the site's
 shared dividend toggle can switch them without a second fetch. Everything else
-here — 52-week extremes, moving-average distance, volatility, liquidity — is a
-statement about the share price and stays on price in both modes.
+here — 52-week extremes, moving-average distance, volatility, liquidity, RSI —
+is a statement about the share price and stays on price in both modes.
 
 Everything is measured to the last close in the file. Names whose history is
 shorter than a window get null for that window rather than a return off a
@@ -47,6 +47,11 @@ DEFAULT_OUT = Path.home() / "Desktop/Obsidian/trading-brain/reports"
 # label -> sessions back. 'ytd' is resolved against the calendar.
 WINDOWS = [("1D", 1), ("1W", 5), ("1M", 21), ("3M", 63), ("6M", 126),
            ("YTD", "ytd"), ("1Y", 252), ("3Y", 756), ("5Y", 1260)]
+
+# Wilder RSI lookbacks. Three, because the number is a lens rather than a level:
+# 7 sessions is a twitch, 21 is a season, and reading the same name at both is
+# the only way to tell a real washout from a bad fortnight.
+RSI_PERIODS = (7, 14, 21)
 
 # Books, not themes. A reco book is a decision record; tagging its names as a
 # "theme" would put them beside GPU and Software as if they described what a
@@ -144,6 +149,34 @@ def _sigma(c, k, current):
     return round(dev / sd, 2), hits, int(len(sample))
 
 
+def _rsi(c, n):
+    """Wilder's RSI at the last close, or None if the history is too thin.
+
+    Ships as a readout, not a signal. Testing it on this database found no
+    tradeable edge in the middle of the range — RSI 50-65, pullbacks into 40-55,
+    crosses above 60 on volume, all landed inside a coin flip and most were
+    beaten by simply buying any liquid stock. The tails were the one part with a
+    consistent sign: since 2015, names under 30 beat the market over the next
+    month and names over 70 lagged it, though the size is small and the sample
+    at the extremes is thin. So the column exists to say where a name sits, and
+    the page says so in as many words rather than dressing it as a score.
+
+    Wilder's smoothing is an exponential average with alpha = 1/n, so it never
+    fully forgets its seed. Five periods of burn-in is where the value stops
+    depending on which day the series happens to start.
+    """
+    if len(c) < n * 5:
+        return None
+    d = pd.Series(c).diff()
+    up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False, min_periods=n).mean().iloc[-1]
+    dn = (-d).clip(lower=0).ewm(alpha=1 / n, adjust=False, min_periods=n).mean().iloc[-1]
+    if not np.isfinite(up) or not np.isfinite(dn):
+        return None
+    if dn == 0:
+        return 100.0 if up > 0 else None
+    return round(100 - 100 / (1 + up / dn), 1)
+
+
 def _seasonality(dates, c):
     """Average calendar-month return, Jan..Dec, with the sample count per month.
 
@@ -198,6 +231,39 @@ def _windows(c, dates):
     return r, z, zx
 
 
+def _relative_volume(v, dates):
+    """Average volume in each ranking window versus its prior trading year.
+
+    The comparison period ends immediately before the selected window.  That
+    keeps a month-long volume event out of its own denominator and makes the
+    measure comparable across 1D, 1W, 1M and the longer windows.  Twenty prior
+    valid sessions is the minimum useful base; otherwise the rank is omitted.
+    """
+    out = {}
+    n = len(v)
+    for label, raw_k in WINDOWS:
+        if raw_k == "ytd":
+            yr = dates[-1].year
+            pos = np.searchsorted(dates.values, np.datetime64(f"{yr}-01-01"))
+            k = n - pos
+        else:
+            k = raw_k
+        if k <= 0 or n < k:
+            out[label] = None
+            continue
+        start = n - k
+        current = v[start:n]
+        baseline = v[max(0, start - 252):start]
+        current = current[np.isfinite(current) & (current > 0)]
+        baseline = baseline[np.isfinite(baseline) & (baseline > 0)]
+        if not len(current) or len(baseline) < 20:
+            out[label] = None
+            continue
+        base = float(np.mean(baseline))
+        out[label] = round(float(np.mean(current)) / base, 2) if base > 0 else None
+    return out
+
+
 def row(stem, df):
     c = df["close"].to_numpy(dtype=float)
     if len(c) < 30:
@@ -227,7 +293,7 @@ def row(stem, df):
 
     v = df["volume"].to_numpy(dtype=float) if "volume" in df else None
     dollar = np.nanmean((c[-63:] * v[-63:])) / 1e6 if v is not None and len(c) >= 63 else np.nan
-    rvol = (v[-1] / np.nanmean(v[-50:])) if v is not None and len(v) >= 50 and np.nanmean(v[-50:]) > 0 else np.nan
+    rv = _relative_volume(v, dates) if v is not None else {label: None for label, _ in WINDOWS}
 
     def num(x, nd=1):
         return None if x is None or not np.isfinite(x) else round(float(x), nd)
@@ -245,7 +311,14 @@ def row(stem, df):
         "ma200": num((c[-1] / ma200 - 1) * 100 if np.isfinite(ma200) else np.nan),
         "vol": num(vol),
         "adv": num(dollar),
-        "rvol": num(rvol, 2),
+        # Wilder RSI on the share price, one entry per lookback. Price and not
+        # adj_close for the same reason as the columns above it: this describes
+        # where the quote is stretched, and a dividend is not a stretch.
+        "rsi": {str(n): _rsi(c, n) for n in RSI_PERIODS},
+        # `rvol` is retained for old page bundles; `rv` is the full ranking
+        # surface and uses the same selected horizon as returns and sigma.
+        "rvol": rv.get("1D"),
+        "rv": rv,
     }
     if rt is not None:
         out["rt"], out["zt"], out["zxt"] = rt, zt, zxt
@@ -296,6 +369,7 @@ def build():
             "n_sp500": sum(r["sp"] for r in rows),
             "n_stale": sum(r["stale"] for r in rows),
             "windows": [w for w, _ in WINDOWS],
+            "rsi_periods": list(RSI_PERIODS),
             "themes": THEME_LABEL,
             "sectors": sorted({r["s"] for r in rows if r["s"] != "—"}),
             "generated": datetime.now().strftime("%Y-%m-%d %H:%M"),
