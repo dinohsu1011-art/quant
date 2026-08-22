@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Weekend Review — Market Lab</title>
+  <style>
+    :root {
+      --white:#ffffff; --fog:#fafaf9; --ink:#0c0a09; --ash:#78716c;
+      --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
+      --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7;
+      --up:#3f9d6a; --dn:#b8484f; --up-soft:#eaf4ee; --dn-soft:#fbeeef;
+      --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      --serif:ui-serif,"Iowan Old Style","Charter","Palatino",Georgia,serif;
+      --mono:ui-monospace,"SF Mono","JetBrains Mono","Menlo",monospace;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--fog); color:var(--ink); font-family:var(--sans);
+           line-height:1.5; -webkit-font-smoothing:antialiased; }
+    .page { max-width:1080px; margin:0 auto; padding:26px 34px 90px; }
+
+    /* ---------- masthead ---------- */
+    .kicker { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
+    .kicker a { color:var(--steel); text-decoration:none; }
+    .kicker a:hover { color:var(--blue-deep); }
+    .mast { display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+            border-bottom:1px solid var(--stone); padding-bottom:14px; margin-top:6px; }
+    .mast h1 { font-family:var(--serif); font-size:44px; line-height:1.02; font-weight:600;
+               margin:2px 0 0; letter-spacing:-.025em; }
+    .mast .sub { font-size:12.5px; color:var(--ash); margin-top:7px; max-width:620px; }
+    .mast .asof { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
+                  white-space:nowrap; font-variant-numeric:tabular-nums; line-height:1.7; }
+
+    /* ---------- verdict ---------- */
+    .verdict { display:grid; grid-template-columns:minmax(0,7fr) minmax(0,5fr); gap:40px;
+               align-items:start; padding:34px 0 30px; border-bottom:1px solid var(--stone); }
+    .verdict .call { font-family:var(--serif); font-size:34px; line-height:1.18; font-weight:600;
+                     letter-spacing:-.02em; margin:0; }
+    .verdict .call em { font-style:normal; }
+    .verdict .call em.on { color:var(--up); }
+    .verdict .call em.off { color:var(--dn); }
+    .verdict .why { font-size:13.5px; color:var(--ash); margin-top:12px; }
+    .verdict .why b { color:var(--ink); font-weight:600; font-family:var(--mono);
+                      font-variant-numeric:tabular-nums; font-size:12.5px; }
+    .tally { font-family:var(--mono); font-size:11px; color:var(--steel); margin-top:16px;
+             font-variant-numeric:tabular-nums; }
+    .brief { margin-top:20px; border-top:1px solid var(--stone); }
+    .brief-row { display:grid; grid-template-columns:82px minmax(0,1fr); gap:12px;
+                 padding:8px 0; border-bottom:1px solid var(--stone); }
+    .brief-row .lbl { font-size:9px; letter-spacing:.12em; text-transform:uppercase;
+                      color:var(--steel); padding-top:2px; }
+    .brief-row p { font-size:12.5px; line-height:1.45; margin:0; color:var(--ash); }
+    .brief-row.win p { color:#2f7f54; }
+    .brief-row.lose p { color:#9e3f46; }
+    .brief-row.compare { background:rgba(59,166,241,.035); }
+
+    /* ---------- gauges ---------- */
+    .gauges { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:22px 34px; }
+    .gauges.risk { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .g .glbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
+    .g .gval { font-family:var(--mono); font-size:23px; font-weight:600; letter-spacing:-.02em;
+               font-variant-numeric:tabular-nums; margin-top:3px; }
+    .g .gval .u { font-size:13px; font-weight:400; color:var(--ash); margin-left:1px; }
+    .rail { height:3px; background:var(--stone); position:relative; margin:7px 0 4px; }
+    .rail i { position:absolute; top:-2px; width:2px; height:7px; background:var(--ink); }
+    .rail.hot i { background:var(--up); } .rail.cold i { background:var(--dn); }
+    .g .gnote { font-family:var(--mono); font-size:10px; color:var(--steel);
+                font-variant-numeric:tabular-nums; }
+
+    /* ---------- sections ---------- */
+    section { padding-top:44px; }
+    .shd { display:flex; align-items:baseline; gap:14px; border-bottom:1px solid var(--stone);
+           padding-bottom:8px; }
+    .shd h2 { font-family:var(--serif); font-size:24px; font-weight:600; margin:0;
+              letter-spacing:-.015em; }
+    .shd .leg { margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--steel);
+                font-variant-numeric:tabular-nums; }
+    .lede { font-size:13px; color:var(--ash); margin:12px 0 0; max-width:720px; }
+    .lede b { color:var(--ink); font-weight:600; }
+
+    /* ---------- tables ---------- */
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    thead th { font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--steel);
+               font-weight:600; text-align:right; padding:0 9px 7px; border-bottom:1px solid var(--stone);
+               white-space:nowrap; cursor:pointer; }
+    thead th.l { text-align:left; padding-left:0; }
+    thead th:hover { color:var(--ash); }
+    thead th.sorted { color:var(--ink); }
+    tbody td { padding:6px 9px; border-bottom:1px solid var(--fog); font-size:12.5px; text-align:right;
+               font-family:var(--mono); font-variant-numeric:tabular-nums; }
+    tbody td.l { text-align:left; font-family:var(--sans); padding-left:0; }
+    tbody tr:hover td { background:var(--fog); }
+    .nm { font-weight:550; }
+    .tk { font-family:var(--mono); font-weight:600; font-size:12.5px; }
+    .grp { color:var(--steel); font-size:10.5px; margin-left:7px; letter-spacing:.02em; }
+    .up { color:var(--up); } .dn { color:var(--dn); } .mute { color:var(--steel); }
+    .tag { display:inline-block; font-family:var(--sans); font-size:9px; letter-spacing:.1em;
+           text-transform:uppercase; padding:1px 5px; border:1px solid var(--platinum);
+           color:var(--ash); margin-left:6px; vertical-align:1px; }
+    .tag.ever { border-color:var(--blue); color:var(--blue-deep); }
+
+    /* ---------- rotation callout ---------- */
+    .rot { display:grid; grid-template-columns:1fr 1fr; gap:0 40px; margin-top:20px; }
+    .rot > div { padding:14px 0 4px; }
+    .rot h3 { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; margin:0 0 9px;
+              font-weight:600; }
+    .rot .in h3 { color:var(--up); } .rot .out h3 { color:var(--dn); }
+    .rot li { list-style:none; display:flex; align-items:baseline; gap:9px; font-size:13px;
+              padding:3px 0; }
+    .rot ul { margin:0; padding:0; }
+    .rot .d { font-family:var(--mono); font-size:11.5px; font-variant-numeric:tabular-nums;
+              width:38px; text-align:right; flex:none; }
+    .rot .r { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--steel);
+              font-variant-numeric:tabular-nums; }
+
+    /* ---------- sparkline ---------- */
+    .spark { display:block; }
+    .ratios { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:2px 40px;
+              margin-top:22px; }
+    .ra { display:flex; align-items:center; gap:14px; padding:9px 0;
+          border-bottom:1px solid var(--fog); }
+    .ra .rl { min-width:96px; }
+    .ra .rl .n { font-family:var(--mono); font-size:12.5px; font-weight:600; }
+    .ra .rl .s { font-size:10.5px; color:var(--steel); }
+    .ra .rv { margin-left:auto; font-family:var(--mono); font-size:12px; text-align:right;
+              font-variant-numeric:tabular-nums; }
+    .ra .rv .s { font-size:10px; color:var(--steel); display:block; }
+
+    /* ---------- history chart ---------- */
+    .chartwrap { background:var(--white); border:1px solid var(--stone); margin-top:18px;
+                 position:relative; }
+    #hist, #rchart { display:block; width:100%; touch-action:none; }
+    #hist text, #rchart text { font-family:var(--mono); font-size:9.5px; fill:var(--steel);
+                 font-variant-numeric:tabular-nums; }
+    .spans { display:flex; align-items:center; gap:14px; margin-top:14px; }
+    .spans .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
+    .spans button { background:none; border:none; padding:2px 0; cursor:pointer; font-family:var(--sans);
+                    font-size:12.5px; color:var(--ash); border-bottom:1.5px solid transparent; }
+    .spans button:hover { color:var(--ink); }
+    .spans button.on { color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
+    .readout { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
+               margin-top:9px; min-height:15px; font-variant-numeric:tabular-nums; }
+
+    .note { font-size:12px; color:var(--ash); margin-top:22px; max-width:760px; }
+    .note b { color:var(--ink); font-weight:600; }
+    .empty { padding:26px 0; color:var(--steel); font-size:13px; }
+    @media (max-width:860px){
+      .page{padding:20px 16px 60px;} .mast h1{font-size:32px;}
+      .verdict{grid-template-columns:1fr;gap:24px;} .verdict .call{font-size:26px;}
+      .gauges{grid-template-columns:repeat(2,1fr);} .rot,.ratios{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="kicker"><a href="market-lab.html">&larr; Market Lab</a> &middot; <a href="market-lab-leaders.html">Leaders</a></div>
+  <div class="mast">
+    <div>
+      <h1>Weekend review</h1>
+      <div class="sub" id="marketsum">The market with the market closed. Breadth, indexes,
+        leadership, and the scans that produce Monday&rsquo;s focus list.</div>
+    </div>
+    <div class="asof" id="asof"></div>
+  </div>
+
+  <div class="verdict">
+    <div>
+      <p class="call" id="call"></p>
+      <div class="why" id="why"></div>
+      <div class="brief" aria-label="Weekly market summary">
+        <div class="brief-row win"><span class="lbl">Worked</span><p id="worked"></p></div>
+        <div class="brief-row lose"><span class="lbl">Lagged</span><p id="lagged"></p></div>
+        <div class="brief-row"><span class="lbl">Why</span><p id="driver"></p></div>
+        <div class="brief-row compare"><span class="lbl">Since last</span><p id="since"></p></div>
+      </div>
+      <div class="tally" id="tally"></div>
+    </div>
+    <div class="gauges risk" id="riskg"></div>
+  </div>
+
+  <section id="risk">
+    <div class="shd"><h2>Risk appetite</h2><div class="leg" id="riskleg"></div></div>
+    <div class="lede">Measured on the names that carry risk, ranked out of the universe
+      rather than picked. <b>High beta</b> is the top quintile by beta to the S&amp;P over
+      the equal-weight bottom quintile. <b>Leaders</b> are the top quintile by 6-month
+      return, lagged a month so the cohort is not selected on the window it is scored over.</div>
+    <div class="ratios" id="rratios"></div>
+    <div class="spans" id="rspans"><span class="lbl">History</span>
+      <button data-y="1">1y</button><button data-y="3" class="on">3y</button>
+      <button data-y="5">5y</button><button data-y="0">Max</button>
+    </div>
+    <div class="chartwrap"><svg id="rchart"></svg></div>
+    <div class="readout" id="rro"></div>
+    <div class="note">The line is high-beta over low-beta, rebased to the window start —
+      falling means risk is being sold whatever the index does. The band underneath is
+      leader breadth less index breadth: <b>below zero, the index is being carried by names
+      that were not leading it.</b> That is what a defensive rotation looks like from the
+      inside, and it is invisible to a breadth count.</div>
+  </section>
+
+  <section id="participation">
+    <div class="shd"><h2>Participation</h2><div class="leg">S&amp;P members, equal weight</div></div>
+    <div class="lede">How much of the index is above water. <b>This is a trend measure, not a
+      risk measure.</b> Every name counts the same, so money leaving semiconductors for
+      staples and utilities can leave these numbers high — or push them up.</div>
+    <div class="gauges" id="gauges" style="margin-top:22px"></div>
+  </section>
+
+  <section id="indexes">
+    <div class="shd"><h2>Indexes</h2><div class="leg" id="idxleg"></div></div>
+    <table id="idxtbl">
+      <thead><tr>
+        <th class="l">Index</th><th>Last</th><th>1w</th><th>1m</th><th>3m</th><th>YTD</th>
+        <th>Off 52w high</th><th>vs 50d</th><th>vs 200d</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="ratios" id="ratios"></div>
+    <div class="note">The ratios say whether a move is the whole market or the top of it.
+      IWM/SPY and RSP/SPY rising with the index is broad participation; falling while the
+      index rises is a mega-cap tape.</div>
+  </section>
+
+  <section id="themes">
+    <div class="shd"><h2>Themes</h2><div class="leg" id="thleg"></div></div>
+    <div class="rot">
+      <div class="in"><h3>Rotating in &mdash; 1-month rank</h3><ul id="rotin"></ul></div>
+      <div class="out"><h3>Rotating out</h3><ul id="rotout"></ul></div>
+    </div>
+    <table id="thtbl">
+      <thead><tr>
+        <th class="l">Theme</th><th data-k="r1w">1w</th><th data-k="r1m">1m</th><th data-k="r3m">3m</th>
+        <th data-k="rank">1m rank</th><th data-k="drank">&Delta;rank</th><th data-k="n">Names</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="note">&Delta;rank compares where a theme ranks on the 1-month return now against
+      where it ranked a month ago. It is the rotation measure &mdash; a theme can be up on the week
+      and still be losing ground to everything else.</div>
+  </section>
+
+  <section id="volume">
+    <div class="shd"><h2>High volume edge</h2><div class="leg" id="volleg"></div></div>
+    <div class="lede" id="vollede"></div>
+    <table id="voltbl">
+      <thead><tr>
+        <th class="l">Ticker</th><th class="l">Date</th><th data-k="rvol">rVol</th>
+        <th data-k="chg">Day</th><th data-k="dvol_m">$ volume</th><th data-k="r1w">1w</th>
+        <th data-k="off_high">Off 52w high</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="note">A 252-day volume high, over the five sessions just closed, filtered to
+      $10m traded on the day. <b>Measured base rate: 0.51% of name-sessions</b> &mdash; about three
+      a day &mdash; which is why the scan runs over the week rather than the last bar.
+      <b>ever</b> marks an all-time volume high.</div>
+  </section>
+
+  <section id="flags">
+    <div class="shd"><h2>High tight flags</h2><div class="leg" id="flleg"></div></div>
+    <div class="lede" id="fllede"></div>
+    <table id="fltbl">
+      <thead><tr>
+        <th class="l">Ticker</th><th data-k="gain">Run</th><th data-k="hold">Flag</th>
+        <th data-k="pull">Pullback</th><th data-k="volratio">Flag vol</th>
+        <th data-k="off_high">Off 52w high</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="note">A double or better inside 40 sessions, peaking within 5% of the 52-week
+      high, then holding within 25% of that peak for 10&ndash;35 sessions.
+      <b>Read the count, not the names.</b> This universe is large caps, so the number of flags
+      is a clean gauge of speculative appetite while the names it returns are big companies
+      that happen to fit the geometry.</div>
+
+    <div class="spans" id="hspans"><span class="lbl">History</span>
+      <button data-y="1">1y</button><button data-y="3">3y</button>
+      <button data-y="5" class="on">5y</button><button data-y="0">Max</button>
+    </div>
+    <div class="chartwrap"><svg id="hist"></svg></div>
+    <div class="readout" id="ro"></div>
+    <div class="note">Flag count against the share of S&amp;P names above their 50-day. They are
+      not the same signal: a slow, broad advance puts most names above the average with no flags
+      at all, while a hot, narrow one produces flags on a middling breadth reading.</div>
+  </section>
+
+  <div class="note" id="foot" style="margin-top:52px;padding-top:16px;border-top:1px solid var(--stone)"></div>
+</div>
+
+<script src="cube/weekend.js?v=20260821-9a2ecad7"></script>
+<script>
+(function () {
+  const W = window.QUANT_WEEKEND;
+  const $ = s => document.querySelector(s);
+  const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c;
+                            if (x != null) n.textContent = x; return n; };
+  if (!W) { $('.page').innerHTML = '<p class="empty">weekend.js did not load.</p>'; return; }
+
+  const pct = (v, d) => v == null ? '—' : (v * 100).toFixed(d == null ? 1 : d) + '%';
+  const sgn = (v, d) => v == null ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(d == null ? 1 : d) + '%';
+  const cls = v => v == null ? 'mute' : v > 0 ? 'up' : v < 0 ? 'dn' : 'mute';
+  const num = (v, d) => v == null ? '—' : v.toLocaleString('en-US',
+        { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+  const ord = v => { const n = Math.round(v), t = n % 100;
+    return n + (t >= 11 && t <= 13 ? 'th' : ['th','st','nd','rd'][n % 10] || 'th'); };
+  const dstr = s => new Date(s + 'T00:00:00').toLocaleDateString('en-US',
+        { month: 'short', day: 'numeric', year: 'numeric' });
+
+  // ---------- masthead ----------
+  $('#asof').innerHTML = dstr(W.as_of) + '<br>week of ' + dstr(W.week.start) +
+    '<br>' + W.universe.stocks + ' stocks · ' + W.universe.sp500 + ' S&amp;P';
+
+  // ---------- gauges ----------
+  const sb = W.scoreboard, RK = W.risk, byid = {};
+  sb.concat(RK).forEach(g => byid[g.id] = g);
+
+  function gauge(g, signed) {
+    const d = el('div', 'g');
+    d.appendChild(el('div', 'glbl', g.label));
+    const v = el('div', 'gval');
+    const pos = g.value > 0 && (signed || g.id === 'net_highs');
+    v.appendChild(document.createTextNode(
+      (pos ? '+' : '') + (g.unit === '%' ? g.value.toFixed(1) : g.value)));
+    if (g.unit) v.appendChild(el('span', 'u', g.unit));
+    d.appendChild(v);
+    const rail = el('div', 'rail' +
+      (g.pct == null ? '' : g.pct >= 70 ? ' hot' : g.pct <= 30 ? ' cold' : ''));
+    if (g.pct != null) { const m = el('i'); m.style.left = 'calc(' + g.pct.toFixed(1) + '% - 1px)';
+                         rail.appendChild(m); }
+    d.appendChild(rail);
+    d.appendChild(el('div', 'gnote', (g.pct == null ? '' : ord(g.pct) + ' pct · ') + g.note));
+    return d;
+  }
+  RK.forEach(g => $('#riskg').appendChild(gauge(g, g.id !== 'lead_breadth')));
+  sb.forEach(g => $('#gauges').appendChild(gauge(g, false)));
+
+  // ---------- verdict ----------
+  // Risk and participation answer different questions, so the call reads both and
+  // names the case where they disagree. That disagreement IS the rotation.
+  const rScored = RK.filter(g => g.pct != null);
+  const pScored = sb.filter(g => g.pct != null);
+  const rHot = rScored.filter(g => g.pct >= 50).length;
+  const pHot = pScored.filter(g => g.pct >= 50).length;
+  const R = rHot >= 3 ? 'on' : rHot <= 1 ? 'off' : 'mid';
+  const P = pHot >= 4 ? 'broad' : pHot <= 2 ? 'narrow' : 'mid';
+  const N = W.narrative;
+
+  const CALL = {
+    'on/broad':   ['on', 'Risk-on', 'Trend and risk appetite agree.'],
+    'on/mid':     ['on', 'Risk-on', 'Risk is being paid for.'],
+    'on/narrow':  ['on', 'Narrow risk-on', 'Risk is being taken in a thin tape.'],
+    'mid/broad':  ['', 'Mixed', 'A firm index without much risk being taken.'],
+    'mid/mid':    ['', 'Mixed', 'Nothing is decided.'],
+    'mid/narrow': ['', 'Mixed', 'Thin, and risk appetite is no better.'],
+    'off/broad':  ['off', 'Risk-off under a firm index',
+                   'The index is holding because money rotated to defensives, not because risk is being taken.'],
+    'off/mid':    ['off', 'Risk-off', 'Risk is being sold into a soft tape.'],
+    'off/narrow': ['off', 'Risk-off', 'Risk is being sold and nothing is holding up.'],
+  }[R + '/' + P];
+  const callEl = $('#call');
+  callEl.textContent = '';
+  callEl.appendChild(el('em', N ? N.tone : CALL[0], (N ? N.call : CALL[1]) + '.'));
+  callEl.appendChild(document.createTextNode(' ' + (N ? N.detail : CALL[2])));
+
+  const bt = byid.beta, sp = byid.spread, p50 = byid.pct_above_50, nh = byid.net_highs;
+  if (N) {
+    $('#marketsum').textContent = N.summary;
+    $('#why').textContent = N.market;
+    $('#worked').textContent = N.winners;
+    $('#lagged').textContent = N.laggards;
+    $('#driver').textContent = N.why;
+    $('#since').textContent = N.comparison;
+    $('#tally').textContent = N.tally;
+  } else {
+    $('#why').innerHTML =
+      'High-beta names are <b>' + sgn(bt.value / 100) + '</b> against low-beta over the month, ' +
+      ord(bt.pct) + ' percentile of five years. Leader breadth is <b>' +
+      (sp.value >= 0 ? '+' : '') + sp.value.toFixed(1) + 'pt</b> against the index ' +
+      (sp.value < 0 ? 'below' : 'above') + ' it. Meanwhile <b>' + p50.value.toFixed(0) +
+      '%</b> of S&amp;P names hold their 50-day (' + ord(p50.pct) + ' pct) and net 52-week highs ' +
+      'are <b>' + (nh.value >= 0 ? '+' : '') + nh.value + '</b>. ' +
+      (R === 'off' && P === 'broad'
+        ? 'Breadth is not disagreeing with risk here — it is counting the rotation as health.'
+        : '');
+    $('#worked').textContent = 'Run a fresh review to populate weekly leaders.';
+    $('#lagged').textContent = 'Run a fresh review to populate weekly laggards.';
+    $('#driver').textContent = CALL[2];
+    $('#since').textContent = 'No generated comparison is available for this edition.';
+    $('#tally').textContent = rHot + ' of ' + rScored.length + ' risk gauges and ' +
+      pHot + ' of ' + pScored.length + ' participation gauges above their five-year median';
+  }
+
+  // ---------- indexes ----------
+  const ib = $('#idxtbl tbody');
+  W.indexes.forEach(r => {
+    const tr = el('tr');
+    const c0 = el('td', 'l'); c0.appendChild(el('span', 'nm', r.label));
+    c0.appendChild(el('span', 'grp', r.id.toUpperCase()));
+    tr.appendChild(c0);
+    tr.appendChild(el('td', '', num(r.last, r.last < 100 ? 2 : 0)));
+    [['r1w', 1], ['r1m', 1], ['r3m', 1], ['ytd', 1], ['off_high', 1],
+     ['vs_ma50', 1], ['vs_ma200', 1]].forEach(([k, d]) => {
+      const td = el('td', cls(r[k]), sgn(r[k], d));
+      tr.appendChild(td);
+    });
+    ib.appendChild(tr);
+  });
+  $('#idxleg').textContent = 'three indexes reviewed + two breadth proxies';
+
+  // ---------- ratios ----------
+  function spark(vals, w, h) {
+    const lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    const rng = (hi - lo) || 1, n = vals.length;
+    const x = i => (i / (n - 1)) * w;
+    const y = v => h - 2 - ((v - lo) / rng) * (h - 4);
+    let d = '';
+    vals.forEach((v, i) => { d += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); });
+    const up = vals[n - 1] >= vals[0];
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('class', 'spark'); s.setAttribute('width', w); s.setAttribute('height', h);
+    s.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+    const base = document.createElementNS(s.namespaceURI, 'line');
+    base.setAttribute('x1', 0); base.setAttribute('x2', w);
+    base.setAttribute('y1', y(vals[0])); base.setAttribute('y2', y(vals[0]));
+    base.setAttribute('stroke', '#e5e7eb'); base.setAttribute('stroke-dasharray', '2 2');
+    s.appendChild(base);
+    const p = document.createElementNS(s.namespaceURI, 'path');
+    p.setAttribute('d', d); p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', up ? '#3f9d6a' : '#b8484f'); p.setAttribute('stroke-width', 1.3);
+    s.appendChild(p);
+    return s;
+  }
+  function ratioStrip(node, list) {
+  const rw = node;
+  list.forEach(r => {
+    const d = el('div', 'ra');
+    const lab = el('div', 'rl');
+    lab.appendChild(el('div', 'n', r.label));
+    lab.appendChild(el('div', 's', r.note));
+    d.appendChild(lab);
+    d.appendChild(spark(r.spark, 108, 26));
+    const v = el('div', 'rv');
+    const a = el('span', cls(r.r1m), sgn(r.r1m)); v.appendChild(a);
+    const b = el('span', 's'); b.textContent = '3m ' + sgn(r.r3m); v.appendChild(b);
+    d.appendChild(v);
+    rw.appendChild(d);
+  });
+  }
+  ratioStrip($('#ratios'), W.ratios);
+  ratioStrip($('#rratios'), W.risk_ratios || []);
+  $('#riskleg').textContent = 'S&P members · beta and momentum quintiles rebuilt daily';
+
+  // ---------- themes ----------
+  const th = W.themes.slice();
+  const rot = th.slice().sort((a, b) => b.drank - a.drank);
+  function rotList(node, arr, key) {
+    arr.forEach(r => {
+      const li = el('li');
+      li.appendChild(el('span', 'd', (r.drank > 0 ? '+' : '') + r.drank));
+      li.appendChild(el('span', '', r.label));
+      li.appendChild(el('span', 'r', '#' + r.rank + ' · ' + sgn(r.r1m)));
+      node.appendChild(li);
+    });
+  }
+  rotList($('#rotin'), rot.filter(r => r.drank > 0).slice(0, 5));
+  rotList($('#rotout'), rot.filter(r => r.drank < 0).slice(-5).reverse());
+  $('#thleg').textContent = th.length + ' themes and sectors, ranked by the week';
+
+  function themeRow(r) {
+    const tr = el('tr');
+    const c0 = el('td', 'l');
+    c0.appendChild(el('span', 'nm', r.label));
+    c0.appendChild(el('span', 'grp', r.kind === 'sector' ? 'sector' : r.id.toUpperCase()));
+    tr.appendChild(c0);
+    ['r1w', 'r1m', 'r3m'].forEach(k => tr.appendChild(el('td', cls(r[k]), sgn(r[k]))));
+    tr.appendChild(el('td', 'mute', '#' + r.rank));
+    tr.appendChild(el('td', r.drank > 0 ? 'up' : r.drank < 0 ? 'dn' : 'mute',
+                      r.drank === 0 ? '0' : (r.drank > 0 ? '+' : '') + r.drank));
+    tr.appendChild(el('td', 'mute', r.n == null ? '—' : r.n));
+    return tr;
+  }
+
+  function volRow(r) {
+    const tr = el('tr');
+    const c0 = el('td', 'l');
+    c0.appendChild(el('span', 'tk', r.t.toUpperCase()));
+    if (r.hv_ipo) c0.appendChild(el('span', 'tag ever', 'since IPO'));
+    else if (r.hv_ever) c0.appendChild(el('span', 'tag ever', 'ever'));
+    tr.appendChild(c0);
+    tr.appendChild(el('td', 'l mute', r.date.slice(5)));
+    tr.appendChild(el('td', '', r.rvol == null ? '—' : '×' + r.rvol.toFixed(2)));
+    tr.appendChild(el('td', cls(r.chg), sgn(r.chg)));
+    tr.appendChild(el('td', 'mute', '$' + num(r.dvol_m) + 'm'));
+    tr.appendChild(el('td', cls(r.r1w), sgn(r.r1w)));
+    tr.appendChild(el('td', cls(r.off_high), sgn(r.off_high)));
+    return tr;
+  }
+
+  function flagRow(r) {
+    const tr = el('tr');
+    const c0 = el('td', 'l'); c0.appendChild(el('span', 'tk', r.t.toUpperCase()));
+    tr.appendChild(c0);
+    tr.appendChild(el('td', 'up', sgn(r.gain, 0)));
+    tr.appendChild(el('td', 'mute', r.hold + 'd'));
+    tr.appendChild(el('td', '', pct(r.pull, 0)));
+    tr.appendChild(el('td', r.volratio < 1 ? 'up' : '',
+                      r.volratio == null ? '—' : '×' + r.volratio.toFixed(2)));
+    tr.appendChild(el('td', cls(r.off_high), sgn(r.off_high)));
+    return tr;
+  }
+
+  // one sortable-table helper for all three
+  function table(sel, rows, render, defKey, defDir) {
+    const tb = sel.querySelector('tbody');
+    let key = defKey, dir = defDir == null ? -1 : defDir;
+    function draw() {
+      const s = rows.slice().sort((a, b) => {
+        const x = a[key], y = b[key];
+        if (x == null) return 1; if (y == null) return -1;
+        return (x < y ? -1 : x > y ? 1 : 0) * dir;
+      });
+      tb.textContent = '';
+      s.forEach(r => tb.appendChild(render(r)));
+      sel.querySelectorAll('thead th').forEach(t =>
+        t.classList.toggle('sorted', t.dataset.k === key));
+    }
+    sel.querySelectorAll('thead th[data-k]').forEach(t => {
+      t.addEventListener('click', () => {
+        if (key === t.dataset.k) dir = -dir; else { key = t.dataset.k; dir = -1; }
+        draw();
+      });
+    });
+    draw();
+  }
+  table($('#thtbl'), th, themeRow, 'r1w', -1);
+
+  // ---------- volume edge ----------
+  const V = W.volume, F = W.flags;
+  const both = V.filter(v => F.some(f => f.t === v.t)).map(v => v.t.toUpperCase());
+  $('#volleg').textContent = V.length + ' names · ' + W.week.sessions + ' sessions';
+  if (N) $('#vollede').textContent = N.volume;
+  else $('#vollede').innerHTML = V.length
+    ? 'Ranked by relative volume. ' + (both.length
+        ? '<b>' + both.join(', ') + '</b> also ' + (both.length === 1 ? 'sits' : 'sit') +
+          ' in a high tight flag — the overlap is the focus list.'
+        : 'None of them also sit in a flag this week, so the focus list is the volume names alone.')
+    : 'No qualifying volume highs in the week just closed.';
+  if (V.length) table($('#voltbl'), V, volRow, 'rvol', -1);
+  else $('#voltbl').style.display = 'none';
+
+  // ---------- flags ----------
+  $('#flleg').textContent = F.length + (F.length === 1 ? ' name' : ' names') +
+    ' · ' + ord(byid.flags.pct) + ' percentile of five years';
+  $('#fllede').textContent = F.length
+    ? 'The count is the signal here. ' + F.length +
+      (F.length === 1 ? ' flag is' : ' flags are') + ' running against a five-year range of ' +
+      Math.min.apply(null, W.gauges.flags.slice(-1260)) + ' to ' +
+      Math.max.apply(null, W.gauges.flags.slice(-1260)) + '.'
+    : 'No high tight flags in this universe right now. In a large-cap universe that is the ' +
+      'common state — the count reads zero through most quiet and most falling markets.';
+  if (F.length) table($('#fltbl'), F, flagRow, 'gain', -1);
+  else $('#fltbl').style.display = 'none';
+
+  // ---------- risk chart ----------
+  // High-beta / low-beta as a line, and leader-minus-index breadth as a band that
+  // splits at zero. Different units, so the band gets its own axis; the zero line
+  // is the only level on it that matters.
+  const RS = W.risk_series, NS2 = 'http://www.w3.org/2000/svg';
+  function mk2(t, a) { const n = document.createElementNS(NS2, t);
+                       for (const k in a) n.setAttribute(k, a[k]); return n; }
+  let ryears = 3;
+  function drawRisk() {
+    const svg = $('#rchart'), H = 282, pad = { t: 16, r: 44, b: 22, l: 40 };
+    const WW = svg.clientWidth || 1000;
+    svg.setAttribute('viewBox', '0 0 ' + WW + ' ' + H);
+    svg.setAttribute('height', H); svg.textContent = '';
+    const n = RS.dates.length;
+    const i0 = ryears ? Math.max(0, n - ryears * 252) : 0;
+    const dt = RS.dates.slice(i0);
+    const raw = RS.beta.slice(i0);
+    const lb = RS.lead_breadth.slice(i0), ab = RS.all_breadth.slice(i0);
+    const m = dt.length;
+    const base = raw.find(v => v != null) || 100;
+    const bl = raw.map(v => v == null ? null : 100 * v / base);
+    const sprd = lb.map((v, i) => (v == null || ab[i] == null) ? null : v - ab[i]);
+
+    // the band gets the bottom strip; the line gets everything above it, so the
+    // two never tangle even though they share the frame
+    const bandTop = H - pad.b - 68, bandBot = H - pad.b, lineBot = bandTop - 14;
+    const fin = bl.filter(v => v != null);
+    const lo = Math.min.apply(null, fin), hi = Math.max.apply(null, fin);
+    const padr = (hi - lo) * 0.08 || 1;
+    const x = i => pad.l + (i / (m - 1)) * (WW - pad.l - pad.r);
+    const y = v => pad.t + (1 - (v - lo + padr) / (hi - lo + 2 * padr)) * (lineBot - pad.t);
+    const sfin = sprd.filter(v => v != null).map(Math.abs);
+    const smax = Math.max(6, Math.max.apply(null, sfin));
+    const z = (bandTop + bandBot) / 2;
+    const ys = v => z - (v / smax) * ((bandBot - bandTop) / 2);
+
+    for (let k = 0; k <= 4; k++) {
+      const v = lo - padr + (k / 4) * (hi - lo + 2 * padr);
+      svg.appendChild(mk2('line', { x1: pad.l, x2: WW - pad.r, y1: y(v), y2: y(v),
+                                    stroke: '#f4f4f3' }));
+      const t = mk2('text', { x: pad.l - 6, y: y(v) + 3, 'text-anchor': 'end' });
+      t.textContent = v.toFixed(0); svg.appendChild(t);
+    }
+
+    // the spread band, split at zero
+    let d = 'M' + x(0) + ' ' + ys(0), open = false;
+    sprd.forEach((v, i) => { d += 'L' + x(i).toFixed(1) + ' ' + ys(v == null ? 0 : v).toFixed(1); });
+    d += 'L' + x(m - 1) + ' ' + ys(0) + 'Z';
+    const defs = mk2('defs', {});
+    ['up', 'dn'].forEach((k, j) => {
+      const cp = mk2('clipPath', { id: 'rc-' + k });
+      cp.appendChild(mk2('rect', { x: 0, y: j ? z : bandTop - 6, width: WW,
+                                   height: j ? bandBot - z + 6 : z - bandTop + 6 }));
+      defs.appendChild(cp);
+    });
+    svg.appendChild(defs);
+    svg.appendChild(mk2('path', { d: d, fill: '#3f9d6a', 'fill-opacity': .28,
+                                  stroke: 'none', 'clip-path': 'url(#rc-up)' }));
+    svg.appendChild(mk2('path', { d: d, fill: '#b8484f', 'fill-opacity': .28,
+                                  stroke: 'none', 'clip-path': 'url(#rc-dn)' }));
+    svg.appendChild(mk2('line', { x1: pad.l, x2: WW - pad.r, y1: ys(0), y2: ys(0),
+                                  stroke: '#d6d3d1' }));
+    const zt = mk2('text', { x: WW - pad.r + 6, y: ys(0) + 3 });
+    zt.textContent = '0pt'; svg.appendChild(zt);
+
+    // the beta line
+    let dl = ''; open = false;
+    bl.forEach((v, i) => {
+      if (v == null) { open = false; return; }
+      dl += (open ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); open = true;
+    });
+    svg.appendChild(mk2('path', { d: dl, fill: 'none', stroke: '#0c0a09', 'stroke-width': 1.2 }));
+
+    let lastY = null;
+    dt.forEach((s, i) => {
+      const yr = s.slice(0, 4);
+      if (yr !== lastY) { lastY = yr;
+        if (i > 8 && i < m - 20) {
+          svg.appendChild(mk2('line', { x1: x(i), x2: x(i), y1: pad.t, y2: H - pad.b,
+                                        stroke: '#f4f4f3' }));
+          const t = mk2('text', { x: x(i), y: H - 7, 'text-anchor': 'middle' });
+          t.textContent = yr; svg.appendChild(t);
+        }
+      }
+    });
+
+    const cr = mk2('line', { y1: pad.t, y2: H - pad.b, stroke: '#a8a29e',
+                             'stroke-width': .8, opacity: 0 });
+    svg.appendChild(cr);
+    svg.onmousemove = e => {
+      const r = svg.getBoundingClientRect();
+      let i = Math.round((((e.clientX - r.left) * (WW / r.width)) - pad.l) /
+                         (WW - pad.l - pad.r) * (m - 1));
+      i = Math.max(0, Math.min(m - 1, i));
+      cr.setAttribute('x1', x(i)); cr.setAttribute('x2', x(i)); cr.setAttribute('opacity', 1);
+      $('#rro').textContent = dt[i] + '   high/low beta ' +
+        (bl[i] == null ? '—' : bl[i].toFixed(1)) + '   leaders ' +
+        (lb[i] == null ? '—' : lb[i].toFixed(0) + '%') + ' vs index ' +
+        (ab[i] == null ? '—' : ab[i].toFixed(0) + '%') + '   spread ' +
+        (sprd[i] == null ? '—' : (sprd[i] >= 0 ? '+' : '') + sprd[i].toFixed(1) + 'pt');
+    };
+    svg.onmouseleave = () => { cr.setAttribute('opacity', 0); $('#rro').textContent = ''; };
+  }
+  document.querySelectorAll('#rspans button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#rspans button').forEach(o => o.classList.remove('on'));
+      b.classList.add('on'); ryears = +b.dataset.y; drawRisk();
+    });
+  });
+  drawRisk();
+  addEventListener('resize', drawRisk);
+
+  // ---------- history chart ----------
+  const G = W.gauges, svg = $('#hist'), NS = 'http://www.w3.org/2000/svg';
+  let years = 5;
+  function mk(t, a) { const n = document.createElementNS(NS, t);
+                      for (const k in a) n.setAttribute(k, a[k]); return n; }
+
+  function drawHist() {
+    const H = 240, pad = { t: 14, r: 44, b: 22, l: 34 };
+    const W_ = svg.clientWidth || 1000;
+    svg.setAttribute('viewBox', '0 0 ' + W_ + ' ' + H);
+    svg.setAttribute('height', H);
+    svg.textContent = '';
+    const n = G.dates.length;
+    const i0 = years ? Math.max(0, n - years * 252) : 0;
+    const fl = G.flags.slice(i0), pc = G.pct50.slice(i0), dt = G.dates.slice(i0);
+    const m = fl.length;
+    const fmax = Math.max(4, Math.max.apply(null, fl));
+    const x = i => pad.l + (i / (m - 1)) * (W_ - pad.l - pad.r);
+    const yf = v => H - pad.b - (v / fmax) * (H - pad.t - pad.b);
+    const yp = v => H - pad.b - (v / 100) * (H - pad.t - pad.b);
+
+    // grid + left axis (flags)
+    const step = fmax <= 8 ? 2 : fmax <= 20 ? 5 : 10;
+    for (let v = 0; v <= fmax; v += step) {
+      svg.appendChild(mk('line', { x1: pad.l, x2: W_ - pad.r, y1: yf(v), y2: yf(v),
+                                   stroke: v === 0 ? '#d6d3d1' : '#f4f4f3' }));
+      const t = mk('text', { x: pad.l - 6, y: yf(v) + 3, 'text-anchor': 'end' });
+      t.textContent = v; svg.appendChild(t);
+    }
+    // right axis (% above 50d)
+    [0, 50, 100].forEach(v => {
+      const t = mk('text', { x: W_ - pad.r + 6, y: yp(v) + 3, fill: '#a8a29e' });
+      t.textContent = v + '%'; svg.appendChild(t);
+    });
+
+    // flags area
+    let d = 'M' + x(0) + ' ' + yf(0);
+    fl.forEach((v, i) => { d += 'L' + x(i).toFixed(1) + ' ' + yf(v).toFixed(1); });
+    d += 'L' + x(m - 1) + ' ' + yf(0) + 'Z';
+    svg.appendChild(mk('path', { d: d, fill: '#c1e1f7', 'fill-opacity': .75, stroke: 'none' }));
+    let dl = '';
+    fl.forEach((v, i) => { dl += (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + yf(v).toFixed(1); });
+    svg.appendChild(mk('path', { d: dl, fill: 'none', stroke: '#1d7fc4', 'stroke-width': 1 }));
+
+    // % above 50-day
+    let dp = '', open = false;
+    pc.forEach((v, i) => {
+      if (v == null) { open = false; return; }
+      dp += (open ? 'L' : 'M') + x(i).toFixed(1) + ' ' + yp(v).toFixed(1); open = true;
+    });
+    svg.appendChild(mk('path', { d: dp, fill: 'none', stroke: '#0c0a09',
+                                 'stroke-width': 1, 'stroke-opacity': .55 }));
+
+    // year ticks
+    let lastY = null;
+    dt.forEach((s, i) => {
+      const y = s.slice(0, 4);
+      if (y !== lastY) {
+        lastY = y;
+        if (i > 8 && i < m - 20) {
+          svg.appendChild(mk('line', { x1: x(i), x2: x(i), y1: pad.t, y2: H - pad.b,
+                                       stroke: '#f4f4f3' }));
+          const t = mk('text', { x: x(i), y: H - 7, 'text-anchor': 'middle' });
+          t.textContent = y; svg.appendChild(t);
+        }
+      }
+    });
+
+    const cross = mk('line', { y1: pad.t, y2: H - pad.b, stroke: '#a8a29e',
+                               'stroke-width': .8, opacity: 0 });
+    svg.appendChild(cross);
+    svg.onmousemove = e => {
+      const r = svg.getBoundingClientRect();
+      const px = (e.clientX - r.left) * (W_ / r.width);
+      let i = Math.round(((px - pad.l) / (W_ - pad.l - pad.r)) * (m - 1));
+      i = Math.max(0, Math.min(m - 1, i));
+      cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i));
+      cross.setAttribute('opacity', 1);
+      $('#ro').textContent = dt[i] + '   ' + fl[i] + ' flag' + (fl[i] === 1 ? '' : 's') +
+        '   ' + (pc[i] == null ? '—' : pc[i].toFixed(0) + '% above 50-day') +
+        '   ' + G.volhighs[i0 + i] + ' volume high' + (G.volhighs[i0 + i] === 1 ? '' : 's');
+    };
+    svg.onmouseleave = () => { cross.setAttribute('opacity', 0); $('#ro').textContent = ''; };
+  }
+  document.querySelectorAll('#hspans button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('#hspans button').forEach(o => o.classList.remove('on'));
+      b.classList.add('on'); years = +b.dataset.y; drawHist();
+    });
+  });
+  drawHist();
+  addEventListener('resize', drawHist);
+
+  $('#foot').innerHTML = 'Universe: ' + W.universe.stocks + ' real single stocks — the S&amp;P ' +
+    'membership snapshot, every basket constituent, and every name a reco book has pointed at. ' +
+    'Indexes, ETFs and synthetic baskets are excluded from the scans, since they are built from ' +
+    'these names. Breadth is measured on the ' + W.universe.sp500 + ' S&amp;P names on the US ' +
+    'calendar. Gauge history from ' + G.dates[0] + '. ' +
+    '<b>Survivorship caveat:</b> the membership list is today&rsquo;s, so the historical breadth ' +
+    'series reads the past through names that made it to now — fine for reading the tape today, ' +
+    'wrong for backtesting a threshold.';
+})();
+</script>
+</body>
+</html>

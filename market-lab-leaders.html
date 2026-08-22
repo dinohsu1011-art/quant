@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Leaders — Market Lab</title>
+  <style>
+    :root {
+      --white:#ffffff; --fog:#fafaf9; --ink:#0c0a09; --ash:#78716c;
+      --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
+      --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7;
+      --up:#3f9d6a; --down:#b8484f; --rose:#e3b9bc;
+      /* RSI is a temperature, not a profit. Colouring it green/red would read
+         as good/bad when the number says stretched/washed-out, so it gets its
+         own cold and hot pair and borrows nothing from the return columns. */
+      --cold:#1d7fc4; --cold-wash:#e8f3fb; --hot:#b0691c; --hot-wash:#fbf1e2;
+      --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      --serif:ui-serif,"Iowan Old Style","Charter","Palatino",Georgia,serif;
+      --mono:ui-monospace,"SF Mono","JetBrains Mono","Menlo",monospace;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--fog); color:var(--ink); font-family:var(--sans);
+           line-height:1.5; -webkit-font-smoothing:antialiased; }
+    .main { padding:26px 34px 80px; max-width:1460px; margin:0 auto; }
+
+    .mast { display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+            border-bottom:1px solid var(--stone); padding-bottom:14px; }
+    .kicker { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--steel); }
+    .kicker a { color:var(--steel); text-decoration:none; }
+    .kicker a:hover { color:var(--blue-deep); }
+    .mast h1 { font-family:var(--serif); font-size:40px; line-height:1.05; font-weight:600;
+               margin:4px 0 0; letter-spacing:-.02em; }
+    .mast .asof { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
+                  white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .mast .asof .xlink { display:block; margin-top:7px; color:var(--blue-deep);
+                  text-decoration:none; border-bottom:1px solid transparent; }
+    .mast .asof .xlink:hover { border-bottom-color:var(--blue-deep); }
+
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:9px 26px; padding:14px 0 4px; }
+    .cgrp { display:flex; align-items:center; gap:11px; }
+    .cgrp[hidden] { display:none; }
+    .cgrp .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
+    .cgrp .sep { width:1px; height:11px; background:var(--stone); margin:0 -3px; }
+    .cgrp button { background:none; border:none; padding:2px 0; cursor:pointer; font-family:var(--sans);
+                   font-size:12.5px; color:var(--ash); border-bottom:1.5px solid transparent; }
+    .cgrp button:hover { color:var(--ink); }
+    .cgrp button.on { color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
+    .cgrp button:focus-visible { outline:1px solid var(--blue); outline-offset:3px; }
+    .cgrp button.route { color:var(--blue-deep); font-family:var(--mono); }
+    .cgrp button.route[hidden] { display:none; }
+    .cgrp input[type=search] { font-family:var(--sans); font-size:12.5px; padding:4px 9px;
+                    border:1px solid var(--stone); border-radius:8px; background:var(--white);
+                    color:var(--ink); width:190px; }
+    .cgrp input[type=search]:focus { outline:none; border-color:var(--blue); }
+    .cgrp select { font-family:var(--sans); font-size:12.5px; padding:3px 4px; border:none;
+                   border-bottom:1px solid var(--stone); background:none; color:var(--ink); }
+
+    /* ---------- composition ---------- */
+    .comp { display:grid; grid-template-columns:1fr 1fr; gap:0 40px;
+            background:var(--white); border:1px solid var(--stone); border-radius:4px;
+            padding:16px 20px 18px; margin-top:16px; }
+    .comp[hidden] { display:none; }
+    .comp h3 { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel);
+               font-weight:600; margin:0 0 9px; display:flex; gap:8px; align-items:baseline; }
+    .comp h3 em { font-style:normal; color:var(--ash); letter-spacing:0; text-transform:none;
+                  font-size:10.5px; }
+    .crow { display:grid; grid-template-columns:150px minmax(0,1fr) 40px 60px; align-items:center;
+            gap:10px; padding:2px 0; cursor:pointer; }
+    .crow:hover .cl { color:var(--blue-deep); }
+    .crow.on .cl { font-weight:650; }
+    .crow .cl { font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .crow .cb { height:9px; background:var(--fog); position:relative; border-radius:1px; }
+    .crow .cb i { position:absolute; left:0; top:0; bottom:0; background:var(--blue-deep);
+                  border-radius:1px; }
+    .crow .cn, .crow .cm { font-family:var(--mono); font-size:11px; text-align:right;
+                           font-variant-numeric:tabular-nums; color:var(--ash); }
+    .crow .cn { color:var(--ink); }
+    /* a group with nobody in the cohort still belongs on the list, but it should
+       not compete for attention with the ones carrying the move */
+    .crow.cold .cl, .crow.cold .cn { color:var(--steel); }
+    .chead { display:grid; grid-template-columns:150px minmax(0,1fr) 40px 60px; gap:10px;
+             font-size:8.5px; letter-spacing:.09em; text-transform:uppercase;
+             color:var(--steel); padding-bottom:3px; margin-bottom:2px;
+             border-bottom:1px solid var(--stone); }
+    .chead span:nth-child(3), .chead span:nth-child(4) { text-align:right; }
+    .cempty { font-size:12px; color:var(--steel); padding:4px 0; }
+
+    .summit-comp { display:grid; grid-template-columns:1fr 1fr; gap:0 40px;
+                   background:#fffdf8; border:1px solid var(--stone); border-radius:4px;
+                   padding:14px 20px 16px; margin-top:16px; }
+    .summit-comp[hidden] { display:none; }
+    .summit-comp > div + div { border-left:1px solid var(--stone); padding-left:20px; }
+    .summit-comp h3 { margin:0 0 8px; color:var(--ink); font-size:9.5px; font-weight:650;
+                      letter-spacing:.03em; }
+    .summit-comp h3 em { color:var(--ash); font-size:9px; font-style:normal; font-weight:400;
+                         letter-spacing:0; margin-left:7px; }
+    .summit-row { width:100%; display:grid; grid-template-columns:10px minmax(0,1fr) 44px 55px;
+                  align-items:center; gap:8px; padding:3px 0; border:0; background:none;
+                  color:var(--ash); cursor:pointer; text-align:left; }
+    .summit-row:hover, .summit-row.on { color:var(--blue-deep); }
+    .summit-row.on { font-weight:650; }
+    .summit-row .swatch { width:8px; height:8px; }
+    .summit-row .tag { width:8px; height:8px; border:1px solid var(--steel); border-radius:2px; }
+    .summit-row .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+                        font:10px var(--sans); }
+    .summit-row .count, .summit-row .med { text-align:right; font:9px var(--mono);
+                                          font-variant-numeric:tabular-nums; }
+    .summit-row .med.pos { color:var(--green); }
+    .summit-row .med.neg { color:var(--red); }
+    .summit-empty { color:var(--steel); font:10px var(--sans); padding:3px 0; }
+
+    .verdict { font-family:var(--mono); font-size:10.5px; color:var(--ash); margin:13px 2px 0;
+               line-height:1.5; font-variant-numeric:tabular-nums; }
+    .verdict b { font-weight:650; }
+
+    /* ---------- alternate rank views ---------- */
+    .vizwrap { position:relative; overflow:auto; margin-top:18px; background:var(--white);
+               border:1px solid var(--stone); border-radius:4px; min-height:420px; }
+    .vizwrap canvas { display:block; width:100%; min-width:760px; }
+    .vizwrap canvas[hidden], .vizempty[hidden] { display:none; }
+    .viztip { position:absolute; z-index:4; pointer-events:none; opacity:0; transform:translate(10px,-50%);
+              padding:5px 7px; border:1px solid var(--platinum); border-radius:3px;
+              background:rgba(255,255,255,.96); box-shadow:0 2px 10px rgba(12,10,9,.06);
+              color:var(--ink); font:10.5px/1.35 var(--mono); white-space:nowrap; }
+    .viztip.on { opacity:1; }
+    .vizempty { min-height:420px; display:grid; place-items:center; color:var(--steel);
+                font:11px var(--mono); }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+               clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+    /* ---------- table ---------- */
+    .tablewrap { overflow-x:auto; margin-top:22px; }
+    table { width:100%; border-collapse:collapse; min-width:1180px; }
+    thead th { font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--steel);
+               font-weight:600; text-align:right; padding:0 9px 7px; border-bottom:1px solid var(--stone);
+               cursor:pointer; white-space:nowrap; }
+    thead th.l { text-align:left; }
+    thead th:hover { color:var(--ash); }
+    thead th.sorted { color:var(--ink); }
+    tbody td { padding:6px 9px; border-bottom:1px solid var(--fog); font-size:12.5px; text-align:right;
+               font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    tbody td.l { text-align:left; font-family:var(--sans); }
+    tbody tr:hover td { background:var(--fog); }
+    tbody tr.cut td { border-bottom:1px solid var(--platinum); }
+    tbody td .tk { font-family:var(--mono); font-weight:600; font-size:12.5px; }
+    tbody td .co { color:var(--ash); font-size:11.5px; margin-left:8px; }
+    /* fewer than five years behind the average — readable, but marked */
+    tbody td .co.thin { color:var(--down); border-bottom:1px dotted var(--down);
+                        cursor:help; }
+    tbody td .sec { color:var(--ash); font-size:11px; }
+    .tag { display:inline-block; font-size:10px; letter-spacing:.02em; padding:1px 5px;
+           border:1px solid var(--stone); border-radius:3px; color:var(--ash); margin-right:3px;
+           background:var(--white); }
+    .tag.hot { border-color:var(--blue-deep); color:var(--blue-deep); }
+    .tag.rc { border-color:var(--platinum); color:var(--ink); background:var(--fog); }
+    td.key { font-size:13px; font-weight:600; }
+    .pos { color:var(--up); } .neg { color:var(--down); }
+    /* Only the tails are tinted. A stock at 52 is not telling you anything and
+       should not look like it is. */
+    td .rsiv { padding:1px 4px; border-radius:3px; }
+    td .rsiv.cold { color:var(--cold); background:var(--cold-wash); }
+    td .rsiv.hot  { color:var(--hot);  background:var(--hot-wash); }
+    .rk { color:var(--steel); font-size:11px; }
+    .bar { display:inline-block; height:8px; background:var(--sky); border-radius:1px;
+           vertical-align:middle; }
+    /* the sigma hover panel: what happened, over what the bell curve claims,
+       sized to the numbers rather than to a sentence */
+    .sg { cursor:help; border-bottom:1px dotted var(--platinum); }
+    .oddstip { position:fixed; z-index:40; display:none; pointer-events:none;
+               padding:8px 11px 9px; border:1px solid var(--platinum); border-radius:4px;
+               background:rgba(255,255,255,.985); box-shadow:0 6px 22px rgba(12,10,9,.10);
+               color:var(--ink); font:11px/1.5 var(--mono); font-variant-numeric:tabular-nums;
+               white-space:nowrap; }
+    .oddstip b { display:block; font-weight:650; margin-bottom:5px; }
+    .oddstip .row { display:flex; justify-content:space-between; gap:22px; }
+    .oddstip .row span:first-child { color:var(--steel); }
+    .oddstip sup { font-size:8.5px; }
+    .note { font:10.5px/1.6 var(--mono); color:var(--steel); margin-top:18px; max-width:980px; }
+    .note b { color:var(--ink); font-weight:600; }
+    .empty { padding:80px 0; text-align:center; color:var(--steel); font-size:13px; }
+    @media (max-width:900px){ .main{padding:20px 14px 60px;} .mast h1{font-size:30px;}
+      .comp{grid-template-columns:1fr; gap:18px;} .vizwrap{margin-top:14px;} }
+  </style>
+</head>
+<body>
+<main class="main">
+  <div class="mast">
+    <div>
+      <div class="kicker"><a href="market-lab.html">&larr; Market Lab</a></div>
+      <h1>Leaders</h1>
+    </div>
+    <div class="asof">
+      <div id="asof"></div>
+      <a class="xlink" href="market-lab-themes.html">Theme returns &rarr;</a>
+      <a class="xlink" href="market-lab-weekend.html">Weekend review &rarr;</a>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="cgrp" id="wins"><span class="lbl">Window</span></div>
+    <div class="cgrp" id="unis"><span class="lbl">Universe</span></div>
+    <div class="cgrp" id="dirs"><span class="lbl">Rank</span></div>
+    <div class="cgrp" id="tops"><span class="lbl">Cohort</span></div>
+    <div class="cgrp" id="views"><span class="lbl">View</span></div>
+    <div class="cgrp"><button class="route" id="reroute" hidden aria-label="Draw another summit route">↻ route</button></div>
+  </div>
+  <div class="controls">
+    <div class="cgrp"><span class="lbl">Filter</span>
+      <input id="q" type="search" placeholder="Ticker or company…" autocomplete="off" />
+      <select id="sector"></select>
+      <select id="theme"></select>
+    </div>
+    <div class="cgrp" id="months" hidden><span class="lbl">Month</span></div>
+    <div class="cgrp" id="liq"><span class="lbl">Min $ vol</span></div>
+    <div class="cgrp" id="rsis" title="Wilder's Relative Strength Index over the chosen number of sessions. Below 30 is conventionally oversold, above 70 overbought. It is a readout of where the share price sits in its own recent range, not a buy or sell signal — see the note under the table."><span class="lbl">RSI</span></div>
+    <div class="cgrp" id="basis" title="Off = price return, the move in the share price alone. On = total return, dividends reinvested on the ex-date. Applies to every page. 52-week, moving-average, volatility and liquidity columns always describe the share price."><span class="lbl">Dividends</span></div>
+    <div class="cgrp" id="clearwrap"><button id="clear">Clear filters</button></div>
+  </div>
+
+  <div class="comp">
+    <div>
+      <h3>Sectors <em id="ch1"></em></h3>
+      <div id="csec"></div>
+    </div>
+    <div>
+      <h3>Themes <em id="ch2"></em></h3>
+      <div id="cthm"></div>
+    </div>
+  </div>
+
+  <div class="summit-comp" id="summit-comp" hidden></div>
+
+  <p class="verdict" id="verdict"></p>
+
+  <div class="vizwrap" id="vizwrap" hidden>
+    <canvas id="viz" role="img" aria-describedby="vizdesc"></canvas>
+    <div class="viztip" id="viztip"></div>
+    <div class="vizempty" id="vizempty" hidden>Choose two windows.</div>
+    <div class="sr-only" id="vizdesc"></div>
+  </div>
+
+  <div class="tablewrap">
+    <table id="tbl">
+      <thead><tr id="head"></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="empty" id="empty" hidden>Nothing matches these filters.</div>
+
+  <p class="note" id="foot"></p>
+</main>
+
+<script src="cube/leaders.js?v=20260821-9a2ecad7"></script>
+<script>
+(() => {
+  const D = window.QUANT_LEADERS;
+  if (!D) { document.getElementById('tbl').outerHTML =
+    '<p class="empty">cube/leaders.js not found — run <code>python -m export.leaders</code>.</p>';
+    return; }
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const ROWS = D.rows, M = D.meta, THEMES = M.themes;
+  const WINDOWS = M.windows;
+
+  // ---------- return basis ----------
+  // `r`/`z`/`zx` are PRICE return — the move in the share price alone. `rt`/`zt`/
+  // `zxt` are the same horizons with dividends reinvested, shipped only for names
+  // that actually pay. The choice is one setting shared with Theme Returns, so
+  // the two pages can never disagree about what a number means.
+  //
+  // Everything else on this page (52-week extremes, MA distance, vol, liquidity,
+  // seasonality) describes the share price and does not move with the toggle.
+  const BASIS_KEY = 'mlab.basis';
+  const readBasis = () => { try { return localStorage.getItem(BASIS_KEY) === 'tr'; }
+                            catch (e) { return false; } };
+  const writeBasis = v => { try { localStorage.setItem(BASIS_KEY, v ? 'tr' : 'pr'); }
+                            catch (e) {} };
+  // Swap the fields in place rather than teaching every reader about the pair:
+  // the table, loom, summit, sorting, tooltips and the composition panel all go
+  // through r.r / r.z / r.zx and stay untouched.
+  function applyBasis(){
+    ROWS.forEach(r => {
+      if (!r.rt) return;
+      if (!r._pr) r._pr = { r:r.r, z:r.z, zx:r.zx };
+      const s = st.tr ? { r:r.rt, z:r.zt, zx:r.zxt } : r._pr;
+      r.r = s.r; r.z = s.z; r.zx = s.zx;
+    });
+  }
+
+  // ---------- state ----------
+  // `top` is the cohort size the composition panel reads. It is the whole point
+  // of the page: a rank is only interesting once you ask what the top N share.
+  // sortK/sortDir start as the ranking itself, and Best/Worst resets them to it.
+  // Otherwise flipping to Worst renumbers the ranks but leaves the table sorted
+  // best-first, so the bottom 10 sits at the bottom of a 500-row table.
+  const st = { windows:['YTD'], view:'table', uni:'all', rank:'best', dir:-1, top:10, q:'',
+               sector:'', theme:'', minAdv:0, sortK:'win', sortDir:-1, route:0,
+               month:new Date().getMonth(), tr:readBasis(), rsiN:14 };
+  // The lookbacks the bundle actually shipped, so the buttons can never offer a
+  // period the data does not carry.
+  const RSIN = (M.rsi_periods || [7,14,21]).map(Number);
+  if (!RSIN.includes(st.rsiN)) st.rsiN = RSIN[Math.min(1, RSIN.length - 1)];
+  const rsiOf = r => r.rsi ? r.rsi[String(st.rsiN)] : null;
+  const sortByRank = () => {
+    st.sortK = st.rank === 'sigma' ? 'sigma' : st.rank === 'rvol' ? 'rvol'
+      : st.rank === 'month' ? 'month' : st.rank === 'rsi' ? 'rsi' : 'win';
+    // RSI ranks lowest-first. Every other mode puts the biggest number on top,
+    // but the reason to sort a screen by RSI is to find what has been sold off,
+    // so rank 1 is the most washed-out name and the header still flips it.
+    st.sortDir = (st.rank === 'worst' || st.rank === 'rsi') ? 1 : -1;
+  };
+
+  const UNIS = [['all','All tracked'], ['sp','S&P 500'], ['reco','My coverage']];
+  // Month is a rank mode, not a window: it ignores the window entirely and asks
+  // what this name usually does in that calendar month across its whole history.
+  const DIRS = [['best','Best'], ['worst','Worst'], ['sigma','Sigma'],
+                ['rvol','Relative volume'], ['month','Month'], ['rsi','RSI']];
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const TOPS = [10, 25, 50, 100];
+  const LIQ  = [[0,'—'], [50,'50M'], [250,'250M'], [1000,'1B']];
+  const VIEWS = [['table','Table'], ['loom','Loom'], ['summit','Summit']];
+  const WIN_POS = Object.fromEntries(WINDOWS.map((w,i) => [w,i]));
+  const selectedWindows = () => st.windows.slice().sort((a,b) => WIN_POS[b] - WIN_POS[a]);
+  // The shorter window starts later and defines the currently displayed cohort.
+  // In the loom it is shown on the left, so the comparison reads newest first.
+  const rankWin = () => selectedWindows().at(-1);
+  const pickCompanion = w => {
+    const i = WIN_POS[w];
+    return i < WINDOWS.length-1 ? WINDOWS[i+1] : WINDOWS[Math.max(0,i-1)];
+  };
+  const addWindow = w => {
+    if (st.view !== 'loom') { st.windows = [w]; return; }
+    const at = st.windows.indexOf(w);
+    if (at >= 0) {
+      if (st.windows.length > 1) st.windows.splice(at, 1);
+      return;
+    }
+    st.windows.push(w);
+    if (st.windows.length > 2) st.windows.shift();
+  };
+  const setView = v => {
+    st.view = v;
+    if (v === 'loom' && st.windows.length < 2) {
+      const w = st.windows[0];
+      const other = pickCompanion(w);
+      st.windows = other === w ? [w] : [w, other];
+    } else if (v !== 'loom' && st.windows.length > 1) {
+      st.windows = [rankWin()];
+    }
+  };
+
+  const fmtP = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const fmtS = v => v == null ? '—' : v.toFixed(1) + 'σ';
+  const fmtRV = v => v == null ? '—' : '×' + v.toFixed(2);
+  const cls  = v => v == null ? '' : v >= 0 ? 'pos' : 'neg';
+  const fmtM = v => v == null ? '—' : v >= 1000 ? (v/1000).toFixed(1) + 'B' : v.toFixed(0) + 'M';
+  // RSI carries no sign and no unit, so it gets neither a plus nor a percent.
+  const fmtRSI = v => v == null ? '—' : v.toFixed(0);
+  const OVERSOLD = 30, OVERBOUGHT = 70;
+  // [average %, sample count] for the selected calendar month, or null
+  const monthStat = r => (r.m && r.m[st.month]) || null;
+  // Two is the floor: below that there is no average, only a single month being
+  // reported as a tendency. It used to be five, which hid every recent listing —
+  // the whole Neocloud basket vanished from an August ranking for want of history
+  // it cannot have. Better to show the average and say how thin it is: anything
+  // under five years is flagged in the column and in the tooltip, so a two-year
+  // average can be read for what it is rather than silently dropped.
+  const MIN_MONTHS = 2;
+  const THIN_MONTHS = 5;
+  const rankValue = (r, win) => st.rank === 'sigma' ? r.z?.[win]
+    : st.rank === 'rvol' ? r.rv?.[win]
+    : st.rank === 'rsi' ? rsiOf(r)
+    : st.rank === 'month' ? (monthStat(r)?.[1] >= MIN_MONTHS ? monthStat(r)[0] : null)
+    : r.r[win];
+  // What it takes for a name to be counted at all, said in words. The second
+  // number in the composition panel is not "tagged names" — it is tagged names
+  // that clear this bar, and the bar moves with the mode. In month mode the
+  // window is irrelevant: the gate is having enough Augusts to average, which is
+  // why a basket of 2024 listings shows two names there whatever window is lit.
+  const rankableNote = () => st.rank === 'month'
+    ? `with ${MIN_MONTHS}+ years of ${MON[st.month]}`
+    : st.rank === 'rvol' ? `with a ${rankWin()} relative-volume number`
+    : st.rank === 'rsi' ? `with an RSI(${st.rsiN})`
+    : `with a ${rankWin()} number`;
+  const fmtRank = v => st.rank === 'sigma' ? fmtS(v) : st.rank === 'rvol' ? fmtRV(v)
+    : st.rank === 'rsi' ? fmtRSI(v) : fmtP(v);
+  const fmtRankValue = (r, win) => fmtRank(rankValue(r,win));
+
+  // ---------- selection ----------
+  // Universe first, then the free filters. The cohort is drawn from the filtered
+  // set, so filtering to one sector and asking for the top 10 gives that sector's
+  // top 10 — which is the other question this page gets asked.
+  function pool(){
+    return ROWS.filter(r => {
+      if (r.stale) return false;
+      if (st.uni === 'sp' && !r.sp) return false;
+      if (st.uni === 'reco' && !r.rc) return false;
+      if (st.minAdv && (r.adv == null || r.adv < st.minAdv)) return false;
+      if (st.sector && r.s !== st.sector) return false;
+      if (st.theme && !r.th.includes(st.theme)) return false;
+      if (st.q){
+        const q = st.q.toLowerCase();
+        if (!r.t.toLowerCase().includes(q) && !r.n.toLowerCase().includes(q)) return false;
+      }
+      return rankValue(r,rankWin()) != null;
+    });
+  }
+  // Rank is always by the chosen window, whatever the table is sorted on. The
+  // cohort has to mean one thing, or "top 10" stops being comparable to itself.
+  const ranked = p => {
+    const win = rankWin();
+    // st.dir is the Best/Worst switch and stays -1 outside 'worst'. RSI is the
+    // one mode whose rank 1 is the *smallest* value, so it inverts here.
+    const dir = st.rank === 'rsi' ? -st.dir : st.dir;
+    return p.slice().sort((a,b) => {
+      const x = rankValue(a,win), y = rankValue(b,win);
+      if (x == null) return 1; if (y == null) return -1;
+      return dir * (x - y);
+    });
+  };
+
+  const median = xs => {
+    const s = xs.filter(v => v != null).sort((a,b) => a-b);
+    if (!s.length) return null;
+    const m = s.length >> 1;
+    return s.length % 2 ? s[m] : (s[m-1] + s[m]) / 2;
+  };
+
+  // ---------- composition ----------
+  // Two counts per group: how many of the cohort it holds, and the group's own
+  // median return. A sector can own the cohort on one big name while its median
+  // sits flat — that is a different market from a sector moving as a block.
+  function composition(cohort, all, key, labelOf){
+    const win = rankWin();
+    const inC = new Map(), inAll = new Map();
+    const push = (m, k, r) => { if (!m.has(k)) m.set(k, []); m.get(k).push(r); };
+    for (const r of cohort) for (const k of key(r)) push(inC, k, r);
+    for (const r of all)    for (const k of key(r)) push(inAll, k, r);
+    // Every group in the filtered pool is listed, including the ones holding
+    // nobody in the cohort. Listing only groups with a name in the top 10 made
+    // this panel disagree with the themes page for no reason a reader could see:
+    // Photonics appeared as "2" and the other twenty themes simply weren't there,
+    // which reads as missing tags rather than as an empty cohort. A group at 0/7
+    // is an answer — that theme has no leaders right now — and it belongs on the
+    // list next to the ones that do.
+    const keys = [...inAll.keys()];
+    const out = [];
+    for (const k of keys){
+      const members = inC.get(k) || [];
+      const universe = inAll.get(k) || [];
+      out.push({ k, label: labelOf(k), n: members.length, of: universe.length,
+                 med: median(universe.map(r => rankValue(r,win))) });
+    }
+    return st.rank === 'month'
+      ? out.sort((a,b) => (b.med ?? -1e9) - (a.med ?? -1e9))
+      : out.sort((a,b) => b.n - a.n || (b.med ?? -1e9) - (a.med ?? -1e9));
+  }
+
+  function drawComp(id, items, active, onPick){
+    const el = document.getElementById(id);
+    if (!items.length){ el.innerHTML = '<div class="cempty">No labels on this cohort.</div>'; return; }
+    // The bar shows whatever the list is ranked on: cohort share normally, the
+    // group's own median in month mode, where a count bar would say nothing.
+    const byMed = st.rank === 'month';
+    const max = byMed ? Math.max(...items.map(it => Math.abs(it.med ?? 0)), 0.01)
+                      : items[0].n;
+    const barW = it => byMed ? Math.abs(it.med ?? 0)/max*100 : it.n/max*100;
+    // The count column reads "2/7" and nothing on screen said what either number
+    // was, which is how it came to be read as "only 2 stocks are tagged".
+    const head = `<div class="chead"><span></span><span></span>`
+      + `<span>${byMed ? 'n' : 'in/of'}</span><span>median</span></div>`;
+    el.innerHTML = head + items.map(it => `
+      <div class="crow${it.k === active ? ' on' : ''}${it.n ? '' : ' cold'}" data-k="${esc(it.k)}"
+           title="${esc(it.label)}: ${it.n} of ${it.of} in the cohort. The ${it.of} counts tagged names ${rankableNote()}, so a theme of recent listings thins out here whatever the window says.">
+        <span class="cl">${esc(it.label)}</span>
+        <span class="cb"><i style="width:${barW(it).toFixed(1)}%${
+          byMed && (it.med ?? 0) < 0 ? ';background:var(--down)' : ''}"></i></span>
+        <span class="cn">${it.n}<span style="color:var(--steel)">/${it.of}</span></span>
+        <span class="cm ${cls(it.med)}">${fmtRank(it.med)}</span>
+      </div>`).join('');
+    el.querySelectorAll('.crow').forEach(row =>
+      row.onclick = () => onPick(row.dataset.k === active ? '' : row.dataset.k));
+  }
+
+  // ---------- sigma odds ----------
+  // A sigma is a distance, and everyone reads it as a probability. The panel does
+  // that conversion out loud, and shows the two answers side by side: how often a
+  // move this far actually happened in this name's own history, and what a normal
+  // curve claims. They disagree, always in the same direction, because real
+  // returns have fat tails — which is exactly why the raw count ships in `zx`.
+  const oddsTip = document.createElement('div');
+  oddsTip.className = 'oddstip';
+  document.body.appendChild(oddsTip);
+
+  // 1 - Φ(z), Abramowitz & Stegun 26.2.17 — plenty accurate for a hover panel
+  function normSf(z){
+    const a = Math.abs(z), t = 1/(1 + 0.2316419*a);
+    const d = 0.3989422804014327*Math.exp(-a*a/2);
+    return d*t*(0.319381530 + t*(-0.356563782 + t*(1.781477937
+             + t*(-1.821255978 + t*1.330274429))));
+  }
+  // A 10-sigma move puts the normal curve at 1 in 1.18e23, which printed in full
+  // is unreadable and, read carefully, still only means "never". Past a million
+  // the exponent is the whole message.
+  const oneIn = pr => {
+    if (!pr || !isFinite(pr)) return null;
+    const n = 1/pr;
+    // "1 in 1" is not odds, it is a shrug — say nothing instead
+    if (n < 1.5) return null;
+    if (n >= 1e6){
+      const e = Math.floor(Math.log10(n));
+      return `1 in ${(n/10**e).toFixed(1)}&times;10<sup>${e}</sup>`;
+    }
+    return '1 in ' + (n >= 1000 ? Math.round(n/100)*100
+                    : n >= 100 ? Math.round(n/10)*10 : Math.round(n));
+  };
+
+  function sigmaCell(r, win){
+    const z = r.z?.[win];
+    if (z == null) return '—';
+    const zx = r.zx?.[win];
+    const payload = esc(JSON.stringify({t:r.t, n:r.n, win, z, ret:r.r[win],
+      hits: zx?.[0] ?? null, samp: zx?.[1] ?? null}));
+    return `<span class="sg" data-odds="${payload}">${fmtS(z)}</span>`;
+  }
+
+  // Numbers, not paragraphs. Two odds and the sample they came from; the reader
+  // can see that 0 out of n means the history ran out, without being told so in prose.
+  function oddsHTML({t, n, win, z, ret, hits, samp}){
+    const rows = [];
+    if (hits != null && samp){
+      rows.push(['seen', `${hits} / ${samp}`]);
+      if (hits) rows.push(['', oneIn(hits/samp)]);
+    }
+    rows.push(['normal', oneIn(2*normSf(z))]);
+    return `<b>${esc(t)} · ${win} ${fmtP(ret)} · ${z.toFixed(2)}σ</b>`
+      + rows.filter(([,v]) => v != null)
+            .map(([k,v]) => `<div class="row"><span>${k}</span><span>${v}</span></div>`).join('');
+  }
+
+  function bindOdds(root){
+    root.addEventListener('mousemove', e => {
+      const el = e.target.closest && e.target.closest('[data-odds]');
+      if (!el){ oddsTip.style.display = 'none'; return; }
+      if (oddsTip.dataset.for !== el.dataset.odds){
+        oddsTip.dataset.for = el.dataset.odds;
+        oddsTip.innerHTML = oddsHTML(JSON.parse(el.dataset.odds));
+      }
+      oddsTip.style.display = 'block';
+      const w = oddsTip.offsetWidth, h = oddsTip.offsetHeight;
+      oddsTip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 8) + 'px';
+      oddsTip.style.top = (e.clientY + 16 + h > window.innerHeight
+        ? e.clientY - h - 12 : e.clientY + 16) + 'px';
+    });
+    root.addEventListener('mouseleave', () => { oddsTip.style.display = 'none'; });
+  }
+  bindOdds(document.getElementById('tbl'));
+
+  // ---------- table ----------
+  const COLS = () => {
+    const win = rankWin();
+    const returnCol = {k:'win', l:win, key:st.rank === 'best' || st.rank === 'worst',
+      get:r=>fmtP(r.r[win]), v:r=>r.r[win], colour:true};
+    const sigmaCol = {k:'sigma', l:win+' σ', key:st.rank === 'sigma',
+      get:r=>sigmaCell(r,win), v:r=>r.z?.[win]};
+    const rvolCol = {k:'rvol', l:win+' RVol', key:st.rank === 'rvol',
+      get:r=>fmtRV(r.rv?.[win]), v:r=>r.rv?.[win]};
+    // The lookback is in the header because the same name reads 22 on RSI(7)
+    // and 41 on RSI(21), and a column labelled just "RSI" invites the reader to
+    // forget which one they picked.
+    const rsiCol = {k:'rsi', l:'RSI '+st.rsiN, key:st.rank === 'rsi',
+      get:r=>{ const v = rsiOf(r); if (v == null) return '—';
+        const band = v <= OVERSOLD ? ' cold' : v >= OVERBOUGHT ? ' hot' : '';
+        const note = v <= OVERSOLD ? `oversold — ${st.rsiN}-session RSI at or under ${OVERSOLD}`
+          : v >= OVERBOUGHT ? `overbought — ${st.rsiN}-session RSI at or over ${OVERBOUGHT}`
+          : `${st.rsiN}-session RSI`;
+        return `<span class="rsiv${band}" title="${note}">${fmtRSI(v)}</span>`; },
+      v:r=>rsiOf(r)};
+    const monthCol = {k:'month', l:'avg '+MON[st.month], key:true,
+      // A thin sample is shown, not hidden — but it says so, because two Augusts
+      // averaging +12% and thirty averaging +2% are not the same claim.
+      get:r=>{ const s = monthStat(r); if (!s) return '—';
+        const thin = s[1] < THIN_MONTHS;
+        return fmtP(s[0]) + `<span class="co${thin ? ' thin' : ''}"`
+          + (thin ? ` title="only ${s[1]} ${MON[st.month]}s of history — a thin average"` : '')
+          + `>n=${s[1]}</span>`; },
+      v:r=>monthStat(r)?.[0], colour:true};
+    return [
+    {k:'rank', l:'#',        cls:'rk',  get:(r,i)=>String(i+1)},
+    {k:'t',    l:'Ticker',   left:true, get:r=>`<span class="tk">${esc(r.t)}</span>`
+                 + `<span class="co">${esc(r.n)}</span>`},
+    {k:'s',    l:'Sector',   left:true, get:r=>`<span class="sec">${esc(r.s)}</span>`},
+    {k:'th',   l:'Themes',   left:true, nosort:true, get:r=> r.th.map(t =>
+                 `<span class="tag${t === st.theme ? ' hot' : ''}">${esc(THEMES[t] || t)}</span>`).join('')
+                 + (r.rc ? '<span class="tag rc">coverage</span>' : '')},
+    ...(st.rank === 'month' ? [monthCol,returnCol,sigmaCol,rvolCol]
+        : st.rank === 'sigma' ? [sigmaCol,returnCol,rvolCol]
+        : st.rank === 'rvol' ? [rvolCol,returnCol,sigmaCol]
+        : st.rank === 'rsi' ? [rsiCol,returnCol,sigmaCol]
+        : [returnCol,sigmaCol,rvolCol]),
+    ...WINDOWS.filter(w => w !== win).map(w =>
+    ({k:'w:'+w, l:w, get:r=>fmtP(r.r[w]), v:r=>r.r[w], colour:true})),
+    {k:'off52',l:'off 52wH', get:r=>fmtP(r.off52), v:r=>r.off52, colour:true},
+    {k:'ma50', l:'vs 50d',   get:r=>fmtP(r.ma50),  v:r=>r.ma50,  colour:true},
+    {k:'ma200',l:'vs 200d',  get:r=>fmtP(r.ma200), v:r=>r.ma200, colour:true},
+    ...(st.rank === 'rsi' ? [] : [rsiCol]),
+    {k:'vol',  l:'ann vol',  get:r=>r.vol == null ? '—' : r.vol.toFixed(0) + '%', v:r=>r.vol},
+    {k:'adv',  l:'$ vol',    get:r=>fmtM(r.adv), v:r=>r.adv},
+    ];
+  };
+
+  function drawTable(list, cohortN){
+    const cols = COLS();
+    document.getElementById('head').innerHTML = cols.map(c =>
+      `<th class="${c.left ? 'l' : ''}${st.sortK === c.k ? ' sorted' : ''}" data-k="${c.k}">`
+      + esc(c.l) + '</th>').join('');
+    document.querySelectorAll('#head th').forEach(th => th.onclick = () => {
+      const k = th.dataset.k;
+      if (k === 'rank' || cols.find(c => c.k === k).nosort) return;
+      st.sortDir = st.sortK === k ? -st.sortDir : -1;
+      st.sortK = k; render();
+    });
+
+    const sorted = list.slice();
+    const col = cols.find(c => c.k === st.sortK);
+    if (col && col.v)
+      sorted.sort((a,b) => {
+        const x = col.v(a), y = col.v(b);
+        if (x == null) return 1; if (y == null) return -1;
+        return st.sortDir * (x - y);
+      });
+    else if (col && col.left)
+      sorted.sort((a,b) => st.sortDir * String(col.get(a)).localeCompare(String(col.get(b))));
+
+    // rank number always reflects the window ranking, not the current sort
+    const rankOf = new Map(ranked(list).map((r,i) => [r.t, i+1]));
+    const body = sorted.slice(0, 300).map(r => {
+      const rk = rankOf.get(r.t);
+      return `<tr${rk === cohortN ? ' class="cut"' : ''}>` + cols.map(c => {
+        const raw = c.k === 'rank' ? String(rk) : c.get(r);
+        const v = c.v ? c.v(r) : null;
+        return `<td class="${c.left ? 'l' : ''} ${c.cls || ''} ${c.key ? 'key' : ''} `
+             + `${c.colour ? cls(v) : ''}">${raw}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+    document.querySelector('#tbl tbody').innerHTML = body;
+    document.getElementById('empty').hidden = sorted.length > 0;
+    document.getElementById('tbl').style.display = sorted.length ? '' : 'none';
+    return sorted.length;
+  }
+
+  // ---------- loom + summit ----------
+  // Canvas keeps the two views light enough to redraw on every cohort change,
+  // while the normal table remains the exact, accessible default.
+  const viz = document.getElementById('viz');
+  const vizWrap = document.getElementById('vizwrap');
+  const vizTip = document.getElementById('viztip');
+  const vizEmpty = document.getElementById('vizempty');
+  const vizDesc = document.getElementById('vizdesc');
+  const summitComp = document.getElementById('summit-comp');
+  let vizHits = [];
+  let lastViz = null;
+
+  const SECTOR_COLOURS = {
+    'Materials':'#287fbd', 'Industrials':'#d4871d', 'Information Technology':'#6550a4',
+    'Health Care':'#2d928f', 'Financials':'#4f8b51', 'Consumer Discretionary':'#a55a7c',
+    'Consumer Staples':'#8b7336', 'Communication Services':'#597e9b',
+    'Energy':'#9a5e2e', 'Utilities':'#6e8174', 'Real Estate':'#9b6b62',
+    'Aerospace & Defense':'#566f9e', '—':'#8c8c8c'
+  };
+  const hash32 = s => {
+    let h = 2166136261;
+    for (let i=0; i<s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  };
+  const rng32 = seed => () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  const colourOf = r => SECTOR_COLOURS[r.s]
+    || `hsl(${hash32(r.s || r.t) % 300 + 20} 38% 44%)`;
+
+  function canvasContext(height, background='#ffffff'){
+    const width = Math.max(760, vizWrap.clientWidth || 760);
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    viz.style.width = width + 'px';
+    viz.style.height = height + 'px';
+    viz.width = Math.round(width * dpr);
+    viz.height = Math.round(height * dpr);
+    const ctx = viz.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,width,height);
+    ctx.fillStyle = background;
+    ctx.fillRect(0,0,width,height);
+    ctx.textBaseline = 'middle';
+    vizHits = [];
+    return {ctx, width, height};
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    const rr = Math.min(r,w/2,h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr,y); ctx.arcTo(x+w,y,x+w,y+h,rr);
+    ctx.arcTo(x+w,y+h,x,y+h,rr); ctx.arcTo(x,y+h,x,y,rr);
+    ctx.arcTo(x,y,x+w,y,rr); ctx.closePath();
+  }
+  function rankMap(pool, win){
+    const rows = pool.filter(r => rankValue(r,win) != null)
+      .sort((a,b) => st.dir * (rankValue(a,win) - rankValue(b,win)));
+    return new Map(rows.map((r,i) => [r.t,i+1]));
+  }
+  function label(ctx, x, y, align, r, rank, win){
+    ctx.textAlign = align;
+    ctx.fillStyle = '#0c0a09';
+    ctx.font = '600 11px ui-monospace, "SF Mono", Menlo, monospace';
+    const value = fmtRankValue(r,win);
+    ctx.fillText(`#${rank ?? '—'}  ${r.t}  ${value}`,x,y);
+  }
+
+  function drawLoom(pool, cohort){
+    const wins = selectedWindows();
+    if (wins.length !== 2){
+      viz.hidden = true; vizEmpty.hidden = false; vizDesc.textContent = 'Choose exactly two windows.';
+      return;
+    }
+    viz.hidden = false; vizEmpty.hidden = true;
+    const [olderWin,newerWin] = wins;
+    const leftWin = newerWin, rightWin = olderWin;
+    const rowH = cohort.length > 50 ? 19 : 24;
+    const height = Math.max(430, 78 + cohort.length * rowH);
+    const {ctx,width,height:h} = canvasContext(height);
+    const top = 58, bottom = h - 34;
+    const leftRank = rankMap(pool,leftWin), rightRank = rankMap(pool,rightWin);
+    const leftRows = cohort.slice().sort((a,b) => {
+      const av=rankValue(a,leftWin), bv=rankValue(b,leftWin);
+      if (av == null) return 1; if (bv == null) return -1;
+      return st.dir * (av-bv);
+    });
+    const rightRows = cohort.slice().sort((a,b) =>
+      (rightRank.get(a.t) ?? 1e9) - (rightRank.get(b.t) ?? 1e9));
+    const yFor = (i,n) => n < 2 ? (top+bottom)/2 : top + (bottom-top)*i/(n-1);
+    const ly = new Map(leftRows.map((r,i) => [r.t,yFor(i,leftRows.length)]));
+    const ry = new Map(rightRows.map((r,i) => [r.t,yFor(i,rightRows.length)]));
+    const labelW = width < 900 ? 128 : 168;
+    const x0 = labelW, x1 = width-labelW;
+    const cx = width/2, loomW = Math.min(184,width*.24);
+    const loomL = cx-loomW/2, loomR = cx+loomW/2;
+    const seed = hash32([leftWin,rightWin,cohort.map(r=>r.t).join(','),st.route].join('|'));
+    const random = rng32(seed);
+
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0,34); ctx.lineTo(x1,34); ctx.stroke();
+    ctx.fillStyle = '#78716c'; ctx.font = '10px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign = 'left'; ctx.fillText(`${leftWin}  ·  newer`,18,22);
+    ctx.textAlign = 'right'; ctx.fillText(`${rightWin}  ·  older`,width-18,22);
+
+    // The paths enter a framed loom, pass through alternating heddles, and fan
+    // back out in the second ranking order.
+    for (const r of cohort){
+      const a = ly.get(r.t), b = ry.get(r.t);
+      const route = (hash32(r.t + seed) % 5) - 2;
+      const mid = (a+b)/2;
+      const h1 = Math.max(top,Math.min(bottom,mid + route*5 + (random()-.5)*8));
+      const h2 = Math.max(top,Math.min(bottom,mid - route*7 + (random()-.5)*8));
+      ctx.beginPath(); ctx.moveTo(x0,a);
+      ctx.bezierCurveTo(x0+46,a,loomL-34,h1,loomL,h1);
+      ctx.bezierCurveTo(cx-54,h1,cx-28,h2,cx,h2);
+      ctx.bezierCurveTo(cx+28,h2,cx+54,h1,loomR,h1);
+      ctx.bezierCurveTo(loomR+34,h1,x1-46,b,x1,b);
+      ctx.strokeStyle = colourOf(r); ctx.globalAlpha = .76; ctx.lineWidth = cohort.length > 50 ? 1 : 1.35;
+      ctx.stroke(); ctx.globalAlpha = 1;
+      vizHits.push({x:x0,y:a,r,rank:leftRank.get(r.t),win:leftWin});
+      vizHits.push({x:x1,y:b,r,rank:rightRank.get(r.t),win:rightWin});
+    }
+
+    // Frame, heddles, reed and shuttle: enough structure to read as an actual
+    // loom without turning the chart into an illustration.
+    ctx.strokeStyle = '#0c0a09'; ctx.lineWidth = 1.4;
+    roundRect(ctx,loomL-8,top-25,loomW+16,bottom-top+50,4); ctx.stroke();
+    ctx.strokeStyle = '#a8a29e'; ctx.lineWidth = .7;
+    for (let x=cx-38; x<=cx+38; x+=19){
+      ctx.beginPath(); ctx.moveTo(x,top-12); ctx.lineTo(x,bottom+12); ctx.stroke();
+    }
+    ctx.strokeStyle = '#0c0a09'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(loomL-10,top-21); ctx.lineTo(loomR+10,top-21);
+    ctx.moveTo(loomL-10,bottom+21); ctx.lineTo(loomR+10,bottom+21); ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(loomL-4,top-19); ctx.lineTo(loomL-4,bottom+19);
+    ctx.moveTo(loomR+4,top-19); ctx.lineTo(loomR+4,bottom+19); ctx.stroke();
+    ctx.fillStyle = '#0c0a09';
+    roundRect(ctx,cx-35,(top+bottom)/2-4,70,8,4); ctx.fill();
+    ctx.fillStyle = '#ffffff'; ctx.font = '8px ui-monospace, "SF Mono", Menlo, monospace';
+    ctx.textAlign = 'center'; ctx.fillText('REROUTE',cx,(top+bottom)/2+.5);
+
+    for (const r of leftRows) label(ctx,18,ly.get(r.t),'left',r,leftRank.get(r.t),leftWin);
+    for (const r of rightRows) label(ctx,width-18,ry.get(r.t),'right',r,rightRank.get(r.t),rightWin);
+    vizDesc.textContent = `${cohort.length} ticker threads compare the newer ${leftWin} ranks `
+      + `on the left with the older ${rightWin} ranks on the right. Each thread is coloured by sector.`;
+  }
+
+  function drawSummit(pool, cohort){
+    viz.hidden = false; vizEmpty.hidden = true;
+    const win = rankWin();
+    const height=cohort.length>50 ? 690 : 586;
+    const {ctx,width,height:h} = canvasContext(height,'#fffdf8');
+    const baseSignature = [win,st.uni,st.rank,st.top,st.sector,st.theme,st.minAdv,
+      cohort.map(r=>r.t).join(',')].join('|');
+    const mountainSeed = hash32(baseSignature);
+    const routeSeed = hash32(baseSignature + '|' + st.route);
+    const terrainRandom = rng32(mountainSeed), routeRandom = rng32(routeSeed);
+    const axisX = width-26, plotLeft = 22, plotRight = width-66;
+    const baseY = h-24, summitY = 58;
+    const span = plotRight-plotLeft, summitX = plotLeft+span*.82;
+
+    // A real mountain silhouette: foothills, shoulders, false peaks and one
+    // dominant summit. It is mirrored from the concept art so the climb reads
+    // left-to-right.
+    const ridgeSpec = [
+      [0,0], [.07,.05], [.13,.13], [.19,.10], [.27,.25], [.34,.20],
+      [.42,.36], [.49,.31], [.57,.50], [.63,.44], [.69,.64], [.74,.58],
+      [.82,1], [.86,.74], [.91,.43], [.96,.19], [1,0]
+    ];
+    const ridge = ridgeSpec.map(([px,py],i) => {
+      const isPeak=i===12 || i===0 || i===ridgeSpec.length-1;
+      const jitter=isPeak ? 0 : (terrainRandom()-.5)*24*(1-py);
+      return {x:plotLeft+px*span,y:baseY-py*(baseY-summitY)+jitter};
+    });
+    const surfaceY = x => {
+      if (x<=ridge[0].x) return ridge[0].y;
+      for (let i=1;i<ridge.length;i++){
+        if (x<=ridge[i].x){
+          const a=ridge[i-1],b=ridge[i],p=(x-a.x)/(b.x-a.x);
+          return a.y+(b.y-a.y)*p;
+        }
+      }
+      return ridge.at(-1).y;
+    };
+
+    ctx.beginPath(); ctx.moveTo(plotLeft-10,baseY+8);
+    ridge.forEach(p => ctx.lineTo(p.x,p.y));
+    ctx.lineTo(plotRight+8,baseY+8); ctx.lineTo(plotRight+8,baseY+16);
+    ctx.lineTo(plotLeft-10,baseY+16); ctx.closePath();
+    ctx.fillStyle='#faf8f3'; ctx.fill();
+
+    // Fine contour bands follow the face of the mountain instead of floating
+    // as generic chart gridlines.
+    ctx.strokeStyle='rgba(120,113,108,.28)'; ctx.lineWidth=.65;
+    for (let band=1;band<=30;band++){
+      const depth=band/32;
+      ctx.beginPath();
+      for (let i=0;i<=110;i++){
+        const x=plotLeft+i/110*span;
+        const face=surfaceY(x);
+        const wave=Math.sin(i*.29+band*.83)*2.2*(1-depth);
+        const y=Math.min(baseY+3,face+(baseY-face)*depth+wave);
+        if (!i) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }
+      ctx.stroke();
+    }
+
+    ctx.beginPath(); ctx.moveTo(ridge[0].x,ridge[0].y);
+    ridge.slice(1).forEach(p => ctx.lineTo(p.x,p.y));
+    ctx.strokeStyle='#8f8a83'; ctx.lineWidth=1.05; ctx.stroke();
+
+    // Altitude is the active ranking metric: return, loss severity, or sigma.
+    // The mountain climbs, so altitude must rise with rank. RSI is the one
+    // metric where rank 1 is the low number, so it is plotted negated and the
+    // axis labels flip the sign back.
+    const NEG = st.rank==='rsi';
+    const BY_VALUE = st.rank==='sigma' || st.rank==='rvol' || st.rank==='month' || NEG;
+    const score = r => NEG ? -rankValue(r,win)
+      : BY_VALUE ? rankValue(r,win)
+      : st.dir<0 ? r.r[win] : -r.r[win];
+    const unscore = v => NEG ? -v : BY_VALUE ? v : st.dir<0 ? v : -v;
+    const scores=cohort.map(score).filter(Number.isFinite);
+    let lo=NEG ? Math.min(...scores) : Math.min(0,...scores),
+        hi=NEG ? Math.max(...scores) : Math.max(0,...scores);
+    const spread=Math.max(1,hi-lo);
+    lo-=spread*.05; hi+=spread*.08;
+    const yScore = v => baseY-8-(v-lo)/(hi-lo)*(baseY-summitY-22);
+
+    ctx.strokeStyle='#78716c'; ctx.lineWidth=.8;
+    ctx.beginPath(); ctx.moveTo(axisX,summitY); ctx.lineTo(axisX,baseY); ctx.stroke();
+    ctx.fillStyle='#57534e'; ctx.font='9px ui-monospace, "SF Mono", Menlo, monospace';
+    const axisTitle=st.rank==='sigma' ? `${win} SIGMA (σ)`
+      : st.rank==='rsi' ? `RSI ${st.rsiN}`
+      : st.rank==='rvol' ? `${win} RELATIVE VOLUME (×)`
+      : st.rank==='month' ? `MEAN ${MON[st.month].toUpperCase()} RETURN (%)`
+      : `${win} ${st.dir<0?'RETURN':'LOSS'} (%)`;
+    ctx.textAlign='right'; ctx.fillText(axisTitle,width-8,18);
+    for (let i=0;i<=5;i++){
+      const s=lo+(hi-lo)*i/5, y=yScore(s);
+      ctx.beginPath(); ctx.moveTo(axisX-4,y); ctx.lineTo(axisX+4,y); ctx.stroke();
+      ctx.textAlign='right';
+      ctx.fillText(unscore(s).toFixed(
+        st.rank==='best'||st.rank==='worst'||st.rank==='rsi' ? 0 : 1),width-7,y);
+    }
+
+    const ascent=cohort.slice().reverse();
+    const points=[];
+    let previousX=plotLeft+span*.08;
+    ascent.forEach((r,i) => {
+      const p=ascent.length<2 ? 1 : i/(ascent.length-1);
+      let x=plotLeft+span*(.10+.72*p)+(routeRandom()-.5)*Math.min(16,span/ascent.length*.25);
+      x=Math.max(previousX+3,x);
+      let y=yScore(score(r));
+      y=Math.max(y,surfaceY(x)+11);
+      if (i===ascent.length-1){x=summitX;y=summitY+8;}
+      points.push({x,y,r,rank:cohort.indexOf(r)+1});
+      previousX=x;
+    });
+
+    // Dashed switchbacks remain directionally progressive: every checkpoint is
+    // farther right even as the route bends around the etched terrain.
+    const routeStart={x:plotLeft+12,y:baseY-9};
+    ctx.beginPath(); ctx.moveTo(routeStart.x,routeStart.y);
+    let a=routeStart;
+    const preset=routeSeed%5;
+    points.forEach((b,i) => {
+      const dx=b.x-a.x, dy=b.y-a.y;
+      const swing=((i+preset)%2 ? 1:-1)*(10+(routeSeed%4)*3)*(1-i/Math.max(1,points.length));
+      ctx.lineTo(a.x+dx*.38,a.y+dy*.22+swing);
+      ctx.lineTo(a.x+dx*.62,a.y+dy*.72-swing*.5);
+      ctx.lineTo(b.x,b.y);
+      a=b;
+    });
+    ctx.strokeStyle='#292524'; ctx.lineWidth=1.8; ctx.setLineDash([6,4]); ctx.stroke();
+    ctx.setLineDash([]);
+
+    function drawPennant(p){
+      // Every flag trails left from its checkpoint. A single direction keeps
+      // neighboring pennants in separate horizontal lanes and clears the axis.
+      const poleTop=Math.max(20,p.y-44);
+      const fh=30;
+      ctx.strokeStyle='#292524'; ctx.lineWidth=1.1;
+      ctx.beginPath(); ctx.moveTo(p.x,p.y-3); ctx.lineTo(p.x,poleTop); ctx.stroke();
+      ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
+      const text=`${p.rank}  ${p.r.t}`;
+      const textWidth=ctx.measureText(text).width;
+      ctx.font='600 8px ui-monospace, "SF Mono", Menlo, monospace';
+      const sub=st.rank==='sigma'
+        ? `${fmtS(p.r.z?.[win])} · ${fmtP(p.r.r[win])}`
+        : st.rank==='rvol' ? `${fmtRV(p.r.rv?.[win])} · ${fmtP(p.r.r[win])}`
+        : st.rank==='rsi' ? `RSI ${fmtRSI(rsiOf(p.r))} · ${fmtP(p.r.r[win])}`
+        : fmtP(p.r.r[win]);
+      const subWidth=ctx.measureText(sub).width;
+      const fw=Math.max(62,textWidth+18,subWidth+18);
+      const fy=poleTop, fx=p.x-fw-1;
+      ctx.beginPath();
+      ctx.moveTo(fx+fw,fy); ctx.lineTo(fx,fy); ctx.lineTo(fx+7,fy+fh/2);
+      ctx.lineTo(fx,fy+fh); ctx.lineTo(fx+fw,fy+fh);
+      ctx.closePath(); ctx.fillStyle='rgba(255,255,255,.96)'; ctx.fill();
+      ctx.strokeStyle='#292524'; ctx.lineWidth=.9; ctx.stroke();
+      ctx.fillStyle=colourOf(p.r);
+      ctx.fillRect(fx+fw-5,fy+2,3,fh-4);
+      ctx.fillStyle='#0c0a09'; ctx.textAlign='right';
+      ctx.font='600 10px ui-monospace, "SF Mono", Menlo, monospace';
+      ctx.fillText(text,fx+fw-9,fy+10);
+      ctx.fillStyle='#78716c'; ctx.font='600 8px ui-monospace, "SF Mono", Menlo, monospace';
+      ctx.fillText(sub,fx+fw-9,fy+21.5);
+    }
+
+    const showEvery=cohort.length<=12 ? 1 : Math.ceil(cohort.length/12);
+    points.forEach((p,i) => {
+      ctx.fillStyle='#fffdf8'; ctx.strokeStyle='#292524'; ctx.lineWidth=1.45;
+      ctx.beginPath(); ctx.arc(p.x,p.y,4.3,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      vizHits.push({x:p.x,y:p.y,r:p.r,rank:p.rank,win});
+      if (i%showEvery===0 || p.rank<=3 || p.rank===cohort.length) drawPennant(p);
+    });
+
+    vizDesc.textContent = `${cohort.length} ranked tickers climb an etched mountain from left `
+      + `to right over ${win}. The table above lists sector and theme composition with counts `
+      + `and group medians; sector colours match the pennant notches.`;
+  }
+
+  function drawViz(pool,cohort){
+    lastViz={pool,cohort};
+    if (st.view === 'loom') drawLoom(pool,cohort);
+    else if (st.view === 'summit') drawSummit(pool,cohort);
+  }
+  viz.addEventListener('mousemove', e => {
+    const box=viz.getBoundingClientRect(), x=e.clientX-box.left, y=e.clientY-box.top;
+    let hit=null, best=14;
+    for (const h of vizHits){
+      const d=Math.hypot(h.x-x,h.y-y);
+      if (d<best){best=d;hit=h;}
+    }
+    if (!hit){vizTip.classList.remove('on');return;}
+    vizTip.textContent=`#${hit.rank ?? '—'} ${hit.r.t} · ${fmtRankValue(hit.r,hit.win)}`
+      + `${st.rank==='sigma' ? ` · ${fmtP(hit.r.r[hit.win])}`
+          : st.rank==='month' ? ` avg ${MON[st.month]} · n=${monthStat(hit.r)?.[1] ?? '—'}`
+          : ''} · ${hit.r.s}`;
+    vizTip.style.left=x+'px'; vizTip.style.top=y+'px'; vizTip.classList.add('on');
+  });
+  viz.addEventListener('mouseleave',() => {
+    vizTip.classList.remove('on'); viz.style.cursor='default';
+  });
+
+  function drawSummitComp(sectors,themes,win,cohortN){
+    function column(title,detail,items,type){
+      const rows=items.length ? items.map(item => {
+        const active=type==='sector' ? item.k===st.sector : item.k===st.theme;
+        const marker=type==='sector'
+          ? `<i class="swatch" style="background:${colourOf({s:item.k,t:item.k})}"></i>`
+          : '<i class="tag"></i>';
+        return `<button class="summit-row${active ? ' on' : ''}" type="button"`
+          + ` data-type="${type}" data-key="${esc(item.k)}" aria-pressed="${active}">`
+          + marker + `<span class="name">${esc(item.label)}</span>`
+          + `<span class="count">${item.n}/${item.of}</span>`
+          + `<span class="med ${cls(item.med)}">${fmtRank(item.med)}</span></button>`;
+      }).join('') : `<div class="summit-empty">${type==='theme' ? 'No tagged themes' : 'No sector labels'}</div>`;
+      return `<div><h3>${title}<em>${detail}</em></h3>${rows}</div>`;
+    }
+    const detail=`in top ${cohortN} ${rankableNote()} · group median ${win}`;
+    summitComp.innerHTML=column('SECTORS · pennant notch',detail,sectors,'sector')
+      +column('THEMES',detail,themes,'theme');
+  }
+  summitComp.addEventListener('click',e => {
+    const row=e.target.closest('.summit-row');
+    if (!row) return;
+    if (row.dataset.type==='sector') st.sector=st.sector===row.dataset.key ? '' : row.dataset.key;
+    else st.theme=st.theme===row.dataset.key ? '' : row.dataset.key;
+    syncCtl(); render();
+  });
+
+  // The verdict sentence is built inline in render(): it needs the cohort, both
+  // compositions and the filtered median, and pulling it out only moved the
+  // argument list around.
+
+  // ---------- render ----------
+  function render(){
+    writeHash();
+    const p = pool();
+    const rk = ranked(p);
+    const n = Math.min(st.top, rk.length);
+    const cohort = rk.slice(0, n);
+    const win = rankWin();
+    document.querySelector('.comp').hidden=st.view==='summit';
+    summitComp.hidden=st.view!=='summit';
+
+    const secs = composition(cohort, p, r => r.s === '—' ? [] : [r.s], k => k);
+    const thms = composition(cohort, p, r => r.th, k => THEMES[k] || k);
+    const medianLabel = st.rank === 'sigma' ? `${win} σ`
+      : st.rank === 'rvol' ? `${win} RVol`
+      : st.rank === 'rsi' ? `RSI ${st.rsiN}`
+      : st.rank === 'month' ? `avg ${MON[st.month]}` : win;
+    // Both panels list every group in the filtered pool, so say what the pair of
+    // numbers means rather than leaving "2/7" to be guessed at.
+    const detail = `in top ${cohort.length} ${rankableNote()} · group median ${medianLabel}`;
+    document.getElementById('ch1').textContent = detail;
+    document.getElementById('ch2').textContent = detail;
+    drawComp('csec', secs, st.sector, k => { st.sector = k; syncCtl(); render(); });
+    drawComp('cthm', thms, st.theme, k => { st.theme  = k; syncCtl(); render(); });
+    if (st.view==='summit') drawSummitComp(secs,thms,medianLabel,cohort.length);
+
+    const med = median(p.map(r => rankValue(r,win)));
+    const uni = UNIS.find(u => u[0] === st.uni)[1];
+    document.getElementById('verdict').innerHTML = cohort.length
+      ? `<b>${st.rank==='sigma' ? 'Top '+cohort.length+' by sigma'
+          : st.rank==='rvol' ? 'Top '+cohort.length+' by relative volume'
+          : st.rank==='rsi' ? `${cohort.length} most oversold`
+          : st.rank==='month' ? `Top ${cohort.length} in ${MON[st.month]}`
+          : (st.dir < 0 ? 'Top ' : 'Bottom ')+cohort.length}</b> · ${esc(uni)} · `
+        + `${st.rank==='month' ? `mean ${MON[st.month]} return, whole history`
+            : st.rank==='rsi' ? `Wilder RSI over ${st.rsiN} sessions` : win}`
+        + ` · ${p.length} filtered · median ${fmtRank(med)}`
+      : '';
+
+    const tableWrap = document.querySelector('.tablewrap');
+    tableWrap.hidden = st.view !== 'table';
+    vizWrap.hidden = st.view === 'table';
+    document.getElementById('empty').hidden = true;
+    if (st.view === 'table') {
+      drawTable(p, n);
+    } else if (!cohort.length) {
+      viz.hidden = true; vizEmpty.hidden = false;
+      vizEmpty.textContent = 'Nothing matches these filters.';
+    } else {
+      requestAnimationFrame(() => drawViz(p,cohort));
+    }
+    document.getElementById('reroute').hidden = st.view !== 'summit';
+
+    document.getElementById('foot').innerHTML =
+      `<b>${M.n}</b> tracked names · price returns · no dividends · ${M.as_of}`
+      + (M.n_stale ? ` · ${M.n_stale} stale feeds excluded` : '')
+      + (st.rank === 'month'
+        ? `<br>Month averages are month-end to month-end over each name's whole history, `
+          + `so a 2021 listing contributes five ${MON[st.month]}s. <b>n=</b> in the column is `
+          + `that count, and it is marked in red below ${THIN_MONTHS} so a short history `
+          + `is visible rather than silently trusted. A name needs at least ${MIN_MONTHS} `
+          + `to appear at all, since one month is not an average. Each month's extremes `
+          + `are clipped to its own 10th/90th percentile, so one broken split adjustment `
+          + `in 1993 cannot set a 36-year average.`
+        : st.rank === 'rvol'
+          ? `<br><b>Relative volume</b> is average daily share volume over the selected `
+            + `window divided by average daily volume in the prior 252 sessions. The `
+            + `comparison period ends before the selected window, so the event does not `
+            + `inflate its own baseline.`
+        : st.rank === 'rsi'
+          ? `<br><b>RSI</b> is Wilder's, over ${st.rsiN} sessions, on the share price. `
+            + `It is a readout of where a name sits in its own recent range — not a `
+            + `signal, and not part of any score on this site. Tested against this `
+            + `database, the middle of the range did nothing: RSI 50–65, pullbacks into `
+            + `40–55, and crosses above 60 on heavy volume all landed inside a coin flip, `
+            + `and most were beaten by simply buying any liquid stock. Only the tails had `
+            + `a consistent sign — since 2015, names under ${OVERSOLD} beat the market over `
+            + `the following month and names over ${OVERBOUGHT} lagged it — and even there `
+            + `the edge is a fraction of a percent, the extremes fire rarely, and the `
+            + `universe is today's index, so companies that fell and never recovered are `
+            + `missing from the test. Use it to decide what to look at, not what to buy.`
+          : '');
+  }
+
+  // ---------- controls ----------
+  function mkBtns(el, items, set){
+    items.forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.textContent = label; b.dataset.v = v;
+      b.onclick = () => { set(v); syncCtl(); render(); };
+      el.appendChild(b);
+    });
+  }
+  mkBtns(document.getElementById('wins'), WINDOWS.map(w => [w, w]), v => addWindow(v));
+  mkBtns(document.getElementById('unis'), UNIS, v => st.uni = v);
+  mkBtns(document.getElementById('dirs'), DIRS, v => {
+    st.rank = v;
+    st.dir = v === 'worst' ? 1 : -1;
+    sortByRank();
+  });
+  mkBtns(document.getElementById('months'), MON.map((m,i) => [i, m]), v => st.month = +v);
+  mkBtns(document.getElementById('tops'), TOPS.map(t => [t, 'Top ' + t]), v => st.top = +v);
+  mkBtns(document.getElementById('views'), VIEWS, v => setView(v));
+  mkBtns(document.getElementById('liq'),  LIQ,  v => st.minAdv = +v);
+  mkBtns(document.getElementById('rsis'), RSIN.map(n => [n, String(n)]), v => st.rsiN = +v);
+  mkBtns(document.getElementById('basis'), [['pr','Off'], ['tr','On']], v => {
+    st.tr = v === 'tr'; writeBasis(st.tr); applyBasis();
+  });
+  // Another tab (or Theme Returns) changing the shared setting should not leave
+  // this page showing the other basis under the same label.
+  window.addEventListener('storage', e => {
+    if (e.key !== BASIS_KEY) return;
+    const v = readBasis();
+    if (v === st.tr) return;
+    st.tr = v; applyBasis(); syncCtl(); render();
+  });
+  document.getElementById('reroute').onclick = () => { st.route++; render(); };
+
+  const secSel = document.getElementById('sector'), thmSel = document.getElementById('theme');
+  secSel.innerHTML = '<option value="">All sectors</option>'
+    + M.sectors.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  thmSel.innerHTML = '<option value="">All themes</option>'
+    + Object.entries(THEMES).map(([k,v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('');
+  secSel.onchange = () => { st.sector = secSel.value; render(); };
+  thmSel.onchange = () => { st.theme  = thmSel.value; render(); };
+  const qEl = document.getElementById('q');
+  qEl.oninput = () => { st.q = qEl.value.trim(); render(); };
+  document.getElementById('clear').onclick = () => {
+    st.q = ''; st.sector = ''; st.theme = ''; st.minAdv = 0;
+    qEl.value = ''; syncCtl(); render();
+  };
+
+  function syncCtl(){
+    const on = (id, v) => document.querySelectorAll('#' + id + ' button').forEach(b =>
+      { const yes = b.dataset.v == v; b.classList.toggle('on', yes); b.setAttribute('aria-pressed',yes); });
+    document.querySelectorAll('#wins button').forEach(b => {
+      const yes=st.windows.includes(b.dataset.v);
+      b.classList.toggle('on',yes); b.setAttribute('aria-pressed',yes);
+    });
+    on('unis', st.uni); on('dirs', st.rank); on('tops', st.top);
+    on('views', st.view); on('liq', st.minAdv); on('months', st.month);
+    on('rsis', st.rsiN);
+    on('basis', st.tr ? 'tr' : 'pr');
+    document.getElementById('months').hidden = st.rank !== 'month';
+    secSel.value = st.sector; thmSel.value = st.theme;
+  }
+
+  // ---------- hash ----------
+  function writeHash(){
+    history.replaceState(null, '', '#' + [rankWin(), st.uni, st.rank,
+      st.top, st.minAdv, st.sector, st.theme, st.view, st.windows.join(','), st.route,
+      st.month, st.tr ? 'div1' : 'div0', st.rsiN].map(encodeURIComponent).join('|'));
+  }
+  function readHash(){
+    const h = location.hash.slice(1); if (!h) return;
+    const [w, u, d, t, adv, sec, thm, view, wins, route, mon, divs, rsin] =
+      h.split('|').map(decodeURIComponent);
+    // A shared link states its basis outright, so honour it AND adopt it — the
+    // setting is site-wide, and a link that silently meant something else on the
+    // recipient's machine would be worse than one that moves their toggle.
+    if (divs === 'div0' || divs === 'div1'){ st.tr = divs === 'div1'; writeBasis(st.tr); }
+    if (WINDOWS.includes(w)) st.windows = [w];
+    if (UNIS.some(x => x[0] === u)) st.uni = u;
+    if (DIRS.some(x => x[0] === d)){
+      st.rank = d;
+      st.dir = d === 'worst' ? 1 : -1;
+      sortByRank();
+    }
+    if (TOPS.includes(+t)) st.top = +t;
+    if (LIQ.some(x => x[0] === +adv)) st.minAdv = +adv;
+    if (M.sectors.includes(sec)) st.sector = sec;
+    if (thm in THEMES) st.theme = thm;
+    if (VIEWS.some(x => x[0] === view)) st.view = view;
+    if (wins){
+      const parsed=wins.split(',').filter(x => WINDOWS.includes(x)).slice(-2);
+      if (parsed.length) st.windows=parsed;
+    }
+    if (st.view !== 'loom' && st.windows.length > 1) st.windows=[rankWin()];
+    if (Number.isFinite(+route)) st.route=+route;
+    if (mon !== undefined && +mon >= 0 && +mon <= 11) st.month=+mon;
+    if (RSIN.includes(+rsin)) st.rsiN=+rsin;
+    // The rank mode is read before the lookback, so re-derive the sort key now
+    // that both are known.
+    if (st.rank === 'rsi') sortByRank();
+  }
+
+  document.getElementById('asof').textContent = 'as of ' + M.as_of;
+  let resizeTimer;
+  window.addEventListener('resize',() => {
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(() => {
+      if (st.view !== 'table' && lastViz) drawViz(lastViz.pool,lastViz.cohort);
+    },120);
+  });
+  readHash(); applyBasis(); syncCtl(); render();
+})();
+</script>
+</body>
+</html>

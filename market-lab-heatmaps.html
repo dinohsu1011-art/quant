@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Heatmaps — Market Lab</title>
+  <style>
+    :root {
+      --white:#ffffff; --fog:#fafaf9; --ink:#0c0a09; --ash:#78716c;
+      --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
+      --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7; --rust:#b8484f;
+      --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      --serif:ui-serif,"Iowan Old Style","Charter","Palatino",Georgia,serif;
+      --mono:ui-monospace,"SF Mono","JetBrains Mono","Menlo",monospace;
+    }
+    * { box-sizing:border-box; }
+    [hidden] { display:none !important; }   /* .cgrp is display:flex, which wins otherwise */
+    html,body { height:100%; }
+    body { margin:0; background:var(--fog); color:var(--ink); font-family:var(--sans);
+           line-height:1.5; -webkit-font-smoothing:antialiased; }
+    .shell { display:grid; grid-template-columns:268px minmax(0,1fr); min-height:100vh; }
+
+    /* ---------- rail ---------- */
+    .rail { border-right:1px solid var(--stone); background:var(--white);
+            display:flex; flex-direction:column; height:100vh; position:sticky; top:0; }
+    .rail .rh { padding:20px 18px 12px; border-bottom:1px solid var(--stone); }
+    .rail .kicker { font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+                    color:var(--steel); }
+    .rail .kicker a { color:var(--steel); text-decoration:none; }
+    .rail .kicker a:hover { color:var(--blue-deep); }
+    .rail h2 { font-family:var(--serif); font-size:21px; font-weight:600; margin:4px 0 12px;
+               letter-spacing:-.01em; }
+    #q { width:100%; font-family:var(--sans); font-size:12.5px; padding:7px 9px;
+         border:1px solid var(--stone); border-radius:8px; background:var(--fog); color:var(--ink); }
+    #q:focus { outline:none; border-color:var(--blue); background:var(--white); }
+    .quick { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:9px; }
+    .quick button { background:none; border:none; padding:0; cursor:pointer; font-family:var(--sans);
+                    font-size:11px; color:var(--ash); border-bottom:1px solid transparent; }
+    .quick button:hover { color:var(--ink); border-bottom-color:var(--platinum); }
+    .list { overflow-y:auto; flex:1; padding:6px 0 40px; }
+    .gh { display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+          padding:13px 18px 5px; font-size:9.5px; letter-spacing:.12em; text-transform:uppercase;
+          color:var(--steel); cursor:pointer; user-select:none; }
+    .gh:hover { color:var(--ash); }
+    .gh span.n { font-family:var(--mono); font-size:9.5px; letter-spacing:0; }
+    .row { display:flex; align-items:center; gap:8px; padding:3px 18px; cursor:pointer;
+           font-size:12.5px; }
+    .row:hover { background:var(--fog); }
+    .row .dot { width:9px; height:9px; border-radius:2px; flex:none;
+                border:1px solid var(--platinum); background:transparent; }
+    .row.on .dot { border-color:transparent; background:var(--blue-deep); }
+    .row.on { font-weight:550; }
+    .row .lb { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+    /* ---------- main ---------- */
+    .main { padding:26px 34px 70px; max-width:1460px; }
+    .mast { display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+            border-bottom:1px solid var(--stone); padding-bottom:14px; }
+    .mast h1 { font-family:var(--serif); font-size:40px; line-height:1.05; font-weight:600;
+               margin:0; letter-spacing:-.02em; }
+    .mast .sub { font-size:12.5px; color:var(--ash); margin-top:6px; max-width:640px; }
+    .mast .asof { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
+                  white-space:nowrap; font-variant-numeric:tabular-nums; }
+
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px 26px; padding:14px 0 6px; }
+    .cgrp { display:flex; align-items:center; gap:12px; }
+    .cgrp .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
+    .cgrp .sep { width:1px; height:11px; background:var(--stone); margin:0 -2px; }
+    .cgrp button { background:none; border:none; padding:2px 0; cursor:pointer; font-family:var(--sans);
+                   font-size:12.5px; color:var(--ash); border-bottom:1.5px solid transparent; }
+    .cgrp button:hover { color:var(--ink); }
+    .cgrp button.on { color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
+    .cgrp input[type=date] { font-family:var(--mono); font-size:11.5px; padding:3px 5px;
+                             border:1px solid var(--stone); border-radius:6px; background:var(--white);
+                             color:var(--ink); }
+
+    .gridwrap { background:var(--white); border:1px solid var(--stone); border-radius:4px;
+                margin-top:10px; padding:14px 16px 10px; overflow-x:auto; }
+    /* A wide grid (a quarterly rotation map can run 100+ columns) scrolls rather
+       than scaling down — shrink-to-fit turns the cells into unreadable slivers.
+       The label column is a separate sticky SVG so the row names stay put. */
+    .gridrow { display:flex; align-items:flex-start; width:max-content; }
+    .glabels { position:sticky; left:0; z-index:2; flex:none; background:var(--white);
+               box-shadow:8px 0 8px -8px rgba(0,0,0,.10); }
+    #grid, #labels { display:block; font-family:var(--sans); }
+    #grid text, #labels text { font-variant-numeric:tabular-nums; }
+    #grid rect[data-t] { cursor:crosshair; }
+    .tip { position:fixed; z-index:60; display:none; pointer-events:none;
+           background:#0c0a09; color:#fff; font-family:var(--mono); font-size:11px;
+           font-variant-numeric:tabular-nums; padding:5px 9px; border-radius:4px;
+           white-space:pre; box-shadow:0 2px 8px rgba(0,0,0,.25); line-height:1.45; }
+    .empty { padding:90px 0; text-align:center; color:var(--steel); font-size:13px; }
+    .foot { display:flex; justify-content:space-between; align-items:baseline; gap:20px;
+            margin-top:12px; font-size:11.5px; color:var(--ash); }
+    .foot .legend { display:flex; align-items:center; gap:7px; font-family:var(--mono);
+                    font-size:10.5px; color:var(--steel); white-space:nowrap; }
+    .foot .legend .bar { width:112px; height:9px; border-radius:2px;
+                         background:linear-gradient(90deg,#b8484f,#ffffff,#1d7fc4);
+                         border:1px solid var(--stone); }
+    .note { font-size:11.5px; color:var(--ash); margin-top:14px; max-width:760px; }
+    .note b { font-weight:600; color:var(--ink); }
+    @media (max-width:900px){ .shell{grid-template-columns:1fr;} .rail{height:auto;position:static;} }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="rh">
+      <div class="kicker"><a href="market-lab.html">&larr; Market Lab</a></div>
+      <h2>Heatmaps</h2>
+      <input id="q" placeholder="Filter series&hellip;" autocomplete="off" />
+      <div class="quick">
+        <button data-pick="Sectors">Sectors</button>
+        <button data-pick="My Coverage">My coverage</button>
+        <button data-pick="Thematic ETFs">Themes</button>
+        <button data-pick="Power &amp; industrial — baskets">Power</button>
+        <button data-pick="AI &amp; semis — baskets">AI complex</button>
+        <button data-pick="Indices">Indices</button>
+        <button data-pick="Macro &amp; cross-asset">Macro</button>
+        <button data-clear="1">Clear</button>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main class="main">
+    <div class="mast">
+      <div>
+        <h1 id="title">Regime returns</h1>
+        <div class="sub" id="sub"></div>
+      </div>
+      <div class="asof" id="asof"></div>
+    </div>
+
+    <div class="controls">
+      <div class="cgrp">
+        <span class="lbl">View</span>
+        <button data-view="regime" class="on">Regimes</button>
+        <button data-view="rotation">Rotation</button>
+      </div>
+      <div class="cgrp">
+        <span class="lbl">Window</span>
+        <button data-span="1y">1Y</button><button data-span="3y">3Y</button>
+        <button data-span="5y">5Y</button><button data-span="10y">10Y</button>
+        <button data-span="max" class="on">Max</button>
+        <span class="sep"></span>
+        <input type="date" id="d1" /><span style="color:var(--steel);font-size:11px">to</span>
+        <input type="date" id="d2" />
+      </div>
+      <div class="cgrp" id="mgrp">
+        <span class="lbl">Measure</span>
+        <span id="mbtns"></span>
+      </div>
+      <div class="cgrp" id="ggrp" hidden>
+        <span class="lbl">Period</span>
+        <button data-gran="m">Monthly</button>
+        <button data-gran="q" class="on">Quarterly</button>
+        <button data-gran="y">Yearly</button>
+      </div>
+    </div>
+
+    <div class="gridwrap"><div class="gridrow" id="gridrow"><svg id="labels" class="glabels"></svg><svg id="grid"></svg></div><div class="empty" id="empty" hidden>Pick a series or two from the rail.</div></div>
+
+    <div class="foot">
+      <div id="fnote"></div>
+      <div class="legend"><span id="legLo">−</span><span class="bar"></span><span id="legHi">+</span></div>
+    </div>
+    <div class="note" id="caveat"></div>
+  </main>
+</div>
+<div class="tip" id="tip"></div>
+
+<script src="cube/themes.js?v=20260821-9a2ecad7"></script>
+<script src="cube/regimes.js?v=20260821-9a2ecad7"></script>
+<script>
+(function(){
+  "use strict";
+  const T = window.QUANT_THEMES, RG = window.QUANT_REGIMES;
+  const DATES = T.dates, N = DATES.length;
+  const DIDX = {}; DATES.forEach((d,i) => DIDX[d] = i);
+
+  // rail series only — the constituent stock lines ship with an empty group
+  const RAIL = T.series.filter(s => s.group);
+  const SER = {}; RAIL.forEach(s => SER[s.id] = s);
+  const GROUPS = [];
+  RAIL.forEach(s => {
+    let g = GROUPS.find(x => x.name === s.group);
+    if (!g) GROUPS.push(g = { name: s.group, items: [] });
+    g.items.push(s);
+  });
+
+  // ---- regime masks, realigned onto the themes calendar --------------------
+  // The two shards are built from different unions of sessions (regimes off SPY,
+  // themes off every series), so we map by DATE rather than trusting positions.
+  const RIDX = {}; RG.dates.forEach((d,i) => RIDX[d] = i);
+  const REG = RG.regimes.map(r => {
+    const m = new Uint8Array(N);
+    for (let i = 0; i < N; i++){
+      const j = RIDX[DATES[i]];
+      if (j != null && r.bits.charCodeAt(j) === 49) m[i] = 1;
+    }
+    return { id:r.id, family:r.family, label:r.label, short:r.short || r.label, mask:m };
+  });
+  const FAMS = [];
+  REG.forEach(r => {
+    let f = FAMS.find(x => x.name === r.family);
+    if (!f) FAMS.push(f = { name: r.family, cols: [] });
+    f.cols.push(r);
+  });
+
+  // ---- state ---------------------------------------------------------------
+  const st = {
+    view: 'regime', sel: [], i1: 0, i2: N-1, span: 'max',
+    measure: 'ann',       // regime: ann | excess | hit ;  rotation: rank | ret
+    gran: 'q', focus: null,
+  };
+  const MEASURES = {
+    regime:   [['ann','Annualized'],['excess','Excess vs own avg'],['hit','Hit rate']],
+    rotation: [['rank','Rank'],['ret','Return']],
+  };
+
+  // ---- series returns, cached, aligned to the themes calendar --------------
+  const retCache = {};
+  function rets(id){
+    if (retCache[id]) return retCache[id];
+    const s = SER[id], a = new Float64Array(N); a.fill(NaN);
+    if (s){
+      for (let k = 1; k < s.lv.length; k++){
+        const p = s.lv[k-1], c = s.lv[k], i = s.i0 + k;
+        if (p != null && c != null && p > 0 && i < N) a[i] = c/p - 1;
+      }
+    }
+    return retCache[id] = a;
+  }
+
+  // ---- math ----------------------------------------------------------------
+  const ANN = 252;
+  function statsMasked(r, mask, i1, i2){
+    let n = 0, sum = 0, sq = 0, wins = 0;
+    for (let i = i1; i <= i2; i++){
+      if (mask && !mask[i]) continue;
+      const v = r[i]; if (!isFinite(v)) continue;
+      n++; sum += v; sq += v*v; if (v > 0) wins++;
+    }
+    if (!n) return null;
+    const mean = sum/n;
+    const sd = n > 1 ? Math.sqrt(Math.max(0, sq/n - mean*mean)) : 0;
+    return { n, mean, ann: mean*ANN, hit: wins/n,
+             t: sd > 0 ? mean/(sd/Math.sqrt(n)) : null };
+  }
+
+  function periodBuckets(i1, i2, gran){
+    // contiguous calendar buckets over the window, labelled by their period
+    const key = d => gran === 'y' ? d.slice(0,4)
+               : gran === 'q' ? d.slice(0,4)+'Q'+(Math.floor((+d.slice(5,7)-1)/3)+1)
+               : d.slice(0,7);
+    const out = [];
+    let cur = null;
+    for (let i = i1; i <= i2; i++){
+      const k = key(DATES[i]);
+      if (!cur || cur.key !== k) out.push(cur = { key:k, a:i, b:i });
+      else cur.b = i;
+    }
+    // the edge buckets are clipped by the window, so their return covers only
+    // part of the period they're labelled with — say so rather than imply a full one
+    if (out.length){
+      out[0].partial = i1 > 0 && key(DATES[i1-1]) === out[0].key;
+      const last = out[out.length-1];
+      last.partial = last.partial || (i2 < N-1 && key(DATES[i2+1]) === last.key);
+    }
+    return out;
+  }
+  function bucketReturn(r, a, b){
+    let g = 1, any = false;
+    for (let i = a; i <= b; i++){ const v = r[i]; if (isFinite(v)){ g *= (1+v); any = true; } }
+    return any ? g-1 : null;
+  }
+
+  // ---- formatting ----------------------------------------------------------
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const pct = (v, d) => v == null ? '—' : (v>=0?'+':'') + (v*100).toFixed(d==null?1:d) + '%';
+  const hexLerp = (a, b, t) => {
+    const p = h => [1,3,5].map(i => parseInt(h.slice(i,i+2),16));
+    const A = p(a), B = p(b);
+    return '#' + A.map((v,i) => Math.round(v + (B[i]-v)*t).toString(16).padStart(2,'0')).join('');
+  };
+  const colFor = (t) => t == null ? '#f4f3f1'
+    : t >= 0 ? hexLerp('#ffffff','#1d7fc4', Math.min(1,t)*0.85+0.12)
+             : hexLerp('#ffffff','#b8484f', Math.min(1,-t)*0.85+0.12);
+
+  // ---- rail ----------------------------------------------------------------
+  const list = document.getElementById('list'), q = document.getElementById('q');
+  function drawRail(){
+    const f = q.value.trim().toLowerCase();
+    let h = '';
+    GROUPS.forEach(g => {
+      const items = g.items.filter(s => !f || s.label.toLowerCase().includes(f)
+                                          || s.id.toLowerCase().includes(f));
+      if (!items.length) return;
+      h += `<div class="gh" data-grp="${esc(g.name)}"><span>${esc(g.name)}</span><span class="n">${items.length}</span></div>`;
+      items.forEach(s => {
+        const on = st.sel.includes(s.id);
+        h += `<div class="row${on?' on':''}" data-id="${esc(s.id)}"><span class="dot"></span><span class="lb">${esc(s.label)}</span></div>`;
+      });
+    });
+    list.innerHTML = h || '<div class="empty">no match</div>';
+  }
+  list.addEventListener('click', e => {
+    const row = e.target.closest('.row'), gh = e.target.closest('.gh');
+    if (row){ toggle(row.dataset.id); }
+    else if (gh){ pickGroup(gh.dataset.grp); }
+  });
+  function toggle(id){
+    const i = st.sel.indexOf(id);
+    if (i >= 0) st.sel.splice(i,1); else st.sel.push(id);
+    drawRail(); render(); save();
+  }
+  function pickGroup(name){
+    const g = GROUPS.find(x => x.name === name); if (!g) return;
+    const ids = g.items.map(s => s.id);
+    st.sel = ids.every(i => st.sel.includes(i))
+      ? st.sel.filter(i => !ids.includes(i))
+      : st.sel.concat(ids.filter(i => !st.sel.includes(i)));
+    drawRail(); render(); save();
+  }
+  q.addEventListener('input', drawRail);
+  document.querySelectorAll('.quick button').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.clear){ st.sel = []; }
+    else { const g = GROUPS.find(x => x.name === b.dataset.pick);
+           st.sel = g ? g.items.map(s => s.id) : st.sel; }
+    drawRail(); render(); save();
+  }));
+
+  // ---- controls ------------------------------------------------------------
+  const d1 = document.getElementById('d1'), d2 = document.getElementById('d2');
+  const mbtns = document.getElementById('mbtns'), ggrp = document.getElementById('ggrp');
+  function drawMeasures(){
+    mbtns.innerHTML = MEASURES[st.view]
+      .map(([k,l]) => `<button data-m="${k}"${st.measure===k?' class="on"':''}>${l}</button>`)
+      .join(' ');
+    mbtns.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      st.measure = b.dataset.m; drawMeasures(); render(); save();
+    }));
+  }
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+    if (st.view === b.dataset.view) return;
+    st.view = b.dataset.view;
+    st.measure = MEASURES[st.view][0][0];
+    document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x === b));
+    ggrp.hidden = st.view !== 'rotation';
+    drawMeasures(); render(); save();
+  }));
+  document.querySelectorAll('[data-gran]').forEach(b => b.addEventListener('click', () => {
+    st.gran = b.dataset.gran;
+    document.querySelectorAll('[data-gran]').forEach(x => x.classList.toggle('on', x === b));
+    render(); save();
+  }));
+  document.querySelectorAll('[data-span]').forEach(b => b.addEventListener('click', () => {
+    st.span = b.dataset.span; applySpan();
+    document.querySelectorAll('[data-span]').forEach(x => x.classList.toggle('on', x === b));
+    syncDates(); render(); save();
+  }));
+  function applySpan(){
+    const yrs = { '1y':1, '3y':3, '5y':5, '10y':10 }[st.span];
+    st.i2 = N-1;
+    if (!yrs){ st.i1 = 0; return; }
+    const end = new Date(DATES[N-1]); end.setFullYear(end.getFullYear() - yrs);
+    const cut = end.toISOString().slice(0,10);
+    let i = 0; while (i < N-1 && DATES[i] < cut) i++;
+    st.i1 = i;
+  }
+  function syncDates(){ d1.value = DATES[st.i1]; d2.value = DATES[st.i2]; }
+  [d1,d2].forEach(el => el.addEventListener('change', () => {
+    const f = v => { let i = 0; while (i < N-1 && DATES[i] < v) i++; return i; };
+    if (d1.value) st.i1 = f(d1.value);
+    if (d2.value) st.i2 = Math.max(st.i1+1, f(d2.value));
+    st.span = null;
+    document.querySelectorAll('[data-span]').forEach(x => x.classList.remove('on'));
+    render(); save();
+  }));
+
+  // ---- render --------------------------------------------------------------
+  const grid = document.getElementById('grid'), empty = document.getElementById('empty');
+  const labels = document.getElementById('labels'), gridrow = document.getElementById('gridrow');
+  const tip = document.getElementById('tip'), fnote = document.getElementById('fnote');
+  const legLo = document.getElementById('legLo'), legHi = document.getElementById('legHi');
+  const caveat = document.getElementById('caveat');
+
+  function render(){
+    const rows = st.sel.filter(id => SER[id]);
+    empty.hidden = rows.length > 0;
+    gridrow.style.display = rows.length ? 'flex' : 'none';
+    document.getElementById('title').textContent =
+      st.view === 'regime' ? 'Regime returns' : 'Leadership rotation';
+    document.getElementById('sub').textContent = st.view === 'regime'
+      ? 'How each series behaved on the days a given macro condition was in force.'
+      : 'Who led and who lagged, period by period, across the selected series.';
+    if (!rows.length){ grid.innerHTML = ''; labels.innerHTML = '';
+                       fnote.textContent = ''; caveat.textContent = ''; return; }
+    if (st.view === 'regime') renderRegime(rows); else renderRotation(rows);
+  }
+
+  function layout(rows, ncol){
+    const wrapW = gridrow.parentElement.clientWidth - 34;
+    const LBL = 158, TOP = st.view === 'regime' ? 40 : 26;
+    // Fill the card when the columns fit; below the floor the grid overflows and
+    // the wrapper scrolls, which is the right trade for a 100-column rotation map.
+    const cw = Math.max(st.view === 'regime' ? 40 : 22,
+                        Math.min(96, (wrapW - LBL) / ncol));
+    const rh = 19, gap = 1.5;
+    return { LBL, TOP, cw, rh, gap, W: cw*ncol, H: TOP + rows.length*rh + 16 };
+  }
+
+  function rowLabels(rows, L){
+    // drawn into the sticky label SVG, on the same vertical grid as the cells
+    return rows.map((id, ri) => {
+      const y = L.TOP + ri*L.rh, s0 = SER[id];
+      const nm = s0.label.length > 22 ? s0.label.slice(0,21)+'…' : s0.label;
+      return `<text x="${(L.LBL-10).toFixed(1)}" y="${(y+L.rh/2+3.5).toFixed(1)}"
+               text-anchor="end" font-size="10.5" fill="#57534e">${esc(nm)}</text>`;
+    }).join('');
+  }
+
+  function renderRegime(rows){
+    const cols = REG;
+    // baseline = each series' unconditional mean over the same window, so the
+    // "excess" measure asks what the regime added, not how good the series is.
+    const base = {}, cells = [];
+    rows.forEach(id => {
+      const r = rets(id);
+      base[id] = statsMasked(r, null, st.i1, st.i2);
+      cells.push(cols.map(c => statsMasked(r, c.mask, st.i1, st.i2)));
+    });
+    const val = (s, id) => {
+      if (!s) return null;
+      if (st.measure === 'hit') return s.hit - 0.5;
+      if (st.measure === 'excess') return base[id] ? s.ann - base[id].ann : null;
+      return s.ann;
+    };
+    const flat = [];
+    cells.forEach((row, ri) => row.forEach(s => {
+      const v = val(s, rows[ri]); if (v != null) flat.push(Math.abs(v));
+    }));
+    flat.sort((a,b) => a-b);
+    const scale = Math.max(1e-6, flat.length ? flat[Math.floor(flat.length*0.9)] : 0.1);
+
+    const L = layout(rows, cols.length);
+    let g = '';
+    // family headers spanning their pair of columns
+    let ci = 0;
+    FAMS.forEach(f => {
+      const x = ci*L.cw, w = f.cols.length*L.cw;
+      g += `<text x="${(x+w/2).toFixed(1)}" y="12" text-anchor="middle" font-size="9.5"
+             letter-spacing=".08em" fill="#a8a29e">${esc(f.name.toUpperCase())}</text>`;
+      if (ci > 0) g += `<line x1="${x.toFixed(1)}" y1="4" x2="${x.toFixed(1)}"
+             y2="${(L.TOP + rows.length*L.rh).toFixed(1)}" stroke="#e5e7eb" stroke-width="1"/>`;
+      ci += f.cols.length;
+    });
+    cols.forEach((c, i) => {
+      const x = i*L.cw + L.cw/2;
+      g += `<text x="${x.toFixed(1)}" y="${(L.TOP-7).toFixed(1)}" text-anchor="middle"
+             font-size="9.5" fill="#57534e">${esc(c.short)}</text>`;
+    });
+    rows.forEach((id, ri) => {
+      const y = L.TOP + ri*L.rh, s0 = SER[id];
+      cols.forEach((c, cix) => {
+        const s = cells[ri][cix], v = val(s, id), x = cix*L.cw;
+        const thin = s && s.n < 60;
+        const tipTxt = !s ? `${s0.label} · ${c.label}\nno qualifying days`
+          : `${s0.label} · ${c.label}\n`
+            + `annualized  ${pct(s.ann)}\n`
+            + `vs own avg  ${base[id] ? pct(s.ann - base[id].ann) : '—'}\n`
+            + `hit rate    ${(s.hit*100).toFixed(0)}%\n`
+            + `sample      ${s.n} days${s.t!=null ? '   t=' + s.t.toFixed(1) : ''}`;
+        g += `<rect x="${x.toFixed(2)}" y="${y.toFixed(1)}" width="${(L.cw-L.gap).toFixed(2)}"
+               height="${(L.rh-L.gap).toFixed(1)}" fill="${colFor(v==null?null:v/scale)}"
+               ${thin?'opacity="0.45"':''} data-t="${esc(tipTxt)}"/>`;
+        if (v != null && L.cw >= 46){
+          const txt = st.measure === 'hit' ? ((v+0.5)*100).toFixed(0)+'%' : pct(v,0);
+          const dark = Math.abs(v/scale) > 0.55;
+          g += `<text x="${(x+L.cw/2-L.gap/2).toFixed(1)}" y="${(y+L.rh/2+3.4).toFixed(1)}"
+                 text-anchor="middle" font-size="9.5" pointer-events="none"
+                 fill="${dark?'#ffffff':'#57534e'}" opacity="${thin?0.5:1}">${txt}</text>`;
+        }
+      });
+    });
+    paint(g, rowLabels(rows, L), L);
+    const minN = Math.min(...cells.flat().filter(Boolean).map(s => s.n));
+    fnote.innerHTML = `${rows.length} series &middot; ${cols.length} regimes &middot; `
+      + `window ${DATES[st.i1]} &rarr; ${DATES[st.i2]} &middot; thinnest cell ${isFinite(minN)?minN:0} days`;
+    const unit = st.measure === 'hit' ? 'hit rate' : 'annualized';
+    legLo.textContent = st.measure === 'hit' ? '40%' : pct(-scale,0);
+    legHi.textContent = st.measure === 'hit' ? '60%' : pct(scale,0);
+    caveat.innerHTML = st.measure === 'excess'
+      ? `<b>Excess</b> subtracts each series&rsquo; own average over the same window, so a hot cell means the regime <em>added</em> return rather than the series simply being a strong performer. Colour is scaled to the 90th percentile of the ${unit} values on screen. Cells drawn faintly have fewer than 60 qualifying days &mdash; read them as anecdote.`
+      : `Regimes are defined on a ${RG.meta.lookback}-day lookback and are not mutually exclusive across families, so a single day can count toward several columns. Days inside a deadband fall into neither side of a pair. Colour is scaled to the 90th percentile of the ${unit} values on screen; faint cells have fewer than 60 qualifying days.`;
+  }
+
+  function renderRotation(rows){
+    const bk = periodBuckets(st.i1, st.i2, st.gran);
+    const cells = rows.map(id => { const r = rets(id);
+      return bk.map(b => bucketReturn(r, b.a, b.b)); });
+    // rank within each column, over the series that actually have data there
+    const ranks = bk.map((b, ci) => {
+      const live = [];
+      rows.forEach((id, ri) => { if (cells[ri][ci] != null) live.push([ri, cells[ri][ci]]); });
+      live.sort((a,b2) => b2[1]-a[1]);
+      const m = {}; live.forEach(([ri], k) => m[ri] = { rank:k+1, of:live.length });
+      return m;
+    });
+    const flat = [];
+    cells.forEach(row => row.forEach(v => { if (v != null) flat.push(Math.abs(v)); }));
+    flat.sort((a,b) => a-b);
+    const scale = Math.max(1e-6, flat.length ? flat[Math.floor(flat.length*0.9)] : 0.1);
+
+    const L = layout(rows, bk.length);
+    let g = '';
+    const every = Math.max(1, Math.ceil(38 / L.cw));
+    bk.forEach((b, ci) => {
+      if (ci % every) return;
+      // anchor the edge labels inwards, or they get clipped by the viewBox
+      const anc = ci === 0 ? 'start' : (ci >= bk.length - every ? 'end' : 'middle');
+      const x = ci*L.cw + (anc === 'start' ? 0 : anc === 'end' ? L.cw : L.cw/2);
+      g += `<text x="${x.toFixed(1)}" y="${(L.TOP-7).toFixed(1)}" text-anchor="${anc}"
+             font-size="9.5" fill="#a8a29e">${esc(b.key)}</text>`;
+    });
+    rows.forEach((id, ri) => {
+      const y = L.TOP + ri*L.rh, s0 = SER[id];
+      bk.forEach((b, ci) => {
+        const v = cells[ri][ci], rk = ranks[ci][ri], x = ci*L.cw;
+        let t = null;
+        if (v != null) t = st.measure === 'rank'
+          ? (rk.of > 1 ? 1 - 2*(rk.rank-1)/(rk.of-1) : 0)
+          : v/scale;
+        const hd = `${s0.label} · ${b.key}${b.partial ? ' (partial)' : ''}`;
+        const tipTxt = v == null ? `${hd}\nno history` :
+          `${hd}\nreturn  ${pct(v)}\nrank    ${rk.rank} of ${rk.of}`;
+        g += `<rect x="${x.toFixed(2)}" y="${y.toFixed(1)}" width="${(L.cw-L.gap).toFixed(2)}"
+               height="${(L.rh-L.gap).toFixed(1)}" fill="${colFor(t)}" data-t="${esc(tipTxt)}"/>`;
+        // a rank is one or two digits and fits in a much narrower cell than "+31%"
+        if (v != null && L.cw >= (st.measure === 'rank' ? 24 : 34)){
+          const txt = st.measure === 'rank' ? String(rk.rank) : pct(v,0);
+          const dark = t != null && Math.abs(t) > 0.55;
+          g += `<text x="${(x+L.cw/2-L.gap/2).toFixed(1)}" y="${(y+L.rh/2+3.4).toFixed(1)}"
+                 text-anchor="middle" font-size="9.5" pointer-events="none"
+                 fill="${dark?'#ffffff':'#57534e'}">${txt}</text>`;
+        }
+      });
+    });
+    paint(g, rowLabels(rows, L), L);
+    const gl = { m:'monthly', q:'quarterly', y:'yearly' }[st.gran];
+    fnote.innerHTML = `${rows.length} series &middot; ${bk.length} ${gl} periods &middot; `
+      + `window ${DATES[st.i1]} &rarr; ${DATES[st.i2]}`;
+    legLo.textContent = st.measure === 'rank' ? 'last' : pct(-scale,0);
+    legHi.textContent = st.measure === 'rank' ? '1st' : pct(scale,0);
+    caveat.innerHTML = st.measure === 'rank'
+      ? `Rank is computed <b>only among the series you have selected</b>, so adding or removing a row re-ranks every column. A series with no history in a period is left out of that column&rsquo;s ranking entirely rather than being ranked last.`
+      : `Period returns compound the daily series within each ${gl.replace(/ly$/,'')} bucket. Colour is scaled to the 90th percentile of the absolute returns on screen.`;
+  }
+
+  function paint(g, lg, L){
+    // No maxWidth: the SVG keeps its natural size and .gridwrap scrolls. Scaling
+    // it down to fit would shrink the rows too, not just the columns.
+    grid.setAttribute('viewBox', `0 0 ${L.W.toFixed(0)} ${L.H.toFixed(0)}`);
+    grid.setAttribute('width', L.W.toFixed(0));
+    grid.setAttribute('height', L.H.toFixed(0));
+    grid.innerHTML = g;
+    labels.setAttribute('viewBox', `0 0 ${L.LBL} ${L.H.toFixed(0)}`);
+    labels.setAttribute('width', L.LBL);
+    labels.setAttribute('height', L.H.toFixed(0));
+    labels.innerHTML = lg;
+  }
+
+  // ---- tooltip -------------------------------------------------------------
+  grid.addEventListener('mousemove', e => {
+    const r = e.target.closest('rect[data-t]');
+    if (!r){ tip.style.display = 'none'; return; }
+    tip.textContent = r.dataset.t;
+    tip.style.display = 'block';
+    const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.left = Math.min(window.innerWidth - w - 8, e.clientX + pad) + 'px';
+    tip.style.top  = Math.max(8, e.clientY - h - pad/2) + 'px';
+  });
+  grid.addEventListener('mouseleave', () => tip.style.display = 'none');
+  window.addEventListener('resize', () => render());
+
+  // ---- url state -----------------------------------------------------------
+  function save(){
+    const h = [st.sel.join(','), st.view, st.measure, st.gran,
+               DATES[st.i1], DATES[st.i2]].join('|');
+    history.replaceState(null, '', '#' + h);
+  }
+  function load(){
+    const h = decodeURIComponent(location.hash.slice(1));
+    if (!h) return false;
+    const [sel, view, measure, gran, a, b] = h.split('|');
+    if (sel) st.sel = sel.split(',').filter(x => SER[x]);
+    if (view && MEASURES[view]) st.view = view;
+    if (measure) st.measure = measure;
+    if (gran) st.gran = gran;
+    const f = v => { let i = 0; while (i < N-1 && DATES[i] < v) i++; return i; };
+    if (a && DIDX[a] != null) st.i1 = DIDX[a]; else if (a) st.i1 = f(a);
+    if (b && DIDX[b] != null) st.i2 = DIDX[b]; else if (b) st.i2 = f(b);
+    st.span = null;
+    return true;
+  }
+
+  // ---- boot ----------------------------------------------------------------
+  document.getElementById('asof').textContent = 'as of ' + T.meta.as_of;
+  if (!load()){
+    const sec = GROUPS.find(g => g.name === 'Sectors');
+    st.sel = sec ? sec.items.map(s => s.id) : RAIL.slice(0,10).map(s => s.id);
+    applySpan();
+  } else {
+    document.querySelectorAll('[data-span]').forEach(x => x.classList.remove('on'));
+  }
+  document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('on', x.dataset.view === st.view));
+  document.querySelectorAll('[data-gran]').forEach(x => x.classList.toggle('on', x.dataset.gran === st.gran));
+  ggrp.hidden = st.view !== 'rotation';
+  syncDates(); drawMeasures(); drawRail(); render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2783 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Theme Returns — Market Lab</title>
+  <style>
+    :root {
+      --white:#ffffff; --fog:#fafaf9; --ink:#0c0a09; --ash:#78716c;
+      --stone:#e5e7eb; --platinum:#d6d3d1; --steel:#a8a29e;
+      --blue:#3ba6f1; --blue-deep:#1d7fc4; --sky:#c1e1f7;
+      --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      --serif:ui-serif,"Iowan Old Style","Charter","Palatino",Georgia,serif;
+      --mono:ui-monospace,"SF Mono","JetBrains Mono","Menlo",monospace;
+    }
+    * { box-sizing:border-box; }
+    html,body { height:100%; }
+    body { margin:0; background:var(--fog); color:var(--ink); font-family:var(--sans);
+           line-height:1.5; -webkit-font-smoothing:antialiased; }
+    .shell { display:grid; grid-template-columns:268px minmax(0,1fr); min-height:100vh; }
+
+    /* ---------- rail ---------- */
+    .rail { border-right:1px solid var(--stone); background:var(--white);
+            display:flex; flex-direction:column; height:100vh; position:sticky; top:0; }
+    .rail .rh { padding:20px 18px 12px; border-bottom:1px solid var(--stone); }
+    .rail .kicker { font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+                    color:var(--steel); }
+    .rail .kicker a { color:var(--steel); text-decoration:none; }
+    .rail .kicker a:hover { color:var(--blue-deep); }
+    .rail h2 { font-family:var(--serif); font-size:21px; font-weight:600; margin:4px 0 12px;
+               letter-spacing:-.01em; }
+    #q { width:100%; font-family:var(--sans); font-size:12.5px; padding:7px 9px;
+         border:1px solid var(--stone); border-radius:8px; background:var(--fog); color:var(--ink); }
+    #q:focus { outline:none; border-color:var(--blue); background:var(--white); }
+    .quick { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:9px; }
+    .quick button { background:none; border:none; padding:0; cursor:pointer; font-family:var(--sans);
+                    font-size:11px; color:var(--ash); border-bottom:1px solid transparent; }
+    .quick button:hover { color:var(--ink); border-bottom-color:var(--platinum); }
+    .list { overflow-y:auto; flex:1; padding:6px 0 40px; }
+    .gsec + .gsec { border-top:1px solid var(--fog); }
+    .nav-node { --indent:0px; }
+    .nav-node.depth-1 > .gh { background:rgba(246,246,244,.42); }
+    .nav-node > .gh { display:flex; align-items:center; gap:7px;
+                      padding:0 12px 0 calc(8px + var(--indent)); user-select:none; }
+    .gtoggle { min-width:0; flex:1; display:flex; align-items:center; gap:7px; padding:11px 4px;
+               border:0; background:none; color:var(--steel); cursor:pointer; text-align:left;
+               font:9.5px var(--sans); letter-spacing:.12em; text-transform:uppercase; }
+    .gtoggle:hover, .gtoggle:focus-visible { color:var(--ash); }
+    .gtoggle:focus-visible { outline:1px solid var(--blue); outline-offset:-2px; border-radius:3px; }
+    .gchev { flex:none; width:8px; font-size:8px; line-height:1; transform:rotate(0deg);
+             transition:transform .12s ease; }
+    .nav-node.open > .gh .gchev { transform:rotate(90deg); }
+    .gname { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .gmeta { margin-left:auto; display:flex; align-items:center; gap:5px; color:var(--steel);
+             font:9.5px var(--mono); letter-spacing:0; text-transform:none; }
+    .gsel:empty { display:none; }
+    .gall { display:none; flex:none; padding:1px 0; border:0; border-bottom:1px solid transparent;
+            background:none; color:var(--steel); cursor:pointer; font:9px var(--sans);
+            letter-spacing:.05em; text-transform:uppercase; }
+    .nav-node.open > .gh .gall { display:block; }
+    .gall:hover, .gall:focus-visible { color:var(--ink); border-bottom-color:var(--platinum); }
+    .gbody[hidden] { display:none; }
+    .gbody { padding:0; }
+    .gsec > .gbody { padding-bottom:7px; }
+    .row { display:flex; align-items:center; gap:8px; padding:3px 18px; cursor:pointer;
+           font-size:12.5px; }
+    .row:not(.sub) { padding-left:calc(18px + var(--row-indent, 0px)); }
+    .row:hover { background:var(--fog); }
+    .row .dot { width:9px; height:9px; border-radius:2px; flex:none;
+                border:1px solid var(--platinum); background:transparent; }
+    .row.on .dot { border-color:transparent; }
+    .row.on { font-weight:550; }
+    .row .lb { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .row .rr { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--steel);
+               font-variant-numeric:tabular-nums; }
+    .row .caret { margin-left:auto; background:none; border:none; padding:0 2px; cursor:pointer;
+                  color:var(--steel); font-size:9px; line-height:1; transition:transform .12s;
+                  transform:rotate(0deg); }
+    .row .caret:hover { color:var(--blue-deep); }
+    .row .caret.open { transform:rotate(90deg); }
+    .row .caret + .rr { margin-left:8px; }
+    .members[hidden] { display:none; }
+    .members { background:var(--fog); border-bottom:1px solid var(--stone); }
+    .memhd { display:flex; justify-content:space-between; align-items:center;
+             padding:4px 18px 4px 34px; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+             color:var(--steel); }
+    .memhd button { background:none; border:none; padding:0; cursor:pointer; font-family:var(--sans);
+                    font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:var(--ash);
+                    border-bottom:1px solid transparent; }
+    .memhd button:hover { color:var(--ink); border-bottom-color:var(--platinum); }
+    .row.sub { padding-left:34px; font-size:12px; }
+    .row.sub .lb { font-family:var(--mono); font-size:11.5px; letter-spacing:-.01em; }
+
+    /* ---------- main ---------- */
+    .main { padding:26px 34px 70px; max-width:1320px; }
+    .mast { display:flex; justify-content:space-between; align-items:flex-end; gap:24px;
+            border-bottom:1px solid var(--stone); padding-bottom:14px; }
+    .mast h1 { font-family:var(--serif); font-size:40px; line-height:1.05; font-weight:600;
+               margin:0; letter-spacing:-.02em; }
+    .mast .sub { font-size:12.5px; color:var(--ash); margin-top:6px; max-width:600px; }
+    .mast .asof { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
+                  white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .mast .asof .xlink { display:block; margin-top:7px; color:var(--blue-deep);
+                  text-decoration:none; border-bottom:1px solid transparent; }
+    .mast .asof .xlink:hover { border-bottom-color:var(--blue-deep); }
+
+    .controls { display:flex; flex-wrap:wrap; align-items:center; gap:8px 26px; padding:14px 0 6px; }
+    .cgrp { display:flex; align-items:center; gap:12px; }
+    .cgrp .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
+    .cgrp .sep { width:1px; height:11px; background:var(--stone); margin:0 -2px; }
+    .cgrp button { background:none; border:none; padding:2px 0; cursor:pointer; font-family:var(--sans);
+                   font-size:12.5px; color:var(--ash); border-bottom:1.5px solid transparent; }
+    .cgrp button:hover { color:var(--ink); }
+    .cgrp button.on { color:var(--ink); font-weight:600; border-bottom-color:var(--ink); }
+    .cgrp .date-input { width:118px; display:inline-flex; align-items:center; justify-content:center;
+                        gap:1px; font-family:var(--mono); font-size:11.5px; padding:3px 5px;
+                        border:1px solid var(--stone); border-radius:6px; background:var(--white);
+                        color:var(--ink); font-variant-numeric:tabular-nums; }
+    .cgrp .date-input:focus-within { outline:2px solid var(--blue); outline-offset:1px;
+                                     border-color:var(--blue); }
+    .cgrp .date-input.invalid { border-color:var(--red); color:var(--red); }
+    .date-segment { width:2ch; min-width:0; padding:0; border:0; outline:0; background:transparent;
+                    color:inherit; font:inherit; text-align:center; font-variant-numeric:tabular-nums; }
+    .date-segment.year { width:4ch; }
+    .date-slash { color:var(--steel); user-select:none; }
+    .cgrp select { font-family:var(--sans); font-size:12.5px; padding:3px 4px; border:none;
+                   border-bottom:1px solid var(--stone); background:none; color:var(--ink); }
+
+    .chartwrap { background:var(--white); border:1px solid var(--stone); border-radius:4px;
+                 margin-top:4px; position:relative; }
+    #chart { display:block; width:100%; touch-action:none; font-family:var(--sans); }
+    #chart text.m { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+    #chart .endlabel .label-remove { opacity:0; pointer-events:none; transition:opacity .1s; }
+    #chart .endlabel:hover .label-remove,
+    #chart .endlabel .label-remove:focus { opacity:1; pointer-events:auto; }
+    #chart .endlabel .label-remove:hover { font-weight:700; }
+    .readout { font-family:var(--mono); font-size:11px; color:var(--steel); text-align:right;
+               margin-top:12px; font-variant-numeric:tabular-nums; min-height:16px; }
+    .pe-note { display:none; margin:8px 2px 0; color:var(--ash); font-family:var(--mono);
+               font-size:10.5px; line-height:1.45; }
+    .pe-note.on { display:block; }
+    .pe-why { align-self:center; color:#b8484f; font-family:var(--mono); font-size:10px;
+              max-width:320px; line-height:1.35; }
+    .cgrp button:disabled { color:var(--steel); cursor:not-allowed; border-bottom-color:transparent; }
+    .cgrp.disabled { opacity:.28; pointer-events:none; }
+    .empty { padding:90px 0; text-align:center; color:var(--steel); font-size:13px; }
+
+    /* ---------- period-return heatmap ---------- */
+    .heathd { display:flex; align-items:baseline; gap:12px; margin:30px 0 7px; }
+    .heathd .lbl { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--steel); }
+    .heathd .hnote { font-family:var(--mono); font-size:11px; color:var(--ash);
+                     font-variant-numeric:tabular-nums; }
+    #heat, #seas { display:block; width:100%; font-family:var(--sans); }
+    #heat text, #seas text { font-variant-numeric:tabular-nums; }
+    #heat rect[data-t], #seas rect[data-t] { cursor:crosshair; }
+    /* the odds panel is a short number stack, sized to its widest figure */
+    .oddstip { position:fixed; z-index:61; display:none; pointer-events:none; white-space:nowrap;
+               background:#0c0a09; color:#f5f5f4; font-family:var(--mono); font-size:11.5px;
+               line-height:1.5; padding:8px 11px 9px; border-radius:5px;
+               font-variant-numeric:tabular-nums; box-shadow:0 4px 16px rgba(0,0,0,.3); }
+    .oddstip b { display:block; color:#fff; font-weight:600; font-size:12.5px; margin-bottom:4px; }
+    .oddstip .row { display:flex; justify-content:space-between; gap:22px; }
+    .oddstip .row span:first-child { color:#a8a29e; }
+    .oddstip sup { font-size:8.5px; }
+    .heattip { position:fixed; z-index:60; display:none; pointer-events:none;
+               background:#0c0a09; color:#fff; font-family:var(--mono); font-size:11px;
+               font-variant-numeric:tabular-nums; padding:3px 8px; border-radius:4px;
+               white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+
+    /* ---------- standard-deviation context ---------- */
+    .movetoggle { display:flex; gap:12px; }
+    .movetoggle[hidden] { display:none; }
+    .movetoggle button { padding:1px 0; border:0; border-bottom:1.5px solid transparent;
+                         background:none; color:var(--ash); cursor:pointer; font:11px var(--sans); }
+    .movetoggle button.on { color:var(--ink); border-bottom-color:var(--ink); font-weight:650; }
+
+    /* ---------- table ---------- */
+    table { width:100%; border-collapse:collapse; margin-top:26px; }
+    thead th { font-size:9.5px; letter-spacing:.11em; text-transform:uppercase; color:var(--steel);
+               font-weight:600; text-align:right; padding:0 10px 7px; border-bottom:1px solid var(--stone);
+               cursor:pointer; white-space:nowrap; }
+    thead th.l { text-align:left; }
+    thead th:hover { color:var(--ash); }
+    thead th.sorted { color:var(--ink); }
+    tbody td { padding:7px 10px; border-bottom:1px solid var(--fog); font-size:13px; text-align:right;
+               font-family:var(--mono); font-variant-numeric:tabular-nums; }
+    tbody td.l { text-align:left; font-family:var(--sans); }
+    tbody tr { cursor:pointer; }
+    tbody tr:hover td { background:var(--fog); }
+    tbody tr.dim td { opacity:.32; }
+    .swatch { display:inline-block; width:20px; height:3px; border-radius:2px; vertical-align:middle;
+              margin-right:9px; }
+    .nm { font-weight:550; }
+    .grp { color:var(--steel); font-size:11px; margin-left:8px; }
+    .flag { color:var(--blue-deep); font-size:10px; margin-left:6px; letter-spacing:.03em; }
+    .big { font-size:14px; font-weight:600; }
+    .note { font-size:12px; color:var(--ash); margin-top:26px; max-width:760px; }
+    .note b { color:var(--ink); font-weight:600; }
+    .ddhd { margin-top:34px; justify-content:space-between; align-items:center; }
+    .ddhd > div:first-child { display:flex; align-items:baseline; gap:12px; min-width:0; }
+    .ddwrap { margin-top:10px; }
+    #ddgrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    .ticker-card { display:flex; flex-direction:column; min-width:0; max-height:640px;
+                   border:1px solid var(--stone); border-radius:6px; background:#fff;
+                   cursor:pointer; overflow:hidden; transition:border-color .15s, box-shadow .15s, opacity .15s; }
+    .ticker-card:hover { border-color:#a8a29e; box-shadow:0 2px 12px rgba(28,25,23,.05); }
+    .ticker-card.dim { opacity:.3; }
+    .ticker-card-head { display:flex; align-items:center; justify-content:space-between; gap:14px;
+                        padding:12px 14px; border-bottom:1px solid var(--fog); }
+    .ticker-card-name { min-width:0; display:flex; align-items:center; }
+    .ticker-card-name .nm { font-size:14px; }
+    .ticker-card-name .grp { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ticker-card-hint { flex:0 0 auto; color:var(--stone); font:8px var(--sans);
+                        letter-spacing:.08em; text-transform:uppercase; }
+    .ticker-card-scroll { min-height:0; overflow-y:auto; overscroll-behavior:contain;
+                          scrollbar-width:thin; scrollbar-color:var(--platinum) transparent; }
+    .ticker-card-section { padding:11px 14px 13px; }
+    .ticker-card-section + .ticker-card-section { border-top:1px solid var(--fog); }
+    .ticker-card-section h3 { display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+                              margin:0 0 8px; color:var(--steel); font:600 8.5px var(--sans);
+                              letter-spacing:.12em; text-transform:uppercase; }
+    .ticker-card-section h3 small { overflow:hidden; color:var(--stone); font:8px var(--mono);
+                                    font-weight:400; letter-spacing:0; text-transform:none;
+                                    white-space:nowrap; text-overflow:ellipsis; }
+    .summary-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .summary-metric { min-width:0; min-height:42px; padding:7px 8px; text-align:left;
+                      background:#fafaf9; border:1px solid var(--fog); border-radius:3px; }
+    .summary-metric span { display:block; color:var(--steel); font:8px var(--sans);
+                           letter-spacing:.08em; text-transform:uppercase; white-space:nowrap;
+                           overflow:hidden; text-overflow:ellipsis; }
+    .summary-metric b { display:block; margin-top:3px; color:var(--ink); font:600 11px var(--mono);
+                        font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .summary-metric.trough { border-left:2px solid rgba(117,50,77,.24); }
+    .sigma-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; }
+    .sigma-grid.weekly { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .sigma-cell { position:relative; min-width:0; min-height:50px; padding:7px 8px;
+                  background:#fafaf9; border:1px solid var(--fog); border-radius:3px;
+                  text-align:center; line-height:1.2; }
+    .sigma-cell.earnings { background:#fff8e7; border-color:rgba(212,135,29,.2); }
+    .sigma-cell .mvdate { display:block; color:var(--steel); font:8.5px var(--mono); margin-bottom:2px; }
+    .sigma-cell b { display:block; font:600 11px var(--mono); }
+    .sigma-cell em { display:block; overflow:hidden; margin-top:3px; color:var(--ash);
+                     font:9px var(--mono); font-style:normal; white-space:nowrap; text-overflow:ellipsis; }
+    .sigma-cell .etag { position:absolute; top:4px; right:5px; color:#9a5e00; font:700 8px var(--mono); }
+    .sigma-cell.empty { display:flex; align-items:center; justify-content:center; color:var(--stone); }
+    .dd-events { max-height:146px; overflow-y:auto; padding-right:4px; }
+    .dd-event { display:grid; grid-template-columns:54px 164px 1fr; gap:7px; line-height:1.75;
+                white-space:nowrap; font:10.5px var(--mono); }
+    .dd-event b { color:var(--red); font-weight:600; }
+    .dd-event em { color:var(--steel); font-style:normal; }
+    .dd-event.latest { background:#fff8f8; box-shadow:inset 2px 0 var(--red);
+                       border-radius:2px; padding-left:6px; margin-left:-6px; }
+    .dd-none { color:var(--steel); font-size:11px; }
+    #ddgrid > .dd-none { grid-column:1/-1; padding:18px 0; }
+    @media (max-width:1250px){ #ddgrid{grid-template-columns:1fr;} }
+    @media (max-width:620px){ .summary-strip{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .sigma-grid,.sigma-grid.weekly{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .dd-event{grid-template-columns:48px 1fr;} .dd-event em{grid-column:2;} }
+    @media (max-width:900px){ .shell{grid-template-columns:1fr;} .rail{height:auto;position:static;}
+      .list{max-height:260px;} .main{padding:20px 16px 60px;} .mast h1{font-size:30px;} }
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="rh">
+      <div class="kicker"><a href="market-lab.html">&larr; Market Lab</a></div>
+      <h2>Themes</h2>
+      <input id="q" type="search" placeholder="Filter themes…" autocomplete="off" />
+      <div class="quick">
+        <button data-set="ai">AI complex</button>
+        <button data-set="power">Power</button>
+        <button data-set="baskets">All baskets</button>
+        <button data-set="sectors">Sectors</button>
+        <button data-set="clear">Clear</button>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+
+  <main class="main">
+    <div class="mast">
+      <div>
+        <h1>Theme returns</h1>
+      </div>
+      <div class="asof">
+        <div id="asof"></div>
+        <a class="xlink" href="market-lab-leaders.html">Leaders &rarr;</a>
+        <a class="xlink" href="market-lab-weekend.html">Weekend review &rarr;</a>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="cgrp" id="spans"><span class="lbl">Window</span></div>
+      <div class="cgrp">
+        <span class="date-input" id="d1" role="group" aria-label="Start date">
+          <input class="date-segment" data-part="month" type="text" inputmode="numeric"
+                 maxlength="2" autocomplete="off" aria-label="Start month" />
+          <span class="date-slash" aria-hidden="true">/</span>
+          <input class="date-segment" data-part="day" type="text" inputmode="numeric"
+                 maxlength="2" autocomplete="off" aria-label="Start day" />
+          <span class="date-slash" aria-hidden="true">/</span>
+          <input class="date-segment year" data-part="year" type="text" inputmode="numeric"
+                 maxlength="4" autocomplete="off" aria-label="Start year" />
+        </span>
+        <span style="color:var(--steel);font-size:11px">to</span>
+        <span class="date-input" id="d2" role="group" aria-label="End date">
+          <input class="date-segment" data-part="month" type="text" inputmode="numeric"
+                 maxlength="2" autocomplete="off" aria-label="End month" />
+          <span class="date-slash" aria-hidden="true">/</span>
+          <input class="date-segment" data-part="day" type="text" inputmode="numeric"
+                 maxlength="2" autocomplete="off" aria-label="End day" />
+          <span class="date-slash" aria-hidden="true">/</span>
+          <input class="date-segment year" data-part="year" type="text" inputmode="numeric"
+                 maxlength="4" autocomplete="off" aria-label="End year" />
+        </span>
+      </div>
+      <div class="cgrp" id="anchors"><span class="lbl">Anchor</span>
+        <select id="anchor"></select>
+      </div>
+    </div>
+    <div class="controls" style="padding-top:2px">
+      <div class="cgrp" id="modes"><span class="lbl">Measure</span></div>
+      <span class="pe-why" id="pewhy" hidden></span>
+      <div class="cgrp" id="benchwrap"><span class="lbl">vs</span><select id="bench"></select></div>
+      <div class="cgrp" id="pebasis" hidden><span class="lbl">Earnings</span></div>
+      <div class="cgrp" id="corrwin" hidden><span class="lbl">Rolling</span></div>
+      <div class="cgrp" id="scales"><span class="lbl">Scale</span></div>
+      <div class="cgrp" id="basis" title="Off = price return, the move in the share price alone. On = total return, dividends reinvested on the ex-date. Applies to every page."><span class="lbl">Dividends</span></div>
+    </div>
+
+    <div class="readout" id="readout"></div>
+    <div class="chartwrap">
+      <svg id="chart" role="img" aria-label="Theme return comparison"></svg>
+    </div>
+    <div class="pe-note" id="penote">Annual consensus vintages · FY N consensus is applied from the FY N−1 annual report · bands use the visible-window log median and robust dispersion, widened to contain current P/E.</div>
+
+    <div class="heathd">
+      <span class="lbl">Period returns</span>
+      <span class="hnote" id="heatnote"></span>
+    </div>
+    <div class="chartwrap">
+      <svg id="heat" role="img" aria-label="Period return heatmap"></svg>
+    </div>
+
+    <div class="heathd">
+      <span class="lbl">Average by month</span>
+      <span class="hnote" id="seasnote"></span>
+    </div>
+    <div class="chartwrap">
+      <svg id="seas" role="img" aria-label="Average return by calendar month"></svg>
+    </div>
+
+    <table id="tbl" hidden aria-hidden="true">
+      <thead><tr>
+        <th class="l" data-k="label">Theme</th>
+        <th data-k="ret">Return</th>
+        <th data-k="cursor">At cursor</th>
+        <th data-k="vol">Ann. vol</th>
+        <th data-k="advol" title="Average daily move — mean of |daily % change| over the window; runs to the cursor when hovering">Avg daily</th>
+        <th data-k="dd">Max DD</th>
+        <th data-k="rv">Ret / vol</th>
+        <th data-k="best">Best day</th>
+        <th data-k="worst">Worst day</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="heathd ddhd">
+      <div>
+        <span class="lbl">Ticker summary · Completed ATH drawdowns</span>
+        <span class="hnote" title="High-volatility ETF = at least 30% annualized volatility over its full available history">full history · &gt;20% single names, metals &amp; ≥30% vol ETFs · &gt;5% otherwise · Current = latest close · Current Trough = low since ATH</span>
+      </div>
+      <div class="movetoggle" id="ddmovetoggle" aria-label="Standard deviation frequency" hidden>
+        <button type="button" data-move="d">Daily</button>
+        <button type="button" data-move="w">Weekly</button>
+      </div>
+    </div>
+    <div class="ddwrap">
+      <div id="ddgrid" aria-live="polite"></div>
+    </div>
+
+    <p class="note" id="foot"></p>
+  </main>
+</div>
+
+<script src="cube/themes.js?v=20260821-9a2ecad7"></script>
+<script src="cube/pe-bands.js?v=20260821-9a2ecad7"></script>
+<script>
+(() => {
+  const D = window.QUANT_THEMES;
+  if (!D) { document.getElementById('list').innerHTML =
+    '<p style="padding:18px;font-size:12px;color:#78716c">cube/themes.js not found — run '
+    + '<code>python -m export.themes</code> in the quant repo.</p>'; return; }
+
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const PE = window.QUANT_PE_BANDS || {meta:{},series:{}};
+  const peEpsId = id => (PE.meta.aliases && PE.meta.aliases[id]) || id;
+  const PE_FISCAL_START = PE.meta.fiscal_start_months || {};
+  const DATES = D.dates, N = DATES.length;
+  const SER = {}, IDS = [];
+  D.series.forEach(s => { SER[s.id] = s; IDS.push(s.id); });
+  const DIDX = {}; DATES.forEach((d,i) => DIDX[d] = i);
+
+  // Recommended names get their own selectable identity, distinct from the plain
+  // stock line a basket would use. 'reco:HUBB' shares HUBB's price history but is
+  // rendered under reco rules (rebased to each recommendation close, bold while
+  // held / ghost when out), so the two never overlap. The book's memberIds point
+  // at these reco identities, so the drill-down toggles the reco version.
+  D.series.forEach(s => {
+    if (s.kind !== 'reco' || !s.reco) return;
+    const cur = s.reco.current || [];
+    const ids = [];
+    s.reco.names.forEach(nm => {
+      const src = SER[nm.t]; if (!src) return;         // no drawable price line
+      const rid = 'reco:' + nm.t;
+      SER[rid] = { id: rid, label: nm.t, kind: 'reconame', src: nm.t, book: s.id,
+                   windows: nm.windows, current: cur.includes(nm.t),
+                   group: cur.includes(nm.t) ? 'reco · held' : 'reco · closed' };
+      ids.push(rid);
+    });
+    s.memberIds = ids;
+  });
+
+  // ---------- return basis ----------
+  // `lv` ships PRICE return — splits only, dividends left out — because that is
+  // what a hand-kept sheet of entry and exit prices reproduces. `dv` is the
+  // sparse cumulative dividend-reinvestment factor: [[index, factor], ...], flat
+  // between ex-dates, absent entirely for anything that never paid. Multiplying
+  // the two gives total return, so both bases live in one payload.
+  //
+  // The choice is ONE setting shared across the whole site, so this page and
+  // Leaders can never disagree about what a number means.
+  const BASIS_KEY = 'mlab.basis';
+  const readBasis = () => { try { return localStorage.getItem(BASIS_KEY) === 'tr'; }
+                            catch (e) { return false; } };
+  const writeBasis = v => { try { localStorage.setItem(BASIS_KEY, v ? 'tr' : 'pr'); }
+                            catch (e) {} };
+
+  // ---------- palette: 20 hues that stay legible at 1.6px on white ----------
+  const PALETTE = ['#1d7fc4','#e2703a','#3f9d6a','#b8484f','#7a5bbd','#8a6b4a','#c25da8',
+                   '#5f7183','#9a9a2c','#3aa9b8','#2f5fa8','#d1902b','#4f7f3a','#a1445f',
+                   '#6b6bd0','#7d5340','#b3579b','#4a6270','#87883a','#2e8f96'];
+  const colorOf = {}; let colorSeq = 0;
+  function assign(id){ if(!(id in colorOf)) colorOf[id] = PALETTE[colorSeq++ % PALETTE.length]; return colorOf[id]; }
+
+  // ---------- state ----------
+  const QUICK = {
+    ai: ['memory','gpu','semicap','photonics','neocloud','aiserver','hyperscale','software','qqq'],
+    power: ['nuclear','elecind','epc','solutil','solresi','xlu','grid','qqq'],
+    baskets: D.series.filter(s => s.kind === 'basket').map(s => s.id).concat(['qqq']),
+    sectors: D.series.filter(s => s.group === 'Sectors').map(s => s.id).concat(['spy']),
+    clear: []
+  };
+  const ANCHORS = [
+    {id:'', label:'—'},
+    {id:'2026-06-10', label:'Jun 10 2026 flush low'},
+    {id:'2026-04-01', label:'Q2 2026 start'},
+    {id:'2025-04-08', label:'Apr 8 2025 cycle trough'},
+    {id:'2024-01-02', label:'2024 start'},
+    {id:'2022-11-03', label:'Nov 3 2022 cycle trough'},
+    {id:'2022-01-03', label:'Jan 2022 peak'},
+    {id:'2020-03-23', label:'Mar 23 2020 covid low'},
+    {id:'2009-03-09', label:'Mar 9 2009 GFC low'}
+  ];
+  // These don't pick a shared date — they change what each line is measured
+  // FROM. Every series is rebased to its own extreme, so "own 52w high" reads
+  // as how far each theme sits below its own peak, not below QQQ's.
+  const DYN_ANCHORS = [
+    {id:'@hi52', label:'own 52w high'},
+    {id:'@lo52', label:'own 52w low'},
+    {id:'@ath',  label:'own all-time high'}
+  ];
+  const DYN_NOTE = {hi52:'own 52w high', lo52:'own 52w low', ath:'own all-time high'};
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // spans are trading sessions of return: '1D' = previous close -> last close
+  const SPANS = [['1D',1],['3D',3],['1W',5],['2W',10],['|'],
+                 ['1M',21],['3M',63],['6M',126],['YTD','ytd'],['1Y',252],['2Y',504],
+                 ['3Y',756],['5Y',1260],['Max','max']];
+  const MODES = [['cum','Cumulative %'],['idx','Growth of 100'],['rel','Relative'],
+                 ['dd','Drawdown'],['corr','Correlation'],['pe','P/E Bands']];
+  const CORR_WINS = [21, 63, 126];
+
+  const st = {
+    sel: QUICK.ai.slice(),
+    span: 'YTD', i1: 0, i2: N-1,
+    mode: 'cum', bench: 'qqq', log: false, anchor: null, peBasis: 1, corrWin: 63,
+    sortK: 'ret', sortDir: -1, focus: null, cursor: null, moveFrame: 'd',
+    tr: readBasis()
+  };
+  st.sel.forEach(assign);
+
+  // Swap the whole `lv` array rather than teaching every consumer about the
+  // factor: stats, correlation, the period strip, the drawdown grid and the
+  // drawing code all read `s.lv` through lvAt and stay untouched. Both versions
+  // are cached per series, so flipping the toggle is a re-render, not a rebuild.
+  function applyBasis(){
+    IDS.forEach(id => {
+      const S = SER[id];
+      if (!S || !S.dv || !S.lv) return;
+      if (!S._pr) S._pr = S.lv;
+      if (!st.tr){ S.lv = S._pr; return; }
+      if (!S._tr){
+        const src = S._pr, out = new Array(src.length);
+        let j = 0, f = 1;
+        for (let k = 0; k < src.length; k++){
+          while (j < S.dv.length && S.dv[j][0] <= k){ f = S.dv[j][1]; j++; }
+          out[k] = src[k] == null ? null : Math.round(src[k] * f * 1000) / 1000;
+        }
+        S._tr = out;
+      }
+      S.lv = S._tr;
+    });
+  }
+  // swap events for the currently-selected reco book (set in transform, drawn in render)
+  // one entry per selected reco book — two books can be on the chart at once and
+  // can swap on the same day, so markers merge by date instead of overwriting
+  let RECO_BOOKS = [];      // [{id,label,color,events,exits}]
+  const CUR_TIPS = {};      // swapDate -> prebuilt swap-marker tooltip HTML
+
+  // ---------- helpers ----------
+  const lvAt = (s,i) => { const j = i - s.i0; return (j < 0 || j >= s.lv.length) ? null : s.lv[j]; };
+  const idxOnOrAfter = d => { for (let i=0;i<N;i++) if (DATES[i] >= d) return i; return N-1; };
+  // date index of a series' own extreme. 52w = trailing 252 sessions off its last bar.
+  function dynAnchorIdx(kind, s){
+    if (!s || !s.lv || !s.lv.length) return null;
+    const end = Math.min(N-1, s.i0 + s.lv.length - 1);
+    const from = kind === 'ath' ? s.i0 : Math.max(s.i0, end - 251);
+    let bi = null, bv = null;
+    for (let i = from; i <= end; i++){
+      const v = lvAt(s,i); if (v == null) continue;
+      if (bv == null || (kind === 'lo52' ? v < bv : v > bv)){ bv = v; bi = i; }
+    }
+    return bi;
+  }
+  // the level a series is measured from when a dynamic anchor is active
+  function anchorBase(s){
+    const i = dynAnchorIdx(st.anchor, s);
+    return i == null ? null : lvAt(s, i);
+  }
+  // Keep the shared x-axis wide enough to contain every selected series' own
+  // anchor. Lines still begin independently at their respective anchor bars.
+  function syncDynamicAnchorWindow(){
+    if (!st.anchor) return false;
+    let earliest = N-1;
+    st.sel.forEach(id => {
+      const item = SER[id];
+      const s = item && item.kind === 'reconame' ? SER[item.src] : item;
+      const i = s ? dynAnchorIdx(st.anchor, s) : null;
+      if (i != null && i < earliest) earliest = i;
+    });
+    const next = Math.min(earliest, N-2);
+    const changed = st.i1 !== next;
+    st.i1 = next; st.i2 = N-1; st.span = null;
+    return changed;
+  }
+  // average daily move: mean |daily % change| over [a,b] on the shared calendar
+  // `src` is a series object when the row was drawn off a rebuilt composite, so
+  // the daily-move stat measures the same path the chart shows
+  function avgDailyVol(src, a, b){
+    let s = typeof src === 'string' ? SER[src] : src;
+    if (s && s.kind === 'reconame') s = SER[s.src];   // no levels of its own
+    if (!s || !s.lv) return null;                     // a stat, never a crash
+    const lo = Math.max(a, s.i0), hi = Math.min(b, s.i0 + s.lv.length - 1);
+    let sum = 0, n = 0, prev = null;
+    for (let i = lo; i <= hi; i++){
+      const v = lvAt(s,i);
+      if (v == null){ prev = null; continue; }
+      if (prev != null && prev !== 0){ sum += Math.abs(v/prev - 1); n++; }
+      prev = v;
+    }
+    return n ? sum/n : null;
+  }
+  const fmtPct = v => (v>=0?'+':'') + (v*100).toFixed(v>=10||v<=-10?0:1) + '%';
+  const fmtNum = v => v.toFixed(1);
+  const fmtR = v => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2);
+  const quantile = (values, q) => {
+    const a = values.filter(Number.isFinite).sort((x,y) => x-y);
+    if (!a.length) return null;
+    const p = (a.length-1) * q, lo = Math.floor(p), hi = Math.ceil(p);
+    return lo === hi ? a[lo] : a[lo] + (a[hi]-a[lo]) * (p-lo);
+  };
+  function peContext(){
+    if (st.sel.length !== 1) return null;
+    const item = SER[st.sel[0]]; if (!item) return null;
+    if (!['stock','equity','reconame'].includes(item.kind)) return null;
+    const id = item.kind === 'reconame' ? item.src : item.id;
+    const epsId = peEpsId(id);
+    const s = SER[id], rec = PE.series && PE.series[epsId];
+    if (!s || !s.p0 || !rec || (PE.meta.excluded && PE.meta.excluded[epsId])) return null;
+    const rows = rec.rows || [], byFy = {};
+    rows.forEach(r => byFy[r[0]] = r);
+    const anchors = rows.filter(r => r[3] !== 'f' && byFy[r[0]+1] && byFy[r[0]+2]);
+    return anchors.length ? { id, epsId, item, s, rec, rows, byFy, anchors } : null;
+  }
+  function peCandidate(){
+    if (st.sel.length !== 1) return null;
+    const item = SER[st.sel[0]]; if (!item || !['stock','equity','reconame'].includes(item.kind)) return null;
+    return { item, id:item.kind === 'reconame' ? item.src : item.id };
+  }
+  function peUnavailableReason(candidate){
+    if (!candidate) return '';
+    const epsId = peEpsId(candidate.id);
+    const excluded = PE.meta.excluded && PE.meta.excluded[epsId];
+    if (excluded) return `P/E unavailable · ${excluded}`;
+    const rec = PE.series && PE.series[epsId];
+    if (!rec) return 'P/E unavailable · no annual consensus EPS history in the source workbook';
+    if (!SER[candidate.id]?.p0) return 'P/E unavailable · no compatible price history';
+    return 'P/E unavailable · no completed historical consensus vintage yet';
+  }
+  function peProxy(ctx, basis){
+    const changes = ctx.anchors.map(a => {
+      const target = ctx.byFy[a[0] + basis];
+      return target && target[2] > 0
+        ? { date:a[1], fy:target[0], eps:target[2], i:idxOnOrAfter(a[1]) }
+        : { date:a[1], fy:target ? target[0] : null, eps:null, i:idxOnOrAfter(a[1]) };
+    });
+    // Annual estimates become the next forward year once the current fiscal
+    // year reaches Q3.  This is what makes MU use FY2027 in Q3 FY2026, while a
+    // Japanese March-year-end name stays on FY2027 until its October Q3 start.
+    const startMonth = PE_FISCAL_START[ctx.epsId];
+    if (Number.isInteger(startMonth)) {
+      const q3Date = fy => {
+        let year = startMonth === 1 ? fy : fy - 1;
+        const offset = startMonth - 1 + 6;
+        year += Math.floor(offset / 12);
+        const month = offset % 12 + 1;
+        return `${year}-${String(month).padStart(2,'0')}-01`;
+      };
+      ctx.rows.forEach(row => {
+        const target = ctx.byFy[row[0] + basis];
+        if (target && target[2] > 0) {
+          changes.push({ date:q3Date(row[0]), fy:target[0], eps:target[2],
+            i:idxOnOrAfter(q3Date(row[0])) });
+        }
+      });
+    }
+    changes.sort((a,b) => a.date.localeCompare(b.date));
+    const eps = new Array(N).fill(null), fy = new Array(N).fill(null);
+    let c = 0, active = null;
+    for (let i=0;i<N;i++){
+      while (c < changes.length && changes[c].date <= DATES[i]) active = changes[c++];
+      if (active && active.eps > 0){ eps[i] = active.eps; fy[i] = active.fy; }
+    }
+    const price = new Array(N).fill(null), multiple = new Array(N).fill(null);
+    for (let i=Math.max(0,ctx.s.i0);i<N;i++){
+      const lv = lvAt(ctx.s,i);
+      if (lv == null) continue;
+      price[i] = lv * ctx.s.p0 / 100;
+      if (eps[i] > 0) multiple[i] = price[i] / eps[i];
+    }
+    return { changes, eps, fy, price, multiple };
+  }
+  // ---------- correlation ----------
+  // Only defined for a pair, so the mode is gated on exactly two selections.
+  // Reco books expand into several lines and have no single return stream, so
+  // they can't be one half of a pair.
+  function corrPair(){
+    if (st.sel.length !== 2) return null;
+    const parts = st.sel.map(id => {
+      const S = SER[id];
+      if (!S || S.kind === 'reco') return null;
+      // A recommended name is a rendering identity, not a price series — it has
+      // no levels of its own and draws off the plain stock line underneath it.
+      // Correlate that line. Passing the reco id straight to windowStats read
+      // `.lv` off a series that has none and threw, and because this runs on
+      // every render to decide whether Correlation is available, it took the
+      // whole chart down whenever exactly two names were selected.
+      const w = windowStats(S.kind === 'reconame' ? S.src : id);
+      return w ? { id, label: S.label, color: assign(id), s: w.s, a: w.a, b: w.b } : null;
+    });
+    return parts.every(Boolean) ? parts : null;
+  }
+  function corrReason(){
+    if (st.sel.length !== 2)
+      return st.sel.length < 2 ? 'Select two series to compare' : 'Correlation takes exactly two series';
+    return 'One of the two has no return history in this window';
+  }
+  // Pearson r on daily returns, computed only on sessions where BOTH have a
+  // return. A gap in one series drops the day for both rather than pairing a
+  // move against a stale price.
+  function corrCalc(pair){
+    const [A, B] = pair;
+    const lo = Math.max(A.a, B.a), hi = Math.min(A.b, B.b);
+    const ra = [], rb = [], at = [];
+    for (let i = lo + 1; i <= hi; i++){
+      const a0 = lvAt(A.s, i-1), a1 = lvAt(A.s, i);
+      const b0 = lvAt(B.s, i-1), b1 = lvAt(B.s, i);
+      if (a0 == null || a1 == null || b0 == null || b1 == null || !a0 || !b0) continue;
+      ra.push(a1/a0 - 1); rb.push(b1/b0 - 1); at.push(i);
+    }
+    const n = ra.length;
+    if (n < 3) return null;
+    const r = (x, y, from, to) => {
+      let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0, m = 0;
+      for (let k = from; k <= to; k++){
+        sx += x[k]; sy += y[k]; sxx += x[k]*x[k]; syy += y[k]*y[k]; sxy += x[k]*y[k]; m++;
+      }
+      const cov = sxy/m - (sx/m)*(sy/m);
+      const vx = sxx/m - (sx/m)**2, vy = syy/m - (sy/m)**2;
+      return (vx <= 0 || vy <= 0) ? null : cov / Math.sqrt(vx*vy);
+    };
+    const full = r(ra, rb, 0, n-1);
+    // rolling window, indexed back onto the date axis so it lines up with everything else
+    const win = Math.min(st.corrWin, n);
+    const roll = new Array(N).fill(null);
+    for (let k = win - 1; k < n; k++) roll[at[k]] = r(ra, rb, k - win + 1, k);
+    // beta of A on B — the slope behind the same scatter, worth stating because
+    // r says they move together and beta says by how much
+    let sb = 0, sbb = 0, sab = 0, sa = 0;
+    for (let k = 0; k < n; k++){ sa += ra[k]; sb += rb[k]; sbb += rb[k]*rb[k]; sab += ra[k]*rb[k]; }
+    const vb = sbb/n - (sb/n)**2;
+    const beta = vb > 0 ? (sab/n - (sa/n)*(sb/n)) / vb : null;
+    return { full, roll, n, win, beta, first: at[win-1] != null ? at[win-1] : null };
+  }
+  function syncCorrAvailability(){
+    const pair = corrPair();
+    const button = document.querySelector('#modes button[data-mode="corr"]');
+    if (button){
+      button.disabled = !pair;
+      button.title = pair
+        ? `Rolling correlation of daily returns · ${pair[0].label} vs ${pair[1].label}`
+        : corrReason();
+    }
+    if (st.mode === 'corr' && !pair){
+      st.mode = 'cum';
+      document.querySelectorAll('#modes button').forEach(b =>
+        b.classList.toggle('on', b.dataset.mode === st.mode));
+    }
+    return pair;
+  }
+
+  function syncPeAvailability(){
+    const candidate = peCandidate();
+    const ctx = peContext();
+    const button = document.querySelector('#modes button[data-mode="pe"]');
+    const why = document.getElementById('pewhy');
+    if (button){
+      button.hidden = !candidate;
+      button.disabled = !!candidate && !ctx;
+      button.title = ctx ? 'Show historical forward P/E bands' : peUnavailableReason(candidate);
+    }
+    if (why){
+      why.hidden = !candidate || !!ctx;
+      why.textContent = candidate && !ctx ? peUnavailableReason(candidate) : '';
+    }
+    if (st.mode === 'pe' && !ctx){
+      st.mode = 'cum';
+      document.querySelectorAll('#modes button').forEach(b =>
+        b.classList.toggle('on', b.dataset.mode === st.mode));
+      document.getElementById('pebasis').hidden = true;
+      document.getElementById('anchors').classList.remove('disabled');
+      document.getElementById('penote').classList.remove('on');
+    }
+    return ctx;
+  }
+
+  function setSpan(tag){
+    st.span = tag; st.anchor = null;   // a span is a shared window, not a per-series rebase
+    const spec = (SPANS.find(s => s[0]===tag)||[])[1];
+    if (spec === 'max') st.i1 = 0;
+    else if (spec === 'ytd') st.i1 = idxOnOrAfter(DATES[N-1].slice(0,4) + '-01-01');
+    else if (typeof spec === 'number') st.i1 = Math.max(0, N-1-spec);
+    st.i2 = N-1;
+  }
+  setSpan('YTD');
+
+  // ---------- window series maths ----------
+  // A coverage book (`avg`) is read as "I bought these names and held them", so
+  // its level is the plain average of the members' returns since the left edge
+  // of the window — each name counts once, never rebalanced, so a winner keeps
+  // compounding at full size. Rebuilt on every window change, because a
+  // buy-and-hold path depends on where you started. Members with no price at
+  // `from` are left out (you couldn't have owned them); members that don't trade
+  // on a given day hold their last price, so a Tokyo name on a US-only session
+  // doesn't drop out of the average. Everything else keeps the daily-rebalanced
+  // index shipped in `lv`.
+  function avgLevels(s0, from){
+    const ms = [];
+    (s0.memberIds || []).forEach(mid => {
+      const m = SER[mid]; if (!m) return;
+      const b = baseAt(m, from); if (!b) return;
+      ms.push({ m, b, last: b });
+    });
+    if (!ms.length) return null;
+    const end = Math.min(N - 1, Math.max(...ms.map(o => o.m.i0 + o.m.lv.length - 1)));
+    if (end <= from) return null;
+    const lv = new Array(end - from + 1);
+    for (let i = from; i <= end; i++){
+      let sum = 0;
+      for (const o of ms){ const v = lvAt(o.m, i); if (v != null) o.last = v; sum += o.last / o.b; }
+      lv[i - from] = 100 * sum / ms.length;
+    }
+    return { i0: from, lv, n: ms.length };
+  }
+  function windowStats(id){
+    const s0 = SER[id];
+    const anchorIdx = st.anchor ? dynAnchorIdx(st.anchor, s0) : null;
+    if (st.anchor && anchorIdx == null) return null;
+    // The average runs from the left edge of the window; a dynamic anchor only
+    // changes what the finished path is divided by, as for any shipped series.
+    // The extreme bar itself is still located on the shipped daily-rebalanced
+    // index, whose shape doesn't move with the window — the composite can't be
+    // used to find a date it is itself built from.
+    const s = s0.avg ? (avgLevels(s0, Math.max(st.i1, s0.i0)) || s0) : s0;
+    const drawA = Math.max(st.i1, s.i0);
+    // Stats begin at this series' own anchor. Earlier values remain in `g` so
+    // the renderer can show the lead-in as a ghost line.
+    const a = Math.max(drawA, anchorIdx == null ? drawA : anchorIdx);
+    const b = Math.min(st.i2, s.i0 + s.lv.length - 1);
+    if (b <= a) return null;
+    // normally the window start; with a dynamic anchor, this series' own extreme,
+    // so each line answers "where am I versus my own high/low", not a shared date
+    const base = (anchorIdx == null || anchorIdx < s.i0) ? lvAt(s,a) : lvAt(s,anchorIdx);
+    if (base == null || !base) return null;
+    const g = new Array(st.i2 - st.i1 + 1).fill(null);
+    let peak = -Infinity, mdd = 0, prev = null, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
+    for (let i = drawA; i <= b; i++){
+      const v = lvAt(s,i); if (v == null) continue;
+      g[i - st.i1] = v / base;
+      if (i < a) continue;                 // ghost history is presentation-only
+      if (v > peak) peak = v;
+      const dd = v/peak - 1; if (dd < mdd) mdd = dd;
+      if (prev != null){ const r = v/prev - 1; sum += r; sq += r*r; n++;
+                         if (r > best) best = r; if (r < worst) worst = r; }
+      prev = v;
+    }
+    const mean = n ? sum/n : 0;
+    // one observation carries no dispersion — say so rather than reporting 0%
+    const vol = n > 1 ? Math.sqrt((sq/n - mean*mean) * 252) : null;
+    const ret = g[b - st.i1] - 1;
+    return { id, s, g, a, b, anchorIdx, ret, vol, mdd, best, worst, partial: s0.i0 > st.i1,
+             lateFull: s0.full && s0.full > DATES[a],
+             // how many names the average actually covers, when it is an average
+             avgN: s === s0 ? null : s.n, avgOf: s0.avg ? (s0.memberIds||[]).length : null };
+  }
+
+  // ---------- reco-book maths ----------
+  // A reco book charts each recommended name rebased to *its own* recommendation
+  // close (not the window start), so every line reads "% since we called it".
+  // The name stays live the whole time (ghost when out of the book, bold when
+  // held); the strategy line is the headline sum-of-returns/5 index off inception.
+  const entryIdxOf = d => (DIDX[d] != null ? DIDX[d] : idxOnOrAfter(d));
+  function baseAt(s, idx){
+    // value at idx, or the last real value before it (calendar-gap safe)
+    for (let i = Math.min(idx, s.i0 + s.lv.length - 1); i >= s.i0; i--){
+      const v = lvAt(s, i); if (v != null) return v;
+    }
+    return null;
+  }
+  // reco lines are rebased to a call date, not the window. When a dynamic anchor
+  // is on, re-scale them so they read off their own extreme like everything else
+  // — a constant multiplier, so the drawn shape and the bold/ghost split are
+  // untouched, only the level the line is measured from moves.
+  function anchorScale(s, entryIdx){
+    if (!st.anchor || !s) return 1;
+    const ab = anchorBase(s), eb = baseAt(s, entryIdx);
+    return (ab && eb) ? eb / ab : 1;
+  }
+  function applyAnchor(w, s, entryIdx){
+    if (!st.anchor || !s) return w;
+    const anchorIdx = dynAnchorIdx(st.anchor, s);
+    if (anchorIdx == null) return w;
+    const k = anchorScale(s, entryIdx);
+    const g = w.g.map(v => v == null ? null : v * k);
+    let last = null;
+    for (let i = g.length - 1; i >= 0; i--) if (g[i] != null){ last = g[i]; break; }
+    // `disp` is what the table prints for reco lines — scale it with `ret`,
+    // or the row keeps reporting the return since inception
+    return { ...w, g, anchorIdx, a: Math.max(w.a == null ? st.i1 : w.a, anchorIdx),
+             ret: last == null ? null : last - 1, disp: last };
+  }
+  function recoStats(id, entryIdx){
+    // like windowStats but rebased to the close on entryIdx, drawn from entry on
+    const s = SER[id]; if (!s) return null;
+    const seriesEnd = s.i0 + s.lv.length - 1;
+    const base = baseAt(s, entryIdx); if (base == null || base === 0) return null;
+    const a = Math.max(st.i1, entryIdx), b = Math.min(st.i2, seriesEnd);
+    if (b < a) return null;
+    const g = new Array(st.i2 - st.i1 + 1).fill(null);
+    let peak = -Infinity, mdd = 0, prev = null, sum = 0, sq = 0, n = 0, best = -1, worst = 1;
+    for (let i = a; i <= b; i++){
+      const v = lvAt(s, i); if (v == null) continue;
+      const gr = v / base; g[i - st.i1] = gr;
+      if (gr > peak) peak = gr;
+      const dd = gr/peak - 1; if (dd < mdd) mdd = dd;
+      if (prev != null && prev !== 0){ const r = gr/prev - 1; sum += r; sq += r*r; n++;
+                                       if (r > best) best = r; if (r < worst) worst = r; }
+      prev = gr;
+    }
+    const mean = n ? sum/n : 0;
+    const vol = n > 1 ? Math.sqrt((sq/n - mean*mean) * 252) : null;
+    let last = null; for (let k = g.length-1; k >= 0; k--) if (g[k] != null){ last = g[k]; break; }
+    // `s` travels with the stats, as it does out of windowStats. The table's
+    // average-daily-move column reads it, and without it the column fell back to
+    // the row id — which for a recommended name is 'reco:NEM', a rendering
+    // identity with no price levels behind it. Reading them threw and took the
+    // period-return strip and the whole ledger down with it.
+    return { s, g, a, b, ret: last != null ? last-1 : null, vol, mdd, best, worst, disp: last };
+  }
+  function buildExits(R){
+    // realized return of every closed call: exit close / entry close - 1, frozen
+    // at the swap. Keyed by exit date + ticker so a swap marker can show the P&L
+    // of each leg it retired that day.
+    const m = {};
+    R.names.forEach(nm => {
+      const src = SER[nm.t]; if (!src) return;
+      nm.windows.forEach(([e, x]) => {
+        if (!x) return;                                   // open leg, nothing realized yet
+        const p0 = baseAt(src, entryIdxOf(e)), p1 = baseAt(src, entryIdxOf(x));
+        if (p0 && p1) m[`${x}|${nm.t}`] = p1 / p0 - 1;
+      });
+    });
+    return m;
+  }
+  function expandReco(s, out){
+    const R = s.reco;
+    RECO_BOOKS.push({ id: s.id, label: s.label, color: assign(s.id),   // markers for render()
+                      events: R.events, exits: s._exits || (s._exits = buildExits(R)) });
+    // the headline strategy line — rebased to book inception, so it always reads
+    // cumulative book P&L (sum of every call's return / 5) regardless of window.
+    const strat0 = recoStats(s.id, s.i0);
+    const strat = strat0 && applyAnchor(strat0, s, s.i0);
+    if (strat){
+      let g = strat.g;
+      if (st.mode === 'dd'){ let pk = -Infinity;
+        g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
+      out.push({ ...strat, g, id: s.id, color: assign(s.id), label: s.label, isStrategy: true });
+    }
+    // individual names are NOT drawn with the book — they toggle on demand from
+    // the drill-down (as plain constituent lines, like a basket's members).
+  }
+
+  // ---------- alpha band ----------
+  // A Recommended book and one of its coverage books make an alpha pair: the gap
+  // between them is what the calls added over just owning the list. Each book
+  // `<x>_reco` pairs with `<x>` and, through the handoff, with `<x>`'s prior
+  // book. If both coverage books are on, shade against whichever is live — two
+  // overlapping bands read as mud.
+  // The band is only honest when both lines share a base, and the reco line is
+  // always based at the book's inception, so selecting a pair snaps the window
+  // there (see snapToBook). Drag the window away and the readout says so.
+  const ALPHA_UP = '#3f9d6a', ALPHA_DN = '#b8484f';
+  function alphaPair(){
+    const recos = st.sel.filter(id => SER[id] && SER[id].kind === 'reco');
+    if (recos.length !== 1) return null;
+    const rid = recos[0], base = rid.slice(0, -5), b = SER[base];
+    if (!b) return null;
+    const h = b.handoff, switched = h && h.switch <= DATES[N-1];
+    const order = (h && h.prevId) ? (switched ? [base, h.prevId] : [h.prevId, base]) : [base];
+    const cov = order.find(id => st.sel.includes(id));
+    return cov ? { reco: rid, cov, i0: SER[rid].i0 } : null;
+  }
+  // window start -> the book's inception, so the two lines start together
+  function snapToBook(){
+    const p = alphaPair();
+    if (!p || st.i1 === p.i0 || p.i0 >= N-1) return false;
+    st.i1 = p.i0; st.i2 = N-1; st.span = null; st.anchor = null;
+    return true;
+  }
+  function alphaBand(R, C, X, Y, stride){
+    // Walk the shared bars, split into runs where the book leads / lags, and
+    // close each run into a polygon. Crossings are interpolated so the two
+    // colours meet exactly where the lines cross, not on the next sampled bar.
+    const pts = [];
+    for (let k = 0; k < R.g.length; k += stride){
+      const a = R.g[k], b = C.g[k];
+      pts.push((a == null || b == null) ? null
+        : { x: X(st.i1 + k), ya: Y(a), yb: Y(b), d: a - b });
+    }
+    let out = '', run = [], sign = 0, prev = null;
+    const flush = () => {
+      if (run.length > 1){
+        const top = run.map(p => `${p.x.toFixed(1)} ${p.ya.toFixed(1)}`).join(' L');
+        const bot = run.slice().reverse().map(p => `${p.x.toFixed(1)} ${p.yb.toFixed(1)}`).join(' L');
+        out += `<path d="M${top} L${bot} Z" fill="${sign > 0 ? ALPHA_UP : ALPHA_DN}"
+                 fill-opacity="0.14" stroke="none" pointer-events="none"/>`;
+      }
+      run = [];
+    };
+    for (const p of pts){
+      if (!p){ flush(); sign = 0; prev = null; continue; }
+      const s = p.d >= 0 ? 1 : -1;
+      if (prev && s !== sign){
+        let t = prev.d / (prev.d - p.d);
+        if (!isFinite(t)) t = 0.5;
+        const cx = prev.x + (p.x - prev.x) * t, cy = prev.ya + (p.ya - prev.ya) * t;
+        const cross = { x: cx, ya: cy, yb: cy, d: 0 };
+        run.push(cross); flush(); run.push(cross);
+      }
+      sign = s; run.push(p); prev = p;
+    }
+    flush();
+    return out;
+  }
+  // the pair's lead in points of return at bar `i` (last drawn bar when null).
+  // Only meaningful on the plain level measures — a drawdown or a ratio to the
+  // benchmark is not a return you can difference.
+  function alphaAt(i){
+    if (st.mode !== 'cum' && st.mode !== 'idx') return null;
+    const p = alphaPair(); if (!p || !geom) return null;
+    const R = geom.data.find(d => d.id === p.reco), C = geom.data.find(d => d.id === p.cov);
+    if (!R || !C) return null;
+    const pick = d => {
+      if (i != null) return d.g[i - st.i1] != null ? d.g[i - st.i1] : null;
+      for (let k = d.g.length - 1; k >= 0; k--) if (d.g[k] != null) return d.g[k];
+      return null;
+    };
+    const a = pick(R), b = pick(C);
+    if (a == null || b == null) return null;
+    return { pt: (a - b) * 100, clean: st.i1 === p.i0, i0: p.i0 };
+  }
+  function alphaNote(i){
+    const A = alphaAt(i); if (!A) return '';
+    return A.clean
+      ? `  ·  alpha ${A.pt >= 0 ? '+' : ''}${A.pt.toFixed(1)}pt`
+      : `  ·  shading is not alpha — book starts ${DATES[A.i0]}`;
+  }
+  function windowNote(){
+    return `${DATES[st.i1]} → ${DATES[st.i2]}  ·  ${st.i2-st.i1+1} sessions`
+      + (st.anchor ? `  ·  each line from its ${DYN_NOTE[st.anchor]}` : '')
+      + alphaNote();
+  }
+
+  function transform(){
+    // returns array of drawable {id,color,label,y[] (growth ratio), stats}
+    const out = [];
+    RECO_BOOKS = [];
+    const bench = st.mode === 'rel' ? windowStats(st.bench) : null;
+    st.sel.forEach(id => {
+      if (!SER[id]) return;
+      if (SER[id].kind === 'reco'){ expandReco(SER[id], out); return; }
+      if (SER[id].kind === 'reconame'){
+        // a recommended name, rebased to its recommendation close and split
+        // bold (held) / ghost (out) at the swap boundaries — its own identity,
+        // never touching the plain stock line of the same ticker.
+        const S = SER[id];
+        const wins = S.windows.map(([e,x]) => [entryIdxOf(e), x ? entryIdxOf(x) : null]);
+        const w0 = recoStats(S.src, wins[0][0]); if (!w0) return;
+        const w = applyAnchor(w0, SER[S.src], wins[0][0]);
+        let g = w.g;
+        if (st.mode === 'dd'){ let pk = -Infinity;
+          g = g.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); }
+        out.push({ ...w, g, id, color: assign(id), label: S.label,
+                   reco: true, windows: wins, current: S.current });
+        return;
+      }
+      if (SER[id].handoff && SER[id].handoff.role){
+        // a coverage book in a handoff pair. Each book draws over the WHOLE window
+        // and is bold only while it was the live book — ghost either side of that:
+        //
+        //   Original Coverage   ghost .. | anchor  BOLD  switch | .. ghost
+        //   Active Coverage     ghost ............... switch | BOLD .. today
+        //
+        // BOTH books are rebased to the WINDOW START, exactly like every other
+        // series, so "Cumulative %" always means "since the left edge of the
+        // chart" and the YTD number in the table is a real YTD number. The
+        // anchor and switch dates only decide where each line is bold — they
+        // must never move its level, or the book reads as −40% on Jan 2 because
+        // it was silently rebased to an April anchor.
+        // Continuity is restored by splicing, not by rebasing: once the switch
+        // lands, the active book's drawn path runs along the prior book up to
+        // the switch and then continues on its own, scaled to meet it there.
+        const S = SER[id], H = S.handoff;
+        const aIdx = entryIdxOf(H.anchor);
+        const sIdx = (DIDX[H.switch] != null) ? DIDX[H.switch]
+                   : (H.switch > DATES[N-1] ? N : idxOnOrAfter(H.switch));
+        const dd = arr => { let pk = -Infinity;
+          return arr.map(v => v == null ? null : (v > pk ? (pk = v) : pk, v/pk)); };
+        const tail = arr => { for (let k = arr.length-1; k >= 0; k--)
+                                if (arr[k] != null) return arr[k]; return null; };
+        // the measure transforms, applied exactly as the generic branch does —
+        // and the displayed value is read AFTER them, so Drawdown reports the
+        // drawdown and Relative reports the ratio to the benchmark.
+        const measure = arr => st.mode === 'dd' ? dd(arr)
+          : (st.mode === 'rel' && bench)
+            ? arr.map((v,i) => (v == null || bench.g[i] == null) ? null : v / bench.g[i])
+            : arr;
+        if (H.role === 'prev'){
+          const w = windowStats(id); if (!w) return;
+          const g = measure(w.g);
+          const exit = sIdx >= N ? null : sIdx;   // no trailing ghost until the switch lands
+          out.push({ ...w, g, id, color: assign(id), label: S.label, disp: tail(g),
+                     reco: true, windows: [[aIdx, exit]], current: exit == null });
+          return;
+        }
+        // role 'next'. Before the switch it is drawn entirely ghost (empty bold
+        // window) — what the new book would have done over the same stretch.
+        const live = sIdx < N;
+        const w = windowStats(id); if (!w) return;
+        let g = w.g.slice();
+        if (live && sIdx > st.i1){
+          // splice onto the prior book's track so the two read as one line
+          const pw = windowStats(H.prevId);
+          if (pw){
+            const nAtS = g[sIdx - st.i1], pAtS = pw.g[sIdx - st.i1];
+            if (nAtS && pAtS){
+              const k = pAtS / nAtS;
+              g = g.map(v => v == null ? null : v * k);
+            }
+            for (let i = 0; i < sIdx - st.i1 && i < g.length; i++) g[i] = pw.g[i];
+          }
+        }
+        const spliced = tail(g);
+        g = measure(g);
+        out.push({ ...w, g, id, color: assign(id), label: S.label,
+                   ret: spliced != null ? spliced - 1 : w.ret, disp: tail(g),
+                   reco: true, windows: live ? [[sIdx, null]] : [], current: live });
+        return;
+      }
+      const w = windowStats(id); if (!w) return;
+      let g = w.g.slice();
+      if (st.mode === 'dd'){
+        let peak = -Infinity;
+        g = w.g.map(v => { if (v == null) return null; if (v > peak) peak = v; return v/peak; });
+      } else if (st.mode === 'rel' && bench){
+        g = w.g.map((v,i) => (v == null || bench.g[i] == null) ? null : v / bench.g[i]);
+      }
+      const last = (() => { for (let i=g.length-1;i>=0;i--) if (g[i]!=null) return g[i]; return null; })();
+      out.push({ ...w, g, color: assign(id), label: SER[id].label, disp: last });
+    });
+    return out;
+  }
+
+  // ---------- chart ----------
+  const svg = document.getElementById('chart');
+  const readout = document.getElementById('readout');
+  let geom = null;
+
+  // ---------- period-return heatmap ----------
+  const heat = document.getElementById('heat');
+  const heatnote = document.getElementById('heatnote');
+  // instant cell tooltip — a positioned div beats the native <title> hover delay
+  const heatTip = document.createElement('div');
+  heatTip.className = 'heattip';
+  document.body.appendChild(heatTip);
+  heat.addEventListener('mousemove', e => {
+    const t = e.target && e.target.getAttribute && e.target.getAttribute('data-t');
+    if (!t){ heatTip.style.display = 'none'; return; }
+    heatTip.textContent = t;
+    heatTip.style.display = 'block';
+    const w = heatTip.offsetWidth;
+    heatTip.style.left = Math.min(e.clientX + 12, window.innerWidth - w - 8) + 'px';
+    heatTip.style.top = (e.clientY + 14) + 'px';
+  });
+  heat.addEventListener('mouseleave', () => { heatTip.style.display = 'none'; });
+  function hexLerp(a, b, t){
+    const pa = [1,3,5].map(i => parseInt(a.slice(i,i+2),16));
+    const pb = [1,3,5].map(i => parseInt(b.slice(i,i+2),16));
+    return '#' + pa.map((v,i) => Math.round(v + (pb[i]-v)*t).toString(16).padStart(2,'0')).join('');
+  }
+  function heatBuckets(){
+    const i1 = st.i1, i2 = st.i2, days = i2 - i1, out = [];
+    if (days <= 22){ for (let i=i1;i<=i2;i++) out.push({s:i,e:i,label:DATES[i].slice(5)}); return out; }
+    if (days <= 140){ for (let s=i1;s<=i2;s+=5) out.push({s,e:Math.min(s+4,i2),label:DATES[s].slice(5)}); return out; }
+    const keyFn = days <= 650 ? (d => d.slice(0,7))
+      : days <= 2600 ? (d => d.slice(0,4)+'Q'+(Math.floor((+d.slice(5,7)-1)/3)+1))
+      : (d => d.slice(0,4));
+    let key = null, start = i1;
+    for (let i=i1;i<=i2;i++){
+      const k = keyFn(DATES[i]);
+      if (key === null){ key = k; start = i; }
+      else if (k !== key){ out.push({s:start,e:i-1,label:key}); key = k; start = i; }
+    }
+    out.push({s:start,e:i2,label:key});
+    return out;
+  }
+  function heatLbl(lbl){
+    if (/^\d{4}-\d{2}$/.test(lbl)) return MONTHS[+lbl.slice(5,7)-1] + (lbl.slice(5,7)==='01' ? " '"+lbl.slice(2,4) : '');
+    const q = lbl.match(/^(\d{4})Q(\d)$/); if (q) return 'Q'+q[2]+" '"+q[1].slice(2);
+    if (/^\d{4}$/.test(lbl)) return lbl;
+    return lbl;   // MM-DD
+  }
+  function renderHeat(data){
+    const buckets = heatBuckets();
+    if (!data.length || !buckets.length){
+      heat.innerHTML = ''; heatnote.textContent = ''; renderSeas(data); return;
+    }
+    const W = (heat.parentNode.clientWidth || 900);
+    const LBL = 128, RPAD = 8, TOP = 4, BOT = 16, cellH = 17, gap = 1;
+    const H = TOP + BOT + data.length * cellH;
+    const gridW = W - LBL - RPAD, cw = gridW / buckets.length;
+    heat.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    heat.setAttribute('height', H);
+    // close-to-close return of each series within each bucket (first populated bucket = baseline)
+    const cells = data.map(d => {
+      let prevEnd = null;
+      return buckets.map(b => {
+        let z = null;
+        for (let i=b.e;i>=b.s;i--){ const v = d.g[i-st.i1]; if (v != null){ z = v; break; } }
+        if (z == null) return null;
+        const r = prevEnd != null ? z/prevEnd - 1 : null;
+        prevEnd = z;
+        return r;
+      });
+    });
+    const flat = [];
+    cells.forEach(row => row.forEach(v => { if (v != null) flat.push(Math.abs(v)); }));
+    flat.sort((a,b) => a-b);
+    const maxa = Math.max(0.008, flat.length ? flat[Math.floor(flat.length*0.9)] : 0.02);
+    const col = r => {
+      if (r == null) return '#f4f3f1';
+      const t = Math.max(-1, Math.min(1, r/maxa));
+      return t >= 0 ? hexLerp('#ffffff','#1d7fc4', t*0.85+0.12)
+                    : hexLerp('#ffffff','#b8484f', -t*0.85+0.12);
+    };
+    let g = '';
+    data.forEach((d, ri) => {
+      const y = TOP + ri*cellH;
+      const dim = st.focus && st.focus !== d.id;
+      const nm = d.label.length > 18 ? d.label.slice(0,17)+'…' : d.label;
+      g += `<rect x="${(LBL-6).toFixed(1)}" y="${(y+cellH/2-4).toFixed(1)}" width="3" height="8" rx="1.5" fill="${d.color}" opacity="${dim?0.35:1}"/>`;
+      g += `<text x="${(LBL-11).toFixed(1)}" y="${(y+cellH/2+3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${dim?'#c9c6c2':'#57534e'}">${esc(nm)}</text>`;
+      buckets.forEach((b, ci) => {
+        const r = cells[ri][ci], x = LBL + ci*cw;
+        const tip = `${d.label} · ${heatLbl(b.label)} · ${r==null?'—':fmtPct(r)}`;
+        g += `<rect x="${x.toFixed(2)}" y="${y.toFixed(1)}" width="${(cw-gap).toFixed(2)}" height="${cellH-gap}" fill="${col(r)}" data-t="${esc(tip)}"/>`;
+      });
+    });
+    // sparse x labels
+    const every = Math.max(1, Math.ceil(buckets.length/13));
+    buckets.forEach((b, ci) => {
+      if (ci % every !== 0) return;
+      const x = LBL + ci*cw + cw/2;
+      g += `<text x="${x.toFixed(1)}" y="${(TOP+data.length*cellH+11).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#a8a29e">${esc(heatLbl(b.label))}</text>`;
+    });
+    heat.innerHTML = g;
+    const gran = (st.i2-st.i1) <= 22 ? 'daily' : (st.i2-st.i1) <= 140 ? 'weekly'
+      : (st.i2-st.i1) <= 650 ? 'monthly' : (st.i2-st.i1) <= 2600 ? 'quarterly' : 'yearly';
+    heatnote.textContent = `${buckets.length} ${gran} periods · blue = up, red = down`;
+    renderSeas(data);
+  }
+
+  // ---------- seasonality: average return by calendar month ----------
+  // The strip above answers "what happened in each of the last N periods". This
+  // answers "what does this usually do in March", which is a different question
+  // and needs the whole history — a two-year window contains two Marches. So it
+  // deliberately ignores st.i1/st.i2 and reads the precomputed `seas` block.
+  const seas = document.getElementById('seas');
+  const seasnote = document.getElementById('seasnote');
+  seas.addEventListener('mousemove', e => {
+    const t = e.target && e.target.getAttribute && e.target.getAttribute('data-t');
+    if (!t){ heatTip.style.display = 'none'; return; }
+    heatTip.textContent = t;
+    heatTip.style.display = 'block';
+    const w = heatTip.offsetWidth;
+    heatTip.style.left = Math.min(e.clientX + 12, window.innerWidth - w - 8) + 'px';
+    heatTip.style.top = (e.clientY + 14) + 'px';
+  });
+  seas.addEventListener('mouseleave', () => { heatTip.style.display = 'none'; });
+
+  function renderSeas(data){
+    const rows = data.map(d => ({ d, s: (SER[d.id] || {}).seas })).filter(x => x.s);
+    if (!rows.length){ seas.innerHTML = ''; seasnote.textContent = ''; return; }
+    const W = (seas.parentNode.clientWidth || 900);
+    const LBL = 128, RPAD = 8, TOP = 4, BOT = 16, cellH = 17, gap = 1;
+    const H = TOP + BOT + rows.length * cellH;
+    const gridW = W - LBL - RPAD, cw = gridW / 12;
+    seas.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    seas.setAttribute('height', H);
+    // scaled off the 90th percentile of what's on screen, like the heat strip,
+    // so one wild month doesn't wash the other eleven out to white
+    const flat = [];
+    rows.forEach(x => x.s.forEach(v => { if (v) flat.push(Math.abs(v[0])); }));
+    flat.sort((a,b) => a-b);
+    const maxa = Math.max(0.4, flat.length ? flat[Math.floor(flat.length*0.9)] : 2);
+    let g = '';
+    rows.forEach((x, ri) => {
+      const y = TOP + ri*cellH, d = x.d;
+      const dim = st.focus && st.focus !== d.id;
+      const nm = d.label.length > 18 ? d.label.slice(0,17)+'…' : d.label;
+      g += `<rect x="${(LBL-6).toFixed(1)}" y="${(y+cellH/2-4).toFixed(1)}" width="3" height="8" rx="1.5" fill="${d.color}" opacity="${dim?0.35:1}"/>`;
+      g += `<text x="${(LBL-11).toFixed(1)}" y="${(y+cellH/2+3.5).toFixed(1)}" text-anchor="end" font-size="10.5" fill="${dim?'#c9c6c2':'#57534e'}">${esc(nm)}</text>`;
+      x.s.forEach((v, mi) => {
+        const px = LBL + mi*cw;
+        const t = v == null ? null : Math.max(-1, Math.min(1, v[0]/maxa));
+        const fill = t == null ? '#f4f3f1'
+          : t >= 0 ? hexLerp('#ffffff','#1d7fc4', t*0.85+0.12)
+                   : hexLerp('#ffffff','#b8484f', -t*0.85+0.12);
+        const tip = v == null ? `${d.label} · ${MONTHS[mi]} · no history`
+          : `${d.label} · ${MONTHS[mi]} · average ${v[0]>=0?'+':''}${v[0].toFixed(1)}% · ${v[1]} year${v[1]===1?'':'s'}`;
+        g += `<rect x="${px.toFixed(2)}" y="${y.toFixed(1)}" width="${(cw-gap).toFixed(2)}" height="${cellH-gap}" fill="${fill}" data-t="${esc(tip)}"/>`;
+        // 12 columns leave room to print the number, and a seasonality strip is
+        // read for its values, not just its shape
+        if (v != null && cw > 34){
+          const ink = Math.abs(t) > 0.55 ? '#ffffff' : '#44403c';
+          g += `<text x="${(px+cw/2-0.5).toFixed(1)}" y="${(y+cellH/2+3.3).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="${ink}" pointer-events="none">${(v[0]>=0?'+':'')+v[0].toFixed(1)}</text>`;
+        }
+      });
+    });
+    MONTHS.forEach((m, mi) => {
+      const x = LBL + mi*cw + cw/2;
+      g += `<text x="${x.toFixed(1)}" y="${(TOP+rows.length*cellH+11).toFixed(1)}" text-anchor="middle" font-size="9.5" fill="#a8a29e">${m}</text>`;
+    });
+    seas.innerHTML = g;
+    const yrs = rows.map(x => Math.max(...x.s.filter(Boolean).map(v => v[1])));
+    const lo = Math.min(...yrs), hi = Math.max(...yrs);
+    seasnote.textContent = `mean calendar-month return · whole history `
+      + `(${lo === hi ? lo : lo+'–'+hi} years) · extreme months clipped to the `
+      + `10th/90th percentile · blue = up, red = down`;
+  }
+
+  // ---------- "how unusual is this really" ----------
+  // A sigma is only a probability if returns are normally distributed, and they
+  // are not — the tails are exactly where the bell curve is most wrong, and the
+  // tails are the only part anyone looks at a sigma for. So the panel leads with
+  // the empirical count (how often it actually happened in this name's own
+  // history) and shows the normal-theory number beside it as the contrast.
+  const oddsTip = document.createElement('div');
+  oddsTip.className = 'oddstip';
+  document.body.appendChild(oddsTip);
+
+  // 1 - Φ(z), Abramowitz & Stegun 26.2.17 — plenty accurate for a hover panel
+  function normSf(z){
+    const a = Math.abs(z), t = 1/(1 + 0.2316419*a);
+    const d = 0.3989422804014327*Math.exp(-a*a/2);
+    return d*t*(0.319381530 + t*(-0.356563782 + t*(1.781477937
+             + t*(-1.821255978 + t*1.330274429))));
+  }
+  // A 10-sigma move puts the normal curve at 1 in 1.18e23, which printed in full
+  // is unreadable and, read carefully, still only means "never". Past a million
+  // the exponent is the whole message.
+  const oneIn = pr => {
+    if (!pr || !isFinite(pr)) return null;
+    const n = 1/pr;
+    // "1 in 1" is not odds, it is a shrug — say nothing instead
+    if (n < 1.5) return null;
+    if (n >= 1e6){
+      const e = Math.floor(Math.log10(n));
+      return `1 in ${(n/10**e).toFixed(1)}&times;10<sup>${e}</sup>`;
+    }
+    return '1 in ' + (n >= 1000 ? Math.round(n/100)*100
+                    : n >= 100 ? Math.round(n/10)*10 : Math.round(n));
+  };
+  // periods -> the longest plain-English unit that reads as a round number
+  function everyPhrase(periods, perYear){
+    if (!isFinite(periods) || periods <= 0) return null;
+    const yrs = periods/perYear;
+    if (yrs >= 1.5) return `every ${yrs < 10 ? yrs.toFixed(1) : Math.round(yrs)} yrs`;
+    const mos = yrs*12;
+    if (mos >= 1.5) return `every ${Math.round(mos)} mo`;
+    const wks = yrs*52;
+    if (wks >= 1.5) return `every ${Math.round(wks)} wks`;
+    return 'weekly or more';
+  }
+  // p is the percentile from _move_stat: (count(|x| <= |v|) + 1)/(n+1)*100,
+  // so the exceedance count comes straight back out of it.
+  function oddsHTML({label, date, r, z, p, n, perYear, basis}){
+    const exceed = (p == null || n == null) ? null
+      : Math.max(0, Math.round((n+1)*(1 - p/100)));
+    const emp = exceed == null ? null : exceed === 0 ? null : (n+1)/exceed;
+    const th = z == null ? null : 1/(2*normSf(z));
+    const head = `${esc(label)} · ${esc(date)} · ${fmtPct(r)}`
+      + (z == null ? '' : ` · ${z.toFixed(1)}σ`);
+    // Numbers, not paragraphs. 0/n says the history ran out; it does not need a
+    // sentence explaining that it did.
+    let rows = '';
+    if (exceed != null){
+      rows += `<div class="row"><span>seen</span><span>${exceed} / ${n}</span></div>`;
+      const o = exceed ? oneIn(exceed/(n+1)) : null;
+      if (o) rows += `<div class="row"><span></span><span>${o}</span></div>`;
+    }
+    const tho = th == null ? null : oneIn(2*normSf(z));
+    if (tho) rows += `<div class="row"><span>normal</span><span>${tho}</span></div>`;
+    const per = emp || (exceed === 0 ? n+1 : null) || th;
+    const phr = per && perYear ? everyPhrase(per, perYear) : null;
+    if (phr) rows += `<div class="row"><span>rate</span><span>${phr}</span></div>`;
+    return `<b>${head}</b>${rows}`;
+  }
+  function bindOdds(root){
+    root.addEventListener('mousemove', e => {
+      const el = e.target.closest && e.target.closest('[data-odds]');
+      if (!el){ oddsTip.style.display = 'none'; return; }
+      if (oddsTip.dataset.for !== el.dataset.odds){
+        oddsTip.dataset.for = el.dataset.odds;
+        oddsTip.innerHTML = oddsHTML(JSON.parse(el.dataset.odds));
+      }
+      oddsTip.style.display = 'block';
+      const w = oddsTip.offsetWidth, h = oddsTip.offsetHeight;
+      oddsTip.style.left = Math.min(e.clientX + 14, window.innerWidth - w - 8) + 'px';
+      oddsTip.style.top = (e.clientY + 16 + h > window.innerHeight
+        ? e.clientY - h - 12 : e.clientY + 16) + 'px';
+    });
+    root.addEventListener('mouseleave', () => { oddsTip.style.display = 'none'; });
+  }
+
+  // ---------- standard-deviation context ----------
+  const ddMoveToggle = document.getElementById('ddmovetoggle');
+  bindOdds(document.getElementById('ddgrid'));
+  const moveSource = id => {
+    const item=SER[id];
+    return item && item.kind==='reconame' ? SER[item.src] : item;
+  };
+  function standardDeviationSection(item){
+    const selected=SER[item.id];
+    if (!selected || !['stock','equity','reconame'].includes(selected.kind)) return '';
+    const source=moveSource(item.id);
+    const moves=source?.moves?.[st.moveFrame];
+    if (!moves?.length) return '';
+    const count=st.moveFrame==='d' ? 5 : 4;
+    const padded=Array(Math.max(0,count-moves.length)).fill(null).concat(moves.slice(-count));
+    const cells=padded.map(move => {
+      if (!move) return '<div class="sigma-cell empty">—</div>';
+      const basis=move.e ? 'prior earnings reactions' :
+        (st.moveFrame==='d' ? 'prior daily moves (3Y)' : 'prior weekly moves (3Y)');
+      const sigma=move.z==null ? '—' : `${move.z.toFixed(1)}σ`;
+      // No native title: the hover panel says everything the old one said and the
+      // odds on top, and a browser tooltip fading in a second later would land on
+      // top of the panel.
+      const odds=esc(JSON.stringify({
+        label:item.label, date:move.date, r:move.r, z:move.z, p:move.p, n:move.n,
+        // an earnings cell is compared only with other earnings reactions, so its
+        // periods are quarters, not sessions
+        perYear: move.e ? 4 : st.moveFrame==='d' ? 252 : 52, basis,
+      }));
+      return `<div class="sigma-cell${move.e?' earnings':''}" data-odds="${odds}">`
+        + (move.e?'<span class="etag">E</span>':'')
+        + `<span class="mvdate">${esc(move.date.slice(5))}</span>`
+        + `<b style="color:${move.r>=0?'#3f9d6a':'#b8484f'}">${fmtPct(move.r)}</b>`
+        + `<em>${sigma}${move.e?` · ${move.n} E moves`:''}</em></div>`;
+    }).join('');
+    const note=st.moveFrame==='d'
+      ? 'latest 5 sessions · σ vs full history · E compares with earnings reactions only'
+      : 'latest 4 weeks · σ vs full history · E compares with earnings weeks only';
+    return `<section class="ticker-card-section sigma-section">
+      <h3><span>Standard deviation</span><small>${note}</small></h3>
+      <div class="sigma-grid${st.moveFrame==='w'?' weekly':''}">${cells}</div>
+    </section>`;
+  }
+  document.querySelectorAll('[data-move]').forEach(button => button.onclick=() => {
+    st.moveFrame=button.dataset.move;
+    renderDrawdowns();
+  });
+
+  function niceTicks(lo, hi, log){
+    if (log){
+      // ticks are growth ratios; ladder is stated in familiar percent returns
+      const ladder = [-95,-90,-80,-70,-60,-50,-40,-30,-20,-10,0,10,25,50,100,200,300,500,
+                      800,1200,2000,3000,5000,10000,20000,50000];
+      const out = ladder.map(p => 1 + p/100).filter(v => v >= lo && v <= hi);
+      return out.length >= 3 ? out : linTicks(lo,hi);
+    }
+    return linTicks(lo,hi);
+  }
+  function linTicks(lo, hi){
+    const span = hi - lo || 1, raw = span/6, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const step = [1,2,2.5,5,10].map(m => m*mag).find(v => v >= raw) || 10*mag;
+    const out = []; for (let v = Math.ceil(lo/step)*step; v <= hi+1e-12; v += step) out.push(v);
+    return out;
+  }
+  function xTicks(i1, i2){
+    const days = i2 - i1, out = [];
+    let lastKey = null;
+    const keyFn = days > 1500 ? (d => d.slice(0,4))
+                : days > 400 ? (d => d.slice(0,4) + Math.floor((+d.slice(5,7)-1)/6))
+                : days > 25 ? (d => d.slice(0,7))
+                : (d => d);            // short windows tick every session
+    for (let i = i1; i <= i2; i++){
+      const k = keyFn(DATES[i]);
+      if (k !== lastKey){ out.push(i); lastKey = k; }
+    }
+    if (out.length > 14){ const step = Math.ceil(out.length/12); return out.filter((_,j) => j%step===0); }
+    return out;
+  }
+
+  function renderPe(ctx){
+    const proxy = peProxy(ctx, st.peBasis);
+    // Build a robust, positive band ladder in log-P/E space. A percentile ladder
+    // can be dominated by a cyclical trough denominator (MU's FY2024 $1.226 EPS
+    // produced a mathematically-correct but useless 93x 90th-percentile band).
+    // The visible-window median remains the centre; the central 40% absolute
+    // log deviation sets the spacing, widened only when needed to contain the
+    // current P/E. Keeping the spread inside the median makes it resistant to a
+    // full year of trough-cycle P/Es without hard-capping legitimate growth names.
+    const multiples = proxy.multiple.slice(st.i1, st.i2 + 1).filter(Number.isFinite);
+    const logs = multiples.filter(v => v > 0).map(Math.log);
+    const center = quantile(logs,.5);
+    const logSpread = center == null ? null : quantile(logs.map(v => Math.abs(v-center)),.4);
+    const endIndex = (() => {
+      for(let i=st.i2;i>=st.i1;i--) if(proxy.eps[i]>0&&proxy.price[i]>0)return i;
+      return null;
+    })();
+    const currentPe = endIndex == null ? null : proxy.multiple[endIndex];
+    const currentSpread = center == null || !(currentPe > 0)
+      ? 0 : Math.abs(Math.log(currentPe)-center)/2*1.06;
+    const bandStep = Math.max(logSpread || 0, currentSpread, .06);
+    const specs = [
+      {offset:-2, name:'Low', color:'#c1e1f7'},
+      {offset:-1, name:'Lower', color:'#79bfea'},
+      {offset:0, name:'Median', color:'#1d7fc4', median:true},
+      {offset:1, name:'Upper', color:'#5f7183'},
+      {offset:2, name:'High', color:'#2f3f4f'}
+    ].map(x => ({...x, multiple:center == null ? null : Math.exp(center+x.offset*bandStep)}))
+      .filter(x => x.multiple != null && x.multiple > 0);
+    const bands = specs.map(spec => ({
+      ...spec,
+      values:proxy.eps.map(e => e == null ? null : e * spec.multiple)
+    }));
+    const W = svg.parentNode.clientWidth, H = Math.max(380, Math.min(560, window.innerHeight - 430));
+    const L = 8, R = 154, T = 22, B = 30;
+    const px = {x0:L,x1:W-R,y0:T,y1:H-B};
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('height', H);
+    svg.setAttribute('aria-label', `${ctx.item.label} FY+${st.peBasis} historical P/E bands`);
+    const vals = [];
+    for (let i=st.i1;i<=st.i2;i++){
+      if (proxy.price[i] != null) vals.push(proxy.price[i]);
+      bands.forEach(b => { if (b.values[i] != null) vals.push(b.values[i]); });
+    }
+    if (!vals.length || !specs.length){
+      svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#a8a29e"
+        font-size="13">No positive FY+${st.peBasis} EPS vintage overlaps this window.</text>`;
+      geom = null;
+      const prior = st.mode; st.mode = 'cum'; const returns = transform(); st.mode = prior;
+      drawTable(returns, null); renderHeat(returns); renderDrawdowns();
+      readout.textContent = `${ctx.item.label} · FY+${st.peBasis} · no usable EPS in this window`;
+      return;
+    }
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    const useLog = st.log && lo > 0;
+    const tr = v => useLog ? Math.log(v) : v;
+    let tlo = tr(lo), thi = tr(hi);
+    const pad = (thi-tlo)*.07 || Math.abs(tlo)*.05 || 1;
+    tlo -= pad; thi += pad;
+    const X = i => px.x0 + (i-st.i1)/Math.max(1,st.i2-st.i1)*(px.x1-px.x0);
+    const Y = v => px.y1 - (tr(v)-tlo)/(thi-tlo)*(px.y1-px.y0);
+    const priceFmt = v => ctx.id.endsWith('.T')
+      ? '¥'+v.toLocaleString('en-US',{maximumFractionDigits:v>=100?0:2})
+      : '$'+v.toLocaleString('en-US',{minimumFractionDigits:v>=100?0:2,maximumFractionDigits:2});
+    const linePath = (values, stepped, stride=1) => {
+      let d='', prior=null, priorX=null, priorY=null;
+      for (let i=st.i1;i<=st.i2;i+=stride){
+        const v=values[i];
+        if (v==null || v<=0){ prior=null; priorX=null; priorY=null; continue; }
+        const x=X(i), y=Y(v);
+        if (prior==null) d += `M${x.toFixed(1)} ${y.toFixed(1)} `;
+        else if (stepped) d += `L${x.toFixed(1)} ${priorY} L${x.toFixed(1)} ${y.toFixed(1)} `;
+        else d += `L${x.toFixed(1)} ${y.toFixed(1)} `;
+        prior=v; priorX=x.toFixed(1); priorY=y.toFixed(1);
+      }
+      if (priorX != null && st.i2 % stride !== 0){
+        const v=values[st.i2];
+        if (v!=null && v>0) d += stepped
+          ? `L${X(st.i2).toFixed(1)} ${priorY} L${X(st.i2).toFixed(1)} ${Y(v).toFixed(1)}`
+          : `L${X(st.i2).toFixed(1)} ${Y(v).toFixed(1)}`;
+      }
+      return d;
+    };
+    let g='';
+    linTicks(lo,hi).forEach(v => {
+      const y=Y(v); if(y<px.y0-1||y>px.y1+1)return;
+      g += `<line x1="${px.x0}" y1="${y.toFixed(1)}" x2="${px.x1}" y2="${y.toFixed(1)}"
+             stroke="#f0efed" stroke-width="1"/>`;
+      g += `<text class="m" x="${px.x0+3}" y="${(y-4).toFixed(1)}" fill="#a8a29e"
+             font-size="10.5">${esc(priceFmt(v))}</text>`;
+    });
+    let lastX=-1e9,lastMon=null;
+    xTicks(st.i1,st.i2).forEach(i => {
+      const x=X(i),d=DATES[i]; if(x-lastX<36)return; lastX=x;
+      const days=st.i2-st.i1,mon=MONTHS[+d.slice(5,7)-1];
+      const txt=days>1500?d.slice(0,4):days>400?d.slice(2,4)+"'"+mon:
+        days>25?mon:(mon===lastMon?'':mon+' ')+ +d.slice(8,10);
+      lastMon=mon;
+      g += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
+             stroke="#f7f6f4" stroke-width="1"/>`;
+      g += `<text class="m" x="${x.toFixed(1)}" y="${px.y1+15}" fill="#a8a29e"
+             font-size="10.5" text-anchor="${x-px.x0<18?'start':'middle'}">${txt}</text>`;
+    });
+    proxy.changes.forEach(c => {
+      if(c.i<st.i1||c.i>st.i2)return;
+      const x=X(c.i);
+      g += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
+             stroke="#1d7fc4" stroke-width="1" stroke-dasharray="2 4" opacity=".18"/>`;
+    });
+    bands.forEach(b => {
+      g += `<path d="${linePath(b.values,true)}" fill="none" stroke="${b.color}"
+             stroke-width="${b.median ? 1.8 : 1.15}" opacity="${b.median ? .95 : .72}"/>`;
+    });
+    const stride=Math.max(1,Math.ceil((st.i2-st.i1)/1600));
+    g += `<path d="${linePath(proxy.price,false,stride)}" fill="none" stroke="#0c0a09"
+           stroke-width="2.1" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if(endIndex!=null){
+      const labels = bands.map(b => ({...b,y:Y(b.values[endIndex])}))
+        .sort((a,b)=>a.y-b.y);
+      for(let i=1;i<labels.length;i++) labels[i].y=Math.max(labels[i].y,labels[i-1].y+14);
+      if(labels.length){
+        labels[labels.length-1].y=Math.min(labels[labels.length-1].y,px.y1-3);
+        for(let i=labels.length-2;i>=0;i--) labels[i].y=Math.min(labels[i].y,labels[i+1].y-14);
+        const shift=px.y0+3-labels[0].y;
+        if(shift>0) labels.forEach(b=>b.y+=shift);
+      }
+      labels.forEach(b => {
+        g += `<text x="${px.x1+8}" y="${(b.y+3.5).toFixed(1)}" font-size="10.5"
+               fill="${b.color}" font-weight="${b.median?600:500}">${b.name} · ${b.multiple.toFixed(1)}x</text>`;
+      });
+      const py=Y(proxy.price[endIndex]);
+      g += `<text x="${px.x1+8}" y="${Math.max(px.y0+10,Math.min(px.y1,py)+3.5).toFixed(1)}"
+             font-size="11" fill="#0c0a09" font-weight="650">Price · ${esc(priceFmt(proxy.price[endIndex]))}</text>`;
+    }
+    svg.innerHTML = `<g id="plot">${g}</g><g id="cross"></g>
+      <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
+            fill="transparent" id="hit"/>`;
+    const note = `${ctx.item.label} · FY+${st.peBasis} annual consensus vintages`
+      + ` · bands from ${DATES[st.i1]} → ${DATES[st.i2]}`
+      + (endIndex==null?'':` · FY${proxy.fy[endIndex]} EPS ${proxy.eps[endIndex].toFixed(2)}`
+          + ` · ${proxy.multiple[endIndex].toFixed(1)}x`);
+    geom={kind:'pe',px,X,Y,W,H,ctx,proxy,bands,priceFmt,note,data:[]};
+    readout.textContent=note;
+    const prior=st.mode; st.mode='cum'; const returns=transform(); st.mode=prior;
+    geom.returnData=returns;
+    drawTable(returns,null); renderHeat(returns); renderDrawdowns();
+  }
+
+  // Fixed −1..+1 axis, because a correlation's scale is the whole point: an
+  // auto-fitted axis would make 0.7 and 0.9 look like a collapse.
+  function renderCorr(pair){
+    const C = corrCalc(pair);
+    const W = svg.parentNode.clientWidth, H = Math.max(380, Math.min(560, window.innerHeight - 430));
+    const L = 8, R = 176, T = 22, B = 30;
+    const px = {x0:L, x1:W-R, y0:T, y1:H-B};
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('height', H);
+    svg.setAttribute('aria-label', `Rolling correlation, ${pair[0].label} vs ${pair[1].label}`);
+    const tableData = (() => { const p = st.mode; st.mode = 'cum';
+                               const d = transform(); st.mode = p; return d; })();
+    if (!C){
+      svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#a8a29e"
+        font-size="13">Not enough overlapping sessions to correlate this pair.</text>`;
+      geom = null; readout.textContent = '';
+      drawTable(tableData, null); renderHeat(tableData); renderDrawdowns(); return;
+    }
+    const X = i => px.x0 + (i-st.i1)/Math.max(1,st.i2-st.i1)*(px.x1-px.x0);
+    const Y = v => px.y1 - (v + 1) / 2 * (px.y1 - px.y0);
+
+    let g = '';
+    [-1,-0.5,0,0.5,1].forEach(v => {
+      const y = Y(v), zero = v === 0;
+      g += `<line x1="${px.x0}" y1="${y.toFixed(1)}" x2="${px.x1}" y2="${y.toFixed(1)}"
+             stroke="${zero?'#d6d3d1':'#f0efed'}" stroke-width="1"/>`;
+      g += `<text class="m" x="${px.x0+3}" y="${(y-4).toFixed(1)}" fill="#a8a29e"
+             font-size="10.5">${v > 0 ? '+' : ''}${v.toFixed(1)}</text>`;
+    });
+    let lastX = -1e9, lastMon = null;
+    xTicks(st.i1, st.i2).forEach(i => {
+      const x = X(i), d = DATES[i]; if (x-lastX < 36) return; lastX = x;
+      const days = st.i2-st.i1, mon = MONTHS[+d.slice(5,7)-1];
+      const txt = days>1500 ? d.slice(0,4) : days>400 ? d.slice(2,4)+"'"+mon
+                : days>25 ? mon : (mon===lastMon?'':mon+' ') + +d.slice(8,10);
+      lastMon = mon;
+      g += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
+             stroke="#f7f6f4" stroke-width="1"/>`;
+      g += `<text class="m" x="${x.toFixed(1)}" y="${px.y1+15}" fill="#a8a29e"
+             font-size="10.5" text-anchor="${x-px.x0<18?'start':'middle'}">${txt}</text>`;
+    });
+
+    // area between the line and zero, split at the axis: above means the two move
+    // together, below means they move against each other. Not good vs bad.
+    const stride = Math.max(1, Math.ceil((st.i2-st.i1)/1400));
+    const ks = [];
+    for (let i = st.i1; i <= st.i2; i += stride) ks.push(i);
+    if (ks[ks.length-1] !== st.i2) ks.push(st.i2);
+    const pts = ks.filter(i => C.roll[i] != null);
+    if (pts.length > 1){
+      const area = `M${X(pts[0]).toFixed(1)} ${Y(0).toFixed(1)} `
+        + pts.map(i => `L${X(i).toFixed(1)} ${Y(C.roll[i]).toFixed(1)}`).join(' ')
+        + ` L${X(pts[pts.length-1]).toFixed(1)} ${Y(0).toFixed(1)} Z`;
+      g += `<clipPath id="corr-up"><rect x="0" y="${px.y0}" width="${W}" height="${(Y(0)-px.y0).toFixed(1)}"/></clipPath>`;
+      g += `<clipPath id="corr-dn"><rect x="0" y="${Y(0).toFixed(1)}" width="${W}" height="${(px.y1-Y(0)).toFixed(1)}"/></clipPath>`;
+      g += `<path d="${area}" fill="#c1e1f7" fill-opacity=".5" clip-path="url(#corr-up)"/>`;
+      g += `<path d="${area}" fill="#e3b9bc" fill-opacity=".5" clip-path="url(#corr-dn)"/>`;
+      g += `<path d="${pts.map((i,k)=>`${k?'L':'M'}${X(i).toFixed(1)} ${Y(C.roll[i]).toFixed(1)}`).join(' ')}"
+             fill="none" stroke="#0c0a09" stroke-width="1.8" stroke-linejoin="round"/>`;
+    }
+    if (C.full != null){
+      g += `<line x1="${px.x0}" y1="${Y(C.full).toFixed(1)}" x2="${px.x1}" y2="${Y(C.full).toFixed(1)}"
+             stroke="#1d7fc4" stroke-width="1.2" stroke-dasharray="4 4" opacity=".8"/>`;
+      g += `<text x="${px.x1+8}" y="${(Y(C.full)+3.5).toFixed(1)}" font-size="11"
+             fill="#1d7fc4" font-weight="600">Window r ${fmtR(C.full)}</text>`;
+    }
+    // the pair, named in their own colours, so the chart says what it is correlating
+    pair.forEach((p, k) => {
+      g += `<text x="${px.x1+8}" y="${px.y0 + 12 + k*15}" font-size="11.5"
+             fill="${p.color}" font-weight="600">${esc(p.label)}</text>`;
+    });
+    const lastRoll = (() => { for (let i = st.i2; i >= st.i1; i--)
+                                if (C.roll[i] != null) return {i, v: C.roll[i]}; return null; })();
+    if (lastRoll){
+      g += `<text x="${px.x1+8}" y="${(Math.max(px.y0+58, Math.min(px.y1-4, Y(lastRoll.v)+3.5))).toFixed(1)}"
+             font-size="11" fill="#0c0a09" font-weight="650">${C.win}d r ${fmtR(lastRoll.v)}</text>`;
+    }
+    svg.innerHTML = `<g id="plot">${g}</g><g id="cross"></g>
+      <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
+            fill="transparent" id="hit"/>`;
+    const note = `${pair[0].label} vs ${pair[1].label}`
+      + ` · daily returns · ${C.n} shared sessions`
+      + ` · window r ${fmtR(C.full)} (R² ${(C.full*C.full).toFixed(2)})`
+      + (C.beta == null ? '' : ` · beta ${C.beta.toFixed(2)}`)
+      + ` · ${C.win}-session rolling`
+      + (C.win < st.corrWin ? ` (short — only ${C.n} sessions available)` : '');
+    geom = {kind:'corr', px, X, Y, W, H, pair, corr:C, note, data:[], returnData:tableData};
+    readout.textContent = note;
+    drawTable(tableData, null); renderHeat(tableData); renderDrawdowns();
+  }
+
+  function render(){
+    const corrOk = syncCorrAvailability();
+    if (st.mode === 'corr' && corrOk){
+      writeHash();
+      renderCorr(corrOk);
+      return;
+    }
+    const peCtx = syncPeAvailability();
+    if (st.mode === 'pe' && peCtx){
+      st.anchor = null;
+      document.getElementById('anchor').value = '';
+      writeHash();
+      renderPe(peCtx);
+      return;
+    }
+    const anchorWindowChanged = syncDynamicAnchorWindow();
+    if (anchorWindowChanged){
+      const startInput = document.getElementById('d1');
+      if (startInput) displayDate(startInput,DATES[st.i1]);
+    }
+    writeHash();   // keep the URL in sync with the current selection, not just control changes
+    const data = transform();
+    const W = svg.parentNode.clientWidth, H = Math.max(380, Math.min(560, window.innerHeight - 430));
+    const L = 8, R = 176, T = 22, B = 30;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('height', H);
+    if (!data.length){
+      svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#a8a29e"
+        font-size="13">Nothing selected — pick a theme from the rail.</text>`;
+      geom = null; document.querySelector('#tbl tbody').innerHTML = '';
+      renderHeat([]); renderDrawdowns(); return;
+    }
+    const px = { x0:L, x1:W-R, y0:T, y1:H-B };
+
+    let lo = Infinity, hi = -Infinity;
+    data.forEach(d => d.g.forEach(v => { if (v != null){ if (v<lo) lo=v; if (v>hi) hi=v; } }));
+    if (!isFinite(lo)) { lo = 1; hi = 1; }
+    const useLog = st.log && st.mode !== 'dd' && lo > 0;
+    const tr = v => useLog ? Math.log(v) : v;
+    let tlo = tr(lo), thi = tr(hi);
+    const pad = (thi - tlo) * 0.06 || Math.abs(tlo)*0.05 || 0.02;
+    tlo -= pad; thi += pad;
+    const Y = v => px.y1 - (tr(v) - tlo) / (thi - tlo) * (px.y1 - px.y0);
+    const X = i => px.x0 + (i - st.i1) / Math.max(1, st.i2 - st.i1) * (px.x1 - px.x0);
+
+    const label = v => st.mode === 'idx' ? fmtNum(v*100) : fmtPct(v-1);
+    const ticks = niceTicks(useLog ? Math.exp(tlo) : tlo, useLog ? Math.exp(thi) : thi, useLog)
+                    .filter(v => v > 0 || !useLog);
+
+    let g = '';
+    // horizontal grid + right-edge labels
+    ticks.forEach(v => {
+      const y = Y(v); if (y < px.y0-1 || y > px.y1+1) return;
+      const base = Math.abs(v-1) < 1e-9;
+      g += `<line x1="${px.x0}" y1="${y.toFixed(1)}" x2="${px.x1}" y2="${y.toFixed(1)}"
+             stroke="${base?'#d6d3d1':'#f0efed'}" stroke-width="1"/>`;
+      // label floats above its own gridline at the left — the right gutter belongs to the series
+      g += `<text class="m" x="${px.x0+3}" y="${(y-4).toFixed(1)}" fill="#a8a29e"
+             font-size="10.5">${label(v)}</text>`;
+    });
+    // x ticks — drop any that would crowd the one before it
+    let lastX = -1e9, lastMon = null;
+    xTicks(st.i1, st.i2).forEach(i => {
+      const x = X(i), d = DATES[i];
+      if (x - lastX < 36) return;
+      lastX = x;
+      const days = st.i2 - st.i1;
+      const mon = MONTHS[+d.slice(5,7)-1];
+      // short windows read day-by-day: name the month once, then just the dates
+      const txt = days > 1500 ? d.slice(0,4)
+                : days > 400 ? d.slice(2,4) + "'" + mon
+                : days > 25 ? mon
+                : (mon === lastMon ? '' : mon + ' ') + +d.slice(8,10);
+      lastMon = mon;
+      g += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
+             stroke="#f7f6f4" stroke-width="1"/>`;
+      // a centred label on the first tick overhangs the left edge and gets clipped
+      const anch = x - px.x0 < 18 ? 'start' : 'middle';
+      g += `<text class="m" x="${x.toFixed(1)}" y="${px.y1+15}" fill="#a8a29e" font-size="10.5"
+             text-anchor="${anch}">${txt}</text>`;
+    });
+
+    // paths — stride down to ~1400 points per series
+    const stride = Math.max(1, Math.ceil((st.i2 - st.i1) / 1400));
+    // alpha shading goes down before the lines, so the lines stay readable on top
+    if (st.mode === 'cum' || st.mode === 'idx'){
+      const AP = alphaPair();
+      const R = AP && data.find(d => d.id === AP.reco), C = AP && data.find(d => d.id === AP.cov);
+      if (R && C) g += alphaBand(R, C, X, Y, stride);
+    }
+    const ends = [];
+    const inHeld = (i, wins) => wins.some(([e,x]) => i >= e && (x == null || i <= x));
+    const pathKs = d => {
+      const ks = [];
+      for (let k = 0; k < d.g.length; k += stride) ks.push(k);
+      // Long windows are downsampled, but the ghost/solid handoff must still
+      // land on the exact anchor bar rather than the next sampled session.
+      if (d.anchorIdx != null) ks.push(d.anchorIdx - st.i1);
+      if (d.b != null) ks.push(d.b - st.i1);
+      return [...new Set(ks)].filter(k => k >= 0 && k < d.g.length).sort((a,b) => a-b);
+    };
+    data.forEach(d => {
+      const dim0 = st.focus && st.focus !== d.id;
+      if (d.reco){
+        // a single live line, split bold (held) / ghost (idle) at swap boundaries
+        let bold = '', ghost = '', prev = null, pxv = null, pyv = null;
+        for (const k of pathKs(d)){
+          const v = d.g[k]; if (v == null){ prev = null; pxv = null; continue; }
+          const i = st.i1 + k, x = X(i), y = Y(v);
+          const held = (d.anchorIdx == null || i >= d.anchorIdx) && inHeld(i, d.windows);
+          const seg = held ? 'B' : 'G';
+          if (seg !== prev){
+            if (pxv != null){
+              // the regime-crossing segment (prior close -> this close) always
+              // reads as ghost: a position isn't "held" for the day it's swapped
+              // in on until that day's close, so bold must begin ON the entry day,
+              // never bleed back to the session before it. Ghost keeps the line
+              // visually continuous across the boundary either way.
+              ghost += `M${pxv} ${pyv} L${x.toFixed(1)} ${y.toFixed(1)} `;
+              if (held) bold += `M${x.toFixed(1)} ${y.toFixed(1)} `;
+            }
+            else { const mv = `M${x.toFixed(1)} ${y.toFixed(1)} `; if (held) bold += mv; else ghost += mv; }
+          } else { const ln = `L${x.toFixed(1)} ${y.toFixed(1)} `; if (held) bold += ln; else ghost += ln; }
+          prev = seg; pxv = x.toFixed(1); pyv = y.toFixed(1);
+        }
+        g += `<path data-id="${esc(d.id)}" data-seg="ghost" d="${ghost}" fill="none" stroke="${d.color}" stroke-width="1.3"
+               stroke-dasharray="2 3" stroke-linejoin="round" stroke-linecap="round"
+               opacity="${dim0?0.06:0.32}"/>`;
+        g += `<path data-id="${esc(d.id)}" data-seg="solid" d="${bold}" fill="none" stroke="${d.color}"
+               stroke-width="${st.focus===d.id?2.6:1.9}" stroke-linejoin="round" stroke-linecap="round"
+               opacity="${dim0?0.12:0.95}"/>`;
+        const tail = d.g[d.b - st.i1];
+        if (tail != null) ends.push({ id:d.id, y:Y(tail), color:d.color, label:d.label,
+                                      val:label(tail), dim:dim0 });
+        return;
+      }
+      let solid = '', ghost = '', prev = null, pxv = null, pyv = null, lastI = -1;
+      for (const k of pathKs(d)){
+        const v = d.g[k]; if (v == null){ prev = null; pxv = null; continue; }
+        const i = st.i1 + k, x = X(i), y = Y(v);
+        const seg = d.anchorIdx != null && i < d.anchorIdx ? 'G' : 'S';
+        if (seg !== prev){
+          if (pxv != null){
+            // Carry the dashed lead-in through the anchor point, then begin the
+            // solid path on that same point so the handoff is continuous.
+            ghost += `M${pxv} ${pyv} L${x.toFixed(1)} ${y.toFixed(1)} `;
+            solid += `M${x.toFixed(1)} ${y.toFixed(1)} `;
+          } else {
+            const mv = `M${x.toFixed(1)} ${y.toFixed(1)} `;
+            if (seg === 'G') ghost += mv; else solid += mv;
+          }
+        } else {
+          const ln = `L${x.toFixed(1)} ${y.toFixed(1)} `;
+          if (seg === 'G') ghost += ln; else solid += ln;
+        }
+        prev = seg; pxv = x.toFixed(1); pyv = y.toFixed(1); lastI = k;
+      }
+      const tail = d.g[d.b - st.i1];
+      if (tail != null && lastI !== d.b - st.i1)
+        solid += `L${X(d.b).toFixed(1)} ${Y(tail).toFixed(1)}`;
+      const dim = st.focus && st.focus !== d.id;
+      if (ghost) g += `<path data-id="${esc(d.id)}" data-seg="ghost" d="${ghost}" fill="none"
+             stroke="${d.color}" stroke-width="1.2" stroke-dasharray="2 3"
+             stroke-linejoin="round" stroke-linecap="round" opacity="${dim?0.05:0.28}"/>`;
+      g += `<path data-id="${esc(d.id)}" data-seg="solid" d="${solid}" fill="none" stroke="${d.color}"
+             stroke-width="${st.focus===d.id?2.4:1.6}" stroke-linejoin="round" stroke-linecap="round"
+             opacity="${dim?0.13:0.92}"/>`;
+      if (tail != null) ends.push({ id:d.id, y:Y(tail), color:d.color, label:d.label,
+                                    val:label(tail), dim });
+    });
+
+    // direct end labels: push apart, then keep the whole stack inside the canvas
+    ends.sort((a,b) => a.y - b.y);
+    const GAP = 13.5, top = px.y0 - 4, bot = px.y1 + 14;
+    for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i-1].y + GAP);
+    if (ends.length){
+      ends[ends.length-1].y = Math.min(ends[ends.length-1].y, bot);
+      for (let i = ends.length-2; i >= 0; i--) ends[i].y = Math.min(ends[i].y, ends[i+1].y - GAP);
+      const up = top - ends[0].y;                       // only bites when the stack cannot fit
+      if (up > 0) ends.forEach(e => e.y += up);
+    }
+    ends.forEach(e => {
+      const name = e.label.length > 20 ? e.label.slice(0,19) + '…' : e.label;
+      const nx = px.x1 + 52, xw = Math.max(8, name.length * 6.5);
+      g += `<g class="endlabel" data-end-id="${esc(e.id)}" opacity="${e.dim?0.2:1}">
+        <rect x="${nx-3}" y="${(e.y-8).toFixed(1)}" width="${(xw+19).toFixed(1)}" height="15"
+              fill="transparent"/>
+        <text x="${nx}" y="${(e.y+3.6).toFixed(1)}" font-size="11.5" fill="${e.color}"
+              font-weight="550" pointer-events="none">${esc(name)}</text>
+        <text class="label-remove" data-remove="${esc(e.id)}" role="button" tabindex="0"
+              aria-label="Remove ${esc(e.label)} from chart" x="${(nx+xw+7).toFixed(1)}"
+              y="${(e.y+3.6).toFixed(1)}" font-size="12" fill="#78716c"
+              text-anchor="middle" style="cursor:pointer">&#215;</text>
+      </g>`;
+      g += `<text class="m" x="${px.x1+46}" y="${(e.y+3.6).toFixed(1)}" font-size="11" fill="${e.color}"
+             opacity="${e.dim?0.2:1}" text-anchor="end">${e.val}</text>`;
+    });
+
+    // swap markers — a dated diamond + guide per event, sitting above the hit
+    // layer so they catch their own hover (tooltip shows what changed that day)
+    let marks = '';
+    // merge the books' events by date — one marker per day, whichever books swapped
+    const byDate = {};
+    RECO_BOOKS.forEach(bk => bk.events.forEach(ev =>
+      (byDate[ev.d] || (byDate[ev.d] = [])).push({ bk, ev })));
+    Object.keys(byDate).sort().forEach(d => {
+      const idx = DIDX[d]; if (idx == null || idx < st.i1 || idx > st.i2) return;
+      const x = X(idx);
+      // tooltip: date + each swap line, with the exited leg's realized gain/loss.
+      // With more than one book on the chart, each book's swaps get their own heading.
+      let hasExit = false;
+      const rows = byDate[d].map(({bk, ev}) => {
+        const head = RECO_BOOKS.length > 1
+          ? `<div style="margin:4px 0 2px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:${bk.color}">${esc(bk.label)}</div>`
+          : '';
+        return head + ev.lines.map(ln => {
+          const j = ln.indexOf('→');                   // "OUT → IN"
+          if (j < 0) return `<div style="opacity:.75">${esc(ln)}</div>`;
+          const o = ln.slice(0, j).trim(), inn = ln.slice(j + 1).trim();
+          const r = bk.exits[`${ev.d}|${o}`];
+          let tag = '';
+          if (r != null){ hasExit = true;
+            tag = `<b style="color:${r >= 0 ? '#3f9d6a' : '#b8484f'}"> ${fmtPct(r)}</b>`; }
+          return `<div><b>${esc(o)}</b>${tag} <span style="opacity:.45">→</span> ${esc(inn)}</div>`;
+        }).join('');
+      }).join('');
+      CUR_TIPS[d] = `<div style="font-weight:600;margin-bottom:3px">${d}`
+        + `${hasExit ? ' <span style="opacity:.5;font-weight:400">· realized at exit</span>' : ''}</div>${rows}`;
+      marks += `<line x1="${x.toFixed(1)}" y1="${px.y0}" x2="${x.toFixed(1)}" y2="${px.y1}"
+                 stroke="#0c0a09" stroke-width="1" stroke-dasharray="1 3" opacity="0.16" pointer-events="none"/>`;
+      marks += `<path d="M${x.toFixed(1)} ${(px.y0-7).toFixed(1)} l4.5 4.5 l-4.5 4.5 l-4.5 -4.5 z"
+                 fill="#0c0a09" opacity="0.72" pointer-events="none"/>`;
+      marks += `<rect x="${(x-6).toFixed(1)}" y="${(px.y0-10).toFixed(1)}" width="12"
+                 height="${(px.y1-px.y0+12).toFixed(1)}" fill="transparent" data-ev="${esc(d)}" style="cursor:help"/>`;
+    });
+    svg.innerHTML = `<g id="plot">${g}</g><g id="cross"></g>
+      <rect x="${px.x0}" y="${px.y0}" width="${px.x1-px.x0}" height="${px.y1-px.y0}"
+            fill="transparent" id="hit"/><g id="recomarks">${marks}</g>`;
+    geom = { px, X, Y, data, label, W, H };
+    readout.textContent = windowNote();
+    drawTable(data, null);
+    renderHeat(data);
+    renderDrawdowns();
+  }
+
+  // ---------- swap-marker tooltip ----------
+  const recoTip = document.createElement('div');
+  recoTip.className = 'heattip';
+  document.body.appendChild(recoTip);
+  svg.addEventListener('mousemove', e => {
+    const t = e.target && e.target.getAttribute && e.target.getAttribute('data-ev');
+    if (!t){ recoTip.style.display = 'none'; return; }
+    recoTip.innerHTML = CUR_TIPS[t] || esc(t);
+    recoTip.style.display = 'block';
+    const w = recoTip.offsetWidth;
+    recoTip.style.left = Math.min(e.clientX + 12, window.innerWidth - w - 8) + 'px';
+    recoTip.style.top = (e.clientY + 14) + 'px';
+  });
+  svg.addEventListener('mouseleave', () => { recoTip.style.display = 'none'; });
+  function removeEndLabel(target){
+    const id = target && target.getAttribute && target.getAttribute('data-remove');
+    if (!id || !st.sel.includes(id)) return false;
+    toggle(id);
+    return true;
+  }
+  svg.addEventListener('click', e => {
+    const target = e.target && e.target.closest && e.target.closest('[data-remove]');
+    if (!target) return;
+    e.preventDefault(); e.stopPropagation(); removeEndLabel(target);
+  });
+  svg.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const target = e.target && e.target.closest && e.target.closest('[data-remove]');
+    if (!target) return;
+    e.preventDefault(); e.stopPropagation(); removeEndLabel(target);
+  });
+
+  // ---------- crosshair ----------
+  svg.addEventListener('mousemove', ev => {
+    if (!geom) return;
+    const r = svg.getBoundingClientRect();
+    const x = (ev.clientX - r.left) * (geom.W / r.width);
+    const { px } = geom;
+    if (x < px.x0 || x > px.x1){ clearCross(); return; }
+    const frac = (x - px.x0) / (px.x1 - px.x0);
+    const i = Math.round(st.i1 + frac * (st.i2 - st.i1));
+    st.cursor = i;
+    const cx = geom.X(i);
+    let g = `<line x1="${cx.toFixed(1)}" y1="${px.y0}" x2="${cx.toFixed(1)}" y2="${px.y1}"
+              stroke="#0c0a09" stroke-width="1" opacity=".22"/>`;
+    if (geom.kind === 'corr'){
+      const v = geom.corr.roll[i];
+      if (v != null)
+        g += `<circle cx="${cx.toFixed(1)}" cy="${geom.Y(v).toFixed(1)}" r="3.4" fill="#0c0a09"/>`;
+      const dd=DATES[i],dlbl=`${MONTHS[+dd.slice(5,7)-1]} ${+dd.slice(8,10)}, ${dd.slice(0,4)}`;
+      const pillW=dlbl.length*6.1+14,pillH=16;
+      const pillX=Math.max(px.x0,Math.min(cx-pillW/2,px.x1-pillW));
+      g += `<rect x="${pillX.toFixed(1)}" y="${(px.y1+3).toFixed(1)}" width="${pillW.toFixed(1)}"
+             height="${pillH}" rx="3" fill="#0c0a09"/>`;
+      g += `<text class="m" x="${(pillX+pillW/2).toFixed(1)}" y="${(px.y1+14).toFixed(1)}"
+             text-anchor="middle" fill="#ffffff" font-size="10.5">${dlbl}</text>`;
+      document.getElementById('cross').innerHTML=g;
+      readout.textContent = `${DATES[i]} · ${geom.corr.win}d r ${v == null ? '—' : fmtR(v)}`
+        + ` · window r ${fmtR(geom.corr.full)}`;
+      drawTable(geom.returnData, i);
+      return;
+    }
+    if (geom.kind === 'pe'){
+      const p=geom.proxy.price[i],eps=geom.proxy.eps[i],fy=geom.proxy.fy[i];
+      if(p!=null) g += `<circle cx="${cx.toFixed(1)}" cy="${geom.Y(p).toFixed(1)}" r="3.2" fill="#0c0a09"/>`;
+      geom.bands.forEach(b => {
+        const v=b.values[i]; if(v==null)return;
+        g += `<circle cx="${cx.toFixed(1)}" cy="${geom.Y(v).toFixed(1)}" r="2.4" fill="${b.color}"/>`;
+      });
+      const dd=DATES[i],dlbl=`${MONTHS[+dd.slice(5,7)-1]} ${+dd.slice(8,10)}, ${dd.slice(0,4)}`;
+      const pillW=dlbl.length*6.1+14,pillH=16;
+      const pillX=Math.max(px.x0,Math.min(cx-pillW/2,px.x1-pillW));
+      g += `<rect x="${pillX.toFixed(1)}" y="${(px.y1+3).toFixed(1)}" width="${pillW.toFixed(1)}"
+             height="${pillH}" rx="3" fill="#0c0a09"/>`;
+      g += `<text class="m" x="${(pillX+pillW/2).toFixed(1)}" y="${(px.y1+14).toFixed(1)}"
+             text-anchor="middle" fill="#ffffff" font-size="10.5">${dlbl}</text>`;
+      document.getElementById('cross').innerHTML=g;
+      readout.textContent=`${DATES[i]} · ${p==null?'price —':geom.priceFmt(p)}`
+        + `${eps==null?' · EPS —':` · FY${fy} EPS ${eps.toFixed(2)} · ${(p/eps).toFixed(1)}x`}`;
+      return;
+    }
+    geom.data.forEach(d => {
+      const v = d.g[i - st.i1]; if (v == null) return;
+      g += `<circle cx="${cx.toFixed(1)}" cy="${geom.Y(v).toFixed(1)}" r="3" fill="${d.color}"
+             opacity="${st.focus && st.focus!==d.id ? .15 : 1}"/>`;
+    });
+    // date tag pinned to the crosshair on the x-axis, clamped to stay in-frame
+    const dd = DATES[i];
+    const dlbl = `${MONTHS[+dd.slice(5,7)-1]} ${+dd.slice(8,10)}, ${dd.slice(0,4)}`;
+    const pillW = dlbl.length * 6.1 + 14, pillH = 16;
+    const pillX = Math.max(px.x0, Math.min(cx - pillW/2, px.x1 - pillW));
+    g += `<rect x="${pillX.toFixed(1)}" y="${(px.y1+3).toFixed(1)}" width="${pillW.toFixed(1)}"
+           height="${pillH}" rx="3" fill="#0c0a09"/>`;
+    g += `<text class="m" x="${(pillX+pillW/2).toFixed(1)}" y="${(px.y1+14).toFixed(1)}"
+           text-anchor="middle" fill="#ffffff" font-size="10.5">${dlbl}</text>`;
+    document.getElementById('cross').innerHTML = g;
+    readout.textContent = `${DATES[i]}  ·  from ${st.anchor ? DYN_NOTE[st.anchor] : DATES[st.i1]}`
+                          + alphaNote(i);
+    drawTable(geom.data, i);
+  });
+  svg.addEventListener('mouseleave', clearCross);
+  function clearCross(){
+    st.cursor = null;
+    const c = document.getElementById('cross'); if (c) c.innerHTML = '';
+    if (geom && (geom.kind === 'pe' || geom.kind === 'corr')){
+      readout.textContent = geom.note;
+      drawTable(geom.returnData || [], null);
+    } else if (geom){
+      readout.textContent = windowNote(); drawTable(geom.data, null);
+    }
+  }
+
+  // ---------- table ----------
+  let tableClickTimer = null;
+  let tableSummaryRows = new Map();
+  function drawTable(data, cur){
+    const rows = data.map(d => ({
+      id:d.id, color:d.color, label:d.label,
+      group: SER[d.id] ? SER[d.id].group : (d.current ? 'reco · held' : 'reco · closed'),
+      ret: d.disp != null ? d.disp - 1 : null,
+      cursor: cur != null && d.g[cur-st.i1] != null ? d.g[cur-st.i1] - 1 : null,
+      vol: d.vol, dd: d.mdd, rv: d.vol ? (d.ret/d.vol) : null,
+      advol: avgDailyVol(d.s || d.id, d.a, cur != null ? Math.min(cur, d.b) : d.b),
+      best: d.best, worst: d.worst, partial: d.partial, lateFull: d.lateFull,
+      avgN: d.avgN, avgOf: d.avgOf, startd: DATES[d.a]
+    }));
+    const k = st.sortK, dir = st.sortDir;
+    rows.sort((a,b) => {
+      if (k === 'label') return dir * a.label.localeCompare(b.label);
+      const av = a[k], bv = b[k];
+      if (av == null) return 1; if (bv == null) return -1;
+      return dir * (av - bv);
+    });
+    tableSummaryRows = new Map(rows.map(row => [row.id,row]));
+    const cls = v => v == null ? '' : (v >= 0 ? 'style="color:#1d7fc4"' : 'style="color:#b8484f"');
+    document.querySelector('#tbl tbody').innerHTML = rows.map(r => `
+      <tr data-id="${r.id}" class="${st.focus && st.focus!==r.id ? 'dim':''}">
+        <td class="l"><span class="swatch" style="background:${r.color}"></span><span class="nm">${esc(r.label)}</span>
+          <span class="grp">${esc(r.group.replace(' — baskets','').replace('Thematic ETFs','ETF'))}</span>
+          ${r.partial ? `<span class="flag" title="series begins inside the window">starts ${r.startd}</span>` : ''}
+          ${!r.partial && r.lateFull ? `<span class="flag" title="basket membership was still filling in at the window start">partial members</span>` : ''}
+          ${r.avgN ? `<span class="flag" title="equal average of each name's return since the window start, held — no rebalancing">avg of ${r.avgN}${r.avgOf && r.avgOf > r.avgN ? ` of ${r.avgOf}` : ''}</span>` : ''}</td>
+        <td class="big" ${cls(r.ret)}>${r.ret==null ? '—'
+          : st.mode==='dd' && r.ret >= 0 ? '0.0%' : fmtPct(r.ret)}</td>
+        <td ${cls(r.cursor)}>${r.cursor==null?'':fmtPct(r.cursor)}</td>
+        <td>${r.vol==null?'—':(r.vol*100).toFixed(0)+'%'}</td>
+        <td${cur!=null?' style="color:#78716c"':''}>${r.advol==null?'—':(r.advol*100).toFixed(r.advol>=0.095?0:1)+'%'}</td>
+        <td style="color:${r.dd < 0 ? '#b8484f' : '#a8a29e'}">${r.dd < 0 ? fmtPct(r.dd) : '0.0%'}</td>
+        <td>${r.rv==null?'—':r.rv.toFixed(2)}</td>
+        <td>${fmtPct(r.best)}</td>
+        <td>${fmtPct(r.worst)}</td>
+      </tr>`).join('');
+    document.querySelectorAll('#tbl tbody tr').forEach(tr => {
+      tr.onclick = e => {
+        if (e.detail > 1) return;
+        clearTimeout(tableClickTimer);
+        const id = tr.dataset.id;
+        tableClickTimer = setTimeout(() => {
+          tableClickTimer = null;
+          st.focus = st.focus === id ? null : id;
+          render();
+        }, 280);
+      };
+      tr.ondblclick = e => {
+        e.preventDefault();
+        clearTimeout(tableClickTimer);
+        tableClickTimer = null;
+        toggle(tr.dataset.id);
+      };
+    });
+    document.querySelectorAll('#tbl thead th').forEach(th => {
+      th.classList.toggle('sorted', th.dataset.k === st.sortK);
+    });
+    // the headline column tracks whatever the chart is measuring
+    document.querySelector('#tbl thead th[data-k="ret"]').textContent =
+      st.mode === 'rel' ? 'vs ' + SER[st.bench].label.split(' · ').pop()
+      : st.mode === 'dd' ? 'Drawdown now' : st.mode === 'idx' ? 'Growth' : 'Return';
+    // rail return chips
+    document.querySelectorAll('.row').forEach(row => {
+      const r = rows.find(x => x.id === row.dataset.id);
+      row.querySelector('.rr').textContent = r && r.ret != null ? fmtPct(r.ret) : '';
+    });
+    renderDrawdowns();
+  }
+  document.querySelectorAll('#tbl thead th').forEach(th => {
+    th.onclick = () => {
+      if (st.sortK === th.dataset.k) st.sortDir *= -1;
+      else { st.sortK = th.dataset.k; st.sortDir = th.dataset.k === 'label' ? 1 : -1; }
+      if (geom) drawTable(geom.data, st.cursor);
+    };
+  });
+
+  // ---------- completed all-time-high drawdowns ----------
+  // An episode begins at an ATH, bottoms at the lowest close that follows, and
+  // is complete only when a strictly higher ATH is printed. The still-open
+  // drawdown at the end of a series is intentionally excluded.
+  function completedDrawdowns(s, floor){
+    if (!s || !s.lv || !s.lv.length) return [];
+    let peak = null, peakIdx = null, trough = null, troughIdx = null;
+    const out = [];
+    for (let j = 0; j < s.lv.length; j++){
+      const v = s.lv[j], i = s.i0 + j;
+      if (v == null || v <= 0 || i >= N) continue;
+      if (peak == null){ peak = trough = v; peakIdx = troughIdx = i; continue; }
+      if (v > peak){
+        if (troughIdx != null && troughIdx > peakIdx){
+          const depth = 1 - trough / peak;
+          if (depth > floor) out.push({ depth, peak:peakIdx, trough:troughIdx, recovery:i });
+        }
+        peak = trough = v; peakIdx = troughIdx = i;
+      } else if (v < trough){
+        trough = v; troughIdx = i;
+      }
+    }
+    return out;
+  }
+  function median(xs){
+    if (!xs.length) return null;
+    const a = xs.slice().sort((x,y) => x-y), m = Math.floor(a.length/2);
+    return a.length % 2 ? a[m] : (a[m-1] + a[m]) / 2;
+  }
+  function currentDrawdown(s){
+    let peak = null, peakIdx = null, trough = null, troughIdx = null;
+    let last = null, lastIdx = null;
+    for (let j = 0; j < s.lv.length; j++){
+      const v = s.lv[j], i = s.i0 + j;
+      if (v == null || v <= 0 || i >= N) continue;
+      if (peak == null || v > peak){
+        peak = trough = v; peakIdx = troughIdx = i;
+      } else if (v < trough){
+        trough = v; troughIdx = i;
+      }
+      last = v; lastIdx = i;
+    }
+    if (peak == null || last == null) return null;
+    const depth = 1 - last / peak;
+    const troughDepth = 1 - trough / peak;
+    return troughIdx > peakIdx
+      ? { depth, peak:peakIdx, asof:lastIdx, troughDepth, trough:troughIdx }
+      : null;
+  }
+  const METAL_IDS = new Set(['gold','silver','copper']);
+  const fullVolCache = {};
+  function fullHistoryVol(s){
+    if (!s || !s.lv || s.lv.length < 3) return null;
+    if (s.id in fullVolCache) return fullVolCache[s.id];
+    const rs = [];
+    for (let i = 1; i < s.lv.length; i++){
+      const a = s.lv[i-1], b = s.lv[i];
+      if (a != null && b != null && a > 0 && b > 0) rs.push(b / a - 1);
+    }
+    if (rs.length < 2) return fullVolCache[s.id] = null;
+    const mean = rs.reduce((a,b) => a+b, 0) / rs.length;
+    const variance = rs.reduce((a,b) => a + (b-mean)*(b-mean), 0) / (rs.length-1);
+    return fullVolCache[s.id] = Math.sqrt(variance * 252);
+  }
+  function drawdownFloor(item, s){
+    const single = s.kind === 'stock' || s.kind === 'equity' || item.kind === 'reconame';
+    const metal = METAL_IDS.has(s.id);
+    const highVolEtf = s.kind === 'etf' && s.group !== 'Indices' && fullHistoryVol(s) >= .30;
+    return single || metal || highVolEtf ? .20 : .05;
+  }
+  function summaryMetric(label, value, color='', title='', extra=''){
+    return `<div class="summary-metric ${extra}"${title ? ` title="${esc(title)}"` : ''}>`
+      + `<span>${esc(label)}</span><b${color ? ` style="color:${color}"` : ''}>${value}</b></div>`;
+  }
+  function drawdownMetric(label, value, max, tone, title){
+    if (value == null) return summaryMetric(label,'—','#a8a29e',title,tone);
+    const ratio = max > 0 ? Math.min(1, value / max) : 0;
+    const spec = tone === 'trough' ? { h:337, s:53 } :
+                 tone === 'current' ? { h:12, s:58 } : { h:356, s:49 };
+    const light = 58 - 18 * ratio;
+    return summaryMetric(label,fmtPct(-value),
+      `hsl(${spec.h},${spec.s}%,${light.toFixed(1)}%)`,title,tone);
+  }
+  function renderDrawdowns(){
+    const rows = st.sel.map(id => {
+      const item = SER[id]; if (!item) return null;
+      const s = item.kind === 'reconame' ? SER[item.src] : item;
+      if (!s || !s.lv) return null;
+      const floor = drawdownFloor(item, s);
+      const events = completedDrawdowns(s, floor);
+      const depths = events.map(e => e.depth);
+      return { id, label:item.label, group:item.group || s.group || '', color:assign(id),
+               stat:tableSummaryRows.get(id),
+               floor, events, avg:depths.length ? depths.reduce((a,b)=>a+b,0)/depths.length : null,
+               med:median(depths), current:currentDrawdown(s) };
+    }).filter(Boolean);
+    rows.forEach(row => { row.sigma = standardDeviationSection(row); });
+    const hasSigma = rows.some(row => row.sigma);
+    ddMoveToggle.hidden = !hasSigma;
+    document.querySelectorAll('[data-move]').forEach(button =>
+      button.classList.toggle('on',button.dataset.move===st.moveFrame));
+    const grid = document.getElementById('ddgrid');
+    if (!rows.length){
+      ddMoveToggle.hidden = true;
+      grid.innerHTML = `<div class="dd-none">Select a series to see its performance and completed ATH drawdowns.</div>`;
+      return;
+    }
+    const colMax = get => Math.max(0, ...rows.map(get).filter(Number.isFinite));
+    const maxes = {
+      avg:colMax(r => r.avg),
+      med:colMax(r => r.med),
+      current:colMax(r => r.current?.depth),
+      trough:colMax(r => r.current?.troughDepth)
+    };
+    grid.innerHTML = rows.map(r => {
+      const s=r.stat || {};
+      const ret=s.ret==null ? '—' : st.mode==='dd' && s.ret>=0 ? '0.0%' : fmtPct(s.ret);
+      const retColor=s.ret==null ? '#a8a29e' : s.ret>=0 ? '#1d7fc4' : '#b8484f';
+      const returnLabel=st.mode==='rel' ? 'Relative' : st.mode==='dd' ? 'Drawdown now'
+        : st.mode==='idx' ? 'Growth' : 'Return';
+      const performance=[
+        summaryMetric(returnLabel,ret,retColor),
+        summaryMetric('At cursor',s.cursor==null?'—':fmtPct(s.cursor),
+          s.cursor==null?'#a8a29e':s.cursor>=0?'#1d7fc4':'#b8484f'),
+        summaryMetric('Ann. vol',s.vol==null?'—':(s.vol*100).toFixed(0)+'%'),
+        summaryMetric('Avg daily',s.advol==null?'—':(s.advol*100).toFixed(s.advol>=.095?0:1)+'%'),
+        summaryMetric('Max DD',s.dd==null?'—':s.dd<0?fmtPct(s.dd):'0.0%',s.dd<0?'#b8484f':'#a8a29e'),
+        summaryMetric('Ret / vol',s.rv==null?'—':s.rv.toFixed(2)),
+        summaryMetric('Best day',s.best==null?'—':fmtPct(s.best)),
+        summaryMetric('Worst day',s.worst==null?'—':fmtPct(s.worst)),
+        summaryMetric('Window',s.startd ? `${s.startd.slice(5)} → ${DATES[st.i2].slice(5)}` : '—')
+      ].join('');
+      const drawdowns=[
+        summaryMetric('Floor',`>${(r.floor*100).toFixed(0)}%`),
+        summaryMetric('Episodes',String(r.events.length)),
+        drawdownMetric('Average',r.avg,maxes.avg,'historical','Average qualifying completed drawdown'),
+        drawdownMetric('Median',r.med,maxes.med,'historical','Median qualifying completed drawdown'),
+        drawdownMetric('Current',r.current?.depth,maxes.current,'current',
+          r.current ? `ATH ${DATES[r.current.peak]} → ${DATES[r.current.asof]}` : 'Currently at an all-time high'),
+        drawdownMetric('Current trough',r.current?.troughDepth,maxes.trough,'trough',
+          r.current ? `ATH ${DATES[r.current.peak]} → trough ${DATES[r.current.trough]}` : 'No open drawdown')
+      ].join('');
+      const events = r.events.slice().sort((a,b) => b.trough - a.trough);
+      const detail = events.length ? `<div class="dd-events">${events.map((e, i) =>
+        `<div class="dd-event${i === 0 ? ' latest' : ''}"${i === 0 ? ' title="Latest completed drawdown"' : ''}><b>${fmtPct(-e.depth)}</b><span>${DATES[e.peak]} → ${DATES[e.trough]}</span><em>new ATH ${DATES[e.recovery]}</em></div>`
+      ).join('')}</div>` : `<span class="dd-none">No completed episodes above ${(r.floor*100).toFixed(0)}%.</span>`;
+      return `<article data-id="${r.id}" class="ticker-card ${st.focus && st.focus!==r.id ? 'dim':''}">
+        <header class="ticker-card-head">
+          <div class="ticker-card-name"><span class="swatch" style="background:${r.color}"></span>
+            <span class="nm">${esc(r.label)}</span>
+            <span class="grp">${esc(r.group.replace(' — baskets','').replace('Thematic ETFs','ETF'))}</span></div>
+          <span class="ticker-card-hint">click to focus · double-click to remove</span>
+        </header>
+        <div class="ticker-card-scroll">
+          <section class="ticker-card-section">
+            <h3>Visible-window performance</h3>
+            <div class="summary-strip performance">${performance}</div>
+          </section>
+          ${r.sigma}
+          <section class="ticker-card-section">
+            <h3>Full-history drawdown summary</h3>
+            <div class="summary-strip drawdown">${drawdowns}</div>
+          </section>
+          <section class="ticker-card-section events">
+            <h3>Completed ATH episodes · newest first</h3>
+            ${detail}
+          </section>
+        </div>
+      </article>`;
+    }).join('');
+    document.querySelectorAll('#ddgrid .ticker-card[data-id]').forEach(card => {
+      card.onclick=e => {
+        if (e.detail>1) return;
+        clearTimeout(tableClickTimer);
+        const id=card.dataset.id;
+        tableClickTimer=setTimeout(() => {
+          tableClickTimer=null;
+          st.focus=st.focus===id ? null : id;
+          render();
+        },280);
+      };
+      card.ondblclick=e => {
+        e.preventDefault();
+        clearTimeout(tableClickTimer);
+        tableClickTimer=null;
+        toggle(card.dataset.id);
+      };
+    });
+  }
+
+  // ---------- rail ----------
+  function railRow(s, sub, depth=0){
+    const mem = (s.kind === 'basket' || s.kind === 'reco') && s.memberIds && s.memberIds.length;
+    const noun = (s.kind === 'reco' || s.fac) ? 'names' : 'constituents';
+    return `<div class="row${sub ? ' sub' : ''}" data-id="${s.id}"
+        style="--row-indent:${depth * 10}px" title="${esc(memberTip(s))}">
+        <span class="dot"></span><span class="lb">${esc(s.label)}</span>
+        ${mem ? `<button class="caret" data-exp="${s.id}" title="show ${noun}">&#9654;</button>` : ''}
+        <span class="rr"></span>
+      </div>${mem ? `
+      <div class="members" data-for="${s.id}" hidden>
+        <div class="memhd"><span>${s.memberIds.length} ${noun}</span>
+          <button data-all="${s.id}">all</button></div>
+        ${s.memberIds.map(mid => railRow(SER[mid], true, depth)).join('')}
+      </div>` : ''}`;
+  }
+
+  function navTree(){
+    const root = {name:'', children:new Map(), items:[]};
+    D.series.forEach(s => {
+      if (s.kind === 'stock') return;   // constituents live under their basket
+      const path = s.nav && s.nav.length ? s.nav : [s.group || 'Other'];
+      let node = root;
+      path.forEach(name => {
+        if (!node.children.has(name))
+          node.children.set(name, {name, children:new Map(), items:[]});
+        node = node.children.get(name);
+      });
+      node.items.push(s);
+    });
+    return root;
+  }
+  function nodeCount(node){
+    return node.items.length + [...node.children.values()].reduce((n, child) => n + nodeCount(child), 0);
+  }
+  function renderNavNode(node, depth){
+    const children = [...node.children.values()];
+    return `<div class="nav-node${depth === 0 ? ' gsec' : ''} depth-${depth}"
+                 data-g="${esc(node.name)}" data-depth="${depth}" style="--indent:${depth * 11}px">
+      <div class="gh">
+        <button class="gtoggle" type="button" aria-expanded="false">
+          <span class="gchev" aria-hidden="true">&#9654;</span>
+          <span class="gname">${esc(node.name)}</span>
+          <span class="gmeta"><span class="gsel"></span><span class="n">${nodeCount(node)}</span></span>
+        </button>
+        <button class="gall" type="button" title="select this section">all</button>
+      </div>
+      <div class="gbody" hidden>
+        ${children.map(child => renderNavNode(child, depth + 1)).join('')}
+        ${node.items.map(s => railRow(s, false, depth + 1)).join('')}
+      </div>
+    </div>`;
+  }
+  function buildRail(){
+    const tree = navTree();
+    document.getElementById('list').innerHTML = [...tree.children.values()]
+      .map(node => renderNavNode(node, 0)).join('');
+    document.querySelectorAll('.row').forEach(r => r.onclick = () => toggle(r.dataset.id));
+    document.querySelectorAll('.caret').forEach(c => c.onclick = e => {
+      e.stopPropagation();
+      const box = document.querySelector(`.members[data-for="${c.dataset.exp}"]`);
+      const open = box.hidden;
+      box.hidden = !open; if (open) box.dataset.open = '1'; else delete box.dataset.open;
+      c.classList.toggle('open', open);
+    });
+    document.querySelectorAll('.memhd button[data-all]').forEach(btn => btn.onclick = e => {
+      e.stopPropagation();
+      const ids = SER[btn.dataset.all].memberIds;
+      const allOn = ids.every(i => st.sel.includes(i));
+      st.sel = allOn ? st.sel.filter(i => !ids.includes(i))
+                     : st.sel.concat(ids.filter(i => !st.sel.includes(i)));
+      if (st.focus && !st.sel.includes(st.focus)) st.focus = null;
+      st.sel.forEach(assign); syncRail(); render();
+    });
+    // reveal any basket/book whose constituent or reco name is already selected
+    st.sel.forEach(id => {
+      if (!SER[id] || (SER[id].kind !== 'stock' && SER[id].kind !== 'reconame')) return;
+      const box = document.querySelector(`.members .row[data-id="${id}"]`)?.closest('.members');
+      if (box){ box.hidden = false; box.dataset.open = '1';
+        document.querySelector(`.caret[data-exp="${box.dataset.for}"]`)?.classList.add('open'); }
+    });
+    document.querySelectorAll('.gtoggle').forEach(btn => btn.onclick = () => {
+      const node = btn.closest('.nav-node');
+      setNodeOpen(node, directBody(node).hidden, true);
+    });
+    document.querySelectorAll('.gall').forEach(btn => btn.onclick = () => {
+      const node = btn.closest('.nav-node');
+      const ids = [...node.querySelectorAll('.row:not(.sub)')].filter(r => r.style.display !== 'none')
+                    .map(r => r.dataset.id);
+      if (!ids.length) return;
+      const allOn = ids.every(i => st.sel.includes(i));
+      st.sel = allOn ? st.sel.filter(i => !ids.includes(i))
+                     : st.sel.concat(ids.filter(i => !st.sel.includes(i)));
+      st.sel.forEach(assign); syncRail(); render();
+    });
+    syncRail();
+  }
+  function directBody(node){
+    return [...node.children].find(el => el.classList.contains('gbody'));
+  }
+  function directHeader(node){
+    return [...node.children].find(el => el.classList.contains('gh'));
+  }
+  function setNodeOpen(node, open, remember){
+    if (open && remember){
+      [...node.parentElement.children].filter(el => el.classList.contains('nav-node')).forEach(other => {
+        if (other === node) return;
+        directBody(other).hidden = true;
+        other.classList.remove('open');
+        directHeader(other).querySelector('.gtoggle').setAttribute('aria-expanded', 'false');
+        delete other.dataset.open;
+      });
+    }
+    directBody(node).hidden = !open;
+    node.classList.toggle('open', open);
+    directHeader(node).querySelector('.gtoggle').setAttribute('aria-expanded', String(open));
+    if (remember){
+      if (open) node.dataset.open = '1';
+      else delete node.dataset.open;
+    }
+  }
+  function memberTip(s){
+    if (s.kind === 'reco'){
+      const cur = (s.reco && s.reco.current) || [];
+      return cur.length ? `currently held: ${cur.join(', ')}` : s.label;
+    }
+    if (s.fac){
+      // A factor bucket is a screen, not a membership: the whole universe is
+      // re-scored and re-sorted every month end, so this list is who ranked here
+      // at the last rebalance and nothing more. The caveats ride along because a
+      // line this steep is easy to misread as a strategy someone could have run.
+      return `screen · ${s.fac.scored} names ranked ${s.fac.rebalanced}, `
+        + `top/bottom ${s.fac.n} · charts the last ${s.fac.win}`
+        + (s.members.length ? `\n${s.members.join(', ')}` : '')
+        + s.fac.caveats.map(c => `\n! ${c}`).join('');
+    }
+    if (s.kind !== 'basket') return s.label;
+    return s.members.join(', ') + (s.full ? `  ·  full membership from ${s.full}` : '');
+  }
+  function toggle(id){
+    st.sel = st.sel.includes(id) ? st.sel.filter(x => x !== id) : st.sel.concat([id]);
+    assign(id);
+    if (st.focus && !st.sel.includes(st.focus)) st.focus = null;
+    // completing a book/coverage pair moves the window to the book's start, so
+    // the shaded gap between the two is alpha and not a head start
+    if (snapToBook()){ anchorSel.value = ''; syncCtl(); }
+    // A factor bucket is a claim about one stretch of tape: the 1-month screen was
+    // ranked on 21 sessions, the momentum screen on a year. Turning one on moves the
+    // window to the span it was ranked over, so the line you see is the line the
+    // rank was actually making a statement about.
+    const fac = SER[id] && SER[id].fac;
+    if (fac && fac.win && st.sel.includes(id)){
+      setSpan(fac.win); anchorSel.value = ''; syncCtl();
+    }
+    syncRail(); render();
+  }
+  function selectSearchTicker(query){
+    const key = query.trim().toUpperCase();
+    if (!key) return false;
+    const aliases = {
+      '005930': 'kr005930', '005930.KS': 'kr005930',
+      '000660': 'kr000660', '000660.KS': 'kr000660',
+      'ENR.DE': 'siemens_energy'
+    };
+    const id = aliases[key] || Object.keys(SER).find(id => id.toUpperCase() === key);
+    if (!id) return false;
+    if (!st.sel.includes(id)){
+      st.sel = st.sel.concat([id]);
+      assign(id);
+      if (snapToBook()){ anchorSel.value = ''; syncCtl(); }
+      syncRail(); render();
+    }
+    return true;
+  }
+  function syncRail(){
+    document.querySelectorAll('.row').forEach(r => {
+      const on = st.sel.includes(r.dataset.id);
+      r.classList.toggle('on', on);
+      r.querySelector('.dot').style.background = on ? colorOf[r.dataset.id] : 'transparent';
+      if (!on) r.querySelector('.rr').textContent = '';
+    });
+    document.querySelectorAll('.nav-node').forEach(node => {
+      const ids = [...node.querySelectorAll('.row:not(.sub)')].map(r => r.dataset.id);
+      const n = ids.filter(id => st.sel.includes(id)).length;
+      const header = directHeader(node);
+      header.querySelector('.gsel').textContent = n ? `${n} selected ·` : '';
+      header.querySelector('.gall').textContent = n === ids.length ? 'clear' : 'all';
+      header.querySelector('.gall').title = n === ids.length ? 'clear this section' : 'select this section';
+    });
+  }
+  const searchInput = document.getElementById('q');
+  searchInput.addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    if (selectSearchTicker(e.currentTarget.value)) e.preventDefault();
+  });
+  searchInput.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll('.row').forEach(r => {
+      const s = SER[r.dataset.id];
+      const hay = (s.label + ' ' + s.id + ' ' + s.group + ' '
+        + (s.nav||[]).join(' ') + ' ' + (s.members||[]).join(' ')).toLowerCase();
+      const ok = !q || hay.includes(q);
+      r.style.display = ok ? '' : 'none';
+    });
+    [...document.querySelectorAll('.nav-node')].reverse().forEach(node => {
+      const vis = [...node.querySelectorAll('.row:not(.sub)')]
+        .some(r => r.style.display !== 'none');
+      node.style.display = vis ? '' : 'none';
+      if (q && vis) setNodeOpen(node, true, false);
+      else if (!q) setNodeOpen(node, node.dataset.open === '1', false);
+    });
+    // a query that hits a constituent opens its basket; clearing restores manual state
+    document.querySelectorAll('.members').forEach(box => {
+      if (!q){ box.hidden = !box.dataset.open; return; }
+      const anyVis = [...box.querySelectorAll('.row')].some(r => r.style.display !== 'none');
+      box.hidden = !anyVis;
+      const c = document.querySelector(`.caret[data-exp="${box.dataset.for}"]`);
+      if (c) c.classList.toggle('open', anyVis);
+    });
+  });
+  document.querySelectorAll('.quick button').forEach(b => b.onclick = () => {
+    st.sel = QUICK[b.dataset.set].filter(id => SER[id]);
+    st.sel.forEach(assign); st.focus = null; syncRail(); render();
+  });
+
+  // ---------- controls ----------
+  const spansEl = document.getElementById('spans');
+  SPANS.forEach(([tag]) => {
+    if (tag === '|'){ spansEl.appendChild(document.createElement('i')).className = 'sep'; return; }
+    const b = document.createElement('button'); b.textContent = tag; b.dataset.span = tag;
+    b.onclick = () => { setSpan(tag); document.getElementById('anchor').value = ''; syncCtl(); render(); };
+    spansEl.appendChild(b);
+  });
+  const modesEl = document.getElementById('modes');
+  MODES.forEach(([id,lab]) => {
+    const b = document.createElement('button'); b.textContent = lab; b.dataset.mode = id;
+    b.onclick = () => { st.mode = id; syncCtl(); render(); };
+    modesEl.appendChild(b);
+  });
+  const corrWinEl = document.getElementById('corrwin');
+  CORR_WINS.forEach(w => {
+    const b = document.createElement('button'); b.textContent = w + 'd'; b.dataset.corrwin = w;
+    b.onclick = () => { st.corrWin = w; syncCtl(); render(); };
+    corrWinEl.appendChild(b);
+  });
+  const peBasisEl = document.getElementById('pebasis');
+  [[1,'FY+1'],[2,'FY+2']].forEach(([id,lab]) => {
+    const b=document.createElement('button'); b.textContent=lab; b.dataset.pebasis=id;
+    b.onclick=()=>{ st.peBasis=id; syncCtl(); render(); };
+    peBasisEl.appendChild(b);
+  });
+  const scalesEl = document.getElementById('scales');
+  [['lin','Linear'],['log','Log']].forEach(([id,lab]) => {
+    const b = document.createElement('button'); b.textContent = lab; b.dataset.scale = id;
+    b.onclick = () => { st.log = id === 'log'; syncCtl(); render(); };
+    scalesEl.appendChild(b);
+  });
+  const basisEl = document.getElementById('basis');
+  [['pr','Off'],['tr','On']].forEach(([id,lab]) => {
+    const b = document.createElement('button'); b.textContent = lab; b.dataset.basis = id;
+    b.onclick = () => {
+      st.tr = id === 'tr'; writeBasis(st.tr); applyBasis(); syncCtl(); render();
+    };
+    basisEl.appendChild(b);
+  });
+  // Another tab (or Leaders) changing the shared setting should not leave this
+  // page showing the other basis under the same label.
+  window.addEventListener('storage', e => {
+    if (e.key !== BASIS_KEY) return;
+    const v = readBasis();
+    if (v === st.tr) return;
+    st.tr = v; applyBasis(); syncCtl(); render();
+  });
+  const benchSel = document.getElementById('bench');
+  benchSel.innerHTML = ['qqq','spy','ndx','smh','xlk','igv','ura','gold']
+    .filter(id => SER[id]).map(id => `<option value="${id}">${esc(SER[id].label)}</option>`).join('');
+  benchSel.value = st.bench;
+  benchSel.onchange = () => { st.bench = benchSel.value; render(); };
+  const anchorSel = document.getElementById('anchor');
+  anchorSel.innerHTML =
+    ANCHORS.filter(a => !a.id || a.id >= DATES[0])
+      .map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('')
+    + `<optgroup label="per-series">`
+    + DYN_ANCHORS.map(a => `<option value="${a.id}">${esc(a.label)}</option>`).join('')
+    + `</optgroup>`;
+  anchorSel.onchange = () => {
+    const v = anchorSel.value;
+    if (!v){ st.anchor = null; syncCtl(); render(); return; }
+    if (v[0] === '@'){
+      st.anchor = v.slice(1);
+      syncDynamicAnchorWindow();
+    } else {
+      st.anchor = null;
+      st.i1 = idxOnOrAfter(v);
+    }
+    st.i2 = N-1; st.span = null; syncCtl(); render();
+  };
+  const d1 = document.getElementById('d1'), d2 = document.getElementById('d2');
+  function displayDate(control,iso){
+    const [year,month,day] = iso.split('-');
+    control.querySelector('[data-part="month"]').value=month;
+    control.querySelector('[data-part="day"]').value=day;
+    control.querySelector('[data-part="year"]').value=year;
+  }
+  const dateText = control => {
+    const month=control.querySelector('[data-part="month"]').value;
+    const day=control.querySelector('[data-part="day"]').value;
+    const year=control.querySelector('[data-part="year"]').value;
+    return `${month}/${day}/${year}`;
+  };
+  function typedDate(raw){
+    const value=raw.trim();
+    let parts=value.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (parts) parts=[parts[1],parts[2],parts[3]];
+    else {
+      parts=value.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{4})$/)
+        || value.match(/^(\d{2})(\d{2})(\d{4})$/);
+      if (!parts) return null;
+      parts=[parts[3],parts[1],parts[2]];
+    }
+    const [year,month,day]=parts.map(Number);
+    const date=new Date(Date.UTC(year,month-1,day));
+    if (date.getUTCFullYear()!==year || date.getUTCMonth()!==month-1 || date.getUTCDate()!==day) return null;
+    const iso=`${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    return iso>=DATES[0] && iso<=DATES[N-1] ? iso : null;
+  }
+  function setDateInvalid(input,invalid){
+    input.classList.toggle('invalid',invalid);
+    input.setAttribute('aria-invalid',invalid ? 'true' : 'false');
+  }
+  function onDate(input){
+    const start=typedDate(dateText(d1)), end=typedDate(dateText(d2));
+    if (!start || !end){
+      setDateInvalid(d1,!start); setDateInvalid(d2,!end);
+      return false;
+    }
+    let i1=Math.min(idxOnOrAfter(start),N-2);
+    let i2=Math.min(N-1,idxOnOrAfter(end));
+    if (i2<=i1){
+      setDateInvalid(input,true);
+      return false;
+    }
+    st.i1=i1; st.i2=i2;
+    st.span = null; st.anchor = null; anchorSel.value = '';
+    setDateInvalid(d1,false); setDateInvalid(d2,false);
+    syncCtl(); render();
+    return true;
+  }
+  function setupDateControl(control){
+    const parts=[...control.querySelectorAll('.date-segment')];
+    parts.forEach((segment,index) => {
+      segment.addEventListener('focus',() => segment.select());
+      segment.addEventListener('click',() => segment.select());
+      segment.addEventListener('input',() => {
+        segment.value=segment.value.replace(/\D/g,'').slice(0,+segment.maxLength);
+        setDateInvalid(control,false);
+        const value=+segment.value;
+        const complete=segment.value.length===+segment.maxLength
+          || (index===0 && segment.value.length===1 && value>1)
+          || (index===1 && segment.value.length===1 && value>3);
+        if (complete && index<parts.length-1){
+          if (index<2) segment.value=segment.value.padStart(2,'0');
+          parts[index+1].focus();
+        }
+      });
+      segment.addEventListener('keydown',e => {
+        if (e.key==='Enter'){
+          e.preventDefault();
+          if (onDate(control)) segment.blur();
+        } else if ((e.key==='/' || e.key==='ArrowRight') && index<parts.length-1){
+          e.preventDefault(); parts[index+1].focus();
+        } else if (e.key==='ArrowLeft' && index>0){
+          e.preventDefault(); parts[index-1].focus();
+        } else if (e.key==='Backspace' && !segment.value && index>0){
+          e.preventDefault(); parts[index-1].focus();
+        }
+      });
+    });
+    control.addEventListener('paste',e => {
+      const iso=typedDate(e.clipboardData.getData('text'));
+      if (!iso) return;
+      e.preventDefault(); displayDate(control,iso); setDateInvalid(control,false);
+      parts[2].focus();
+    });
+  }
+  setupDateControl(d1); setupDateControl(d2);
+
+  function syncCtl(){
+    syncCorrAvailability();
+    const ctx = syncPeAvailability();
+    document.querySelectorAll('#spans button').forEach(b => b.classList.toggle('on', b.dataset.span === st.span));
+    document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.mode === st.mode));
+    document.querySelectorAll('#pebasis button').forEach(b =>
+      b.classList.toggle('on', +b.dataset.pebasis === st.peBasis));
+    document.querySelectorAll('#scales button').forEach(b =>
+      b.classList.toggle('on', (b.dataset.scale === 'log') === st.log));
+    document.querySelectorAll('#corrwin button').forEach(b =>
+      b.classList.toggle('on', +b.dataset.corrwin === st.corrWin));
+    document.querySelectorAll('#basis button').forEach(b =>
+      b.classList.toggle('on', (b.dataset.basis === 'tr') === st.tr));
+    document.getElementById('benchwrap').style.opacity = st.mode === 'rel' ? 1 : .35;
+    document.getElementById('scales').style.opacity =
+      (st.mode === 'dd' || st.mode === 'corr') ? .35 : 1;
+    document.getElementById('pebasis').hidden = st.mode !== 'pe' || !ctx;
+    document.getElementById('corrwin').hidden = st.mode !== 'corr';
+    document.getElementById('anchors').classList.toggle('disabled',
+      st.mode === 'pe' || st.mode === 'corr');
+    document.getElementById('penote').classList.toggle('on', st.mode === 'pe' && !!ctx);
+    displayDate(d1,DATES[st.i1]); displayDate(d2,DATES[st.i2]);
+    anchorSel.value = st.anchor ? '@' + st.anchor : anchorSel.value;
+    writeHash();
+  }
+
+  // ---------- hash state ----------
+  function writeHash(){
+    const h = [st.sel.join(','), st.mode, st.log?'log':'lin', DATES[st.i1], DATES[st.i2],
+               st.bench, 'fy'+st.peBasis, 'cw'+st.corrWin, st.tr?'div1':'div0'];
+    history.replaceState(null, '', '#' + h.join('|'));
+  }
+  function readHash(){
+    const h = location.hash.slice(1); if (!h) return false;
+    const [sel, mode, scale, a, b, bench, peBasis, corrWin, divs] = h.split('|');
+    // A shared link states its basis outright, so honour it AND adopt it — the
+    // setting is site-wide, and a link that silently meant something else on the
+    // recipient's machine would be worse than one that moves their toggle.
+    if (divs === 'div0' || divs === 'div1'){ st.tr = divs === 'div1'; writeBasis(st.tr); }
+    if (corrWin && CORR_WINS.includes(+corrWin.slice(2))) st.corrWin = +corrWin.slice(2);
+    if (sel) st.sel = sel.split(',').filter(id => SER[id]);
+    if (MODES.some(m => m[0] === mode)) st.mode = mode;
+    st.log = scale === 'log';
+    if (a && DIDX[a] != null) st.i1 = DIDX[a]; else if (a) st.i1 = idxOnOrAfter(a);
+    if (b && DIDX[b] != null) st.i2 = DIDX[b]; else if (b) st.i2 = idxOnOrAfter(b);
+    if (bench && SER[bench]) st.bench = bench;
+    if (peBasis === 'fy1' || peBasis === 'fy2') st.peBasis = +peBasis.slice(2);
+    st.span = null; st.sel.forEach(assign);
+    return true;
+  }
+
+  // ---------- boot ----------
+  readHash();
+  applyBasis();          // after readHash: a shared link may have set the basis
+  buildRail();
+  document.getElementById('asof').innerHTML = `as of ${D.meta.as_of}`;
+  const footEl = document.getElementById('foot');
+  if (footEl) footEl.remove();
+  syncCtl();
+  render();
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 120); });
+})();
+</script>
+</body>
+</html>
