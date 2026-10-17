@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "off",
+    "call": "Risk-off",
+    "detail": "Risk is being sold and participation is narrow.",
+    "summary": "SPY finished the week -1.4%; QQQ -2.4%; high beta versus low beta is -1.3% over one month (33rd percentile); leader breadth is -14.5 points versus the index; 57% of S&P names are above the 50-day; net 52-week highs are +13; Biotechnology leads themes at +14.6%.",
+    "market": "SPY finished the week -1.4%; QQQ -2.4%.",
+    "winners": "Biotechnology +14.6%, Metals \u2014 Miners +13.8%, Health Care \u00b7 XLV +4.3%.",
+    "laggards": "Photonics -13.0%, Neocloud -12.9%, CDN / Edge -11.7%.",
+    "why": "Weak high beta and narrow participation point to a broad contraction in risk appetite; high beta/low beta -1.3%, leader breadth spread -14.5pt, 57% above the 50-day.",
+    "comparison": "Since 2026-08-20, the Risk-off call is unchanged; high beta +1.3pt, leader spread -3.7pt, 50-day breadth +3.7pt.",
+    "tally": "0 of 4 risk gauges and 2 of 6 participation gauges are above their five-year medians",
+    "volume": "MRNA printed 32.75\u00d7 relative volume on a +177.0% day, while RDDT printed 9.16\u00d7 relative volume on a -7.6% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

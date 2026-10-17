@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "",
+    "call": "Mixed",
+    "detail": "Leadership is thin and risk appetite is undecided.",
+    "summary": "SPY finished the week +1.1%; QQQ +1.4%; high beta versus low beta is +9.4% over one month (85th percentile); leader breadth is +0.7 points versus the index; 54% of S&P names are above the 50-day; net 52-week highs are +2; Cybersecurity leads themes at +13.4%.",
+    "market": "SPY finished the week +1.1%; QQQ +1.4%.",
+    "winners": "Cybersecurity +13.4%, CDN / Edge +6.7%, Nuclear +6.5%.",
+    "laggards": "Space -4.3%, Electric Industrial -3.7%, Energy \u00b7 XLE -2.3%.",
+    "why": "Risk and participation disagree, leaving a rotation-led rather than directional tape; high beta/low beta +9.4%, leader breadth spread +0.7pt, 54% above the 50-day.",
+    "comparison": "Since 2026-08-25, the call moved from Risk-off to Mixed; high beta +8.6pt, leader spread +16.0pt, 50-day breadth -4.0pt. Weekly leadership changed from Metals \u2014 Miners to Cybersecurity.",
+    "tally": "2 of 4 risk gauges and 1 of 6 participation gauges are above their five-year medians",
+    "volume": "DKS printed 31.20\u00d7 relative volume on a -30.7% day, while ANF printed 15.66\u00d7 relative volume on a +35.7% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

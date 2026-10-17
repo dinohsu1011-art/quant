@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "off",
+    "call": "Risk-off",
+    "detail": "Risk is being sold and participation is narrow.",
+    "summary": "SPY finished the week +0.5%; QQQ +0.4%; high beta versus low beta is +0.0% over one month (40th percentile); leader breadth is -8.3 points versus the index; 53% of S&P names are above the 50-day; net 52-week highs are +4; Cybersecurity leads themes at +5.5%.",
+    "market": "SPY finished the week +0.5%; QQQ +0.4%.",
+    "winners": "Cybersecurity +5.5%, Software +5.1%, Hyperscalers +3.6%.",
+    "laggards": "Space -9.8%, Photonics -6.4%, Neocloud -6.3%.",
+    "why": "Weak high beta and narrow participation point to a broad contraction in risk appetite; high beta/low beta +0.0%, leader breadth spread -8.3pt, 53% above the 50-day.",
+    "comparison": "Since 2026-08-27, the call moved from Mixed to Risk-off; high beta -9.4pt, leader spread -9.0pt, 50-day breadth -1.0pt.",
+    "tally": "1 of 4 risk gauges and 1 of 6 participation gauges are above their five-year medians",
+    "volume": "DKS printed 31.20\u00d7 relative volume on a -30.7% day, while ANF printed 15.66\u00d7 relative volume on a +35.7% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

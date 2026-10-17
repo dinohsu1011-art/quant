@@ -1,0 +1,765 @@
+{
+  "as_of": "2026-09-08",
+  "week": {
+    "start": "2026-09-01",
+    "end": "2026-09-08",
+    "sessions": 5
+  },
+  "universe": {
+    "stocks": 689,
+    "sp500": 503
+  },
+  "indexes": [
+    {
+      "id": "spy",
+      "label": "S&P 500",
+      "last": 765.96002,
+      "r1w": -0.0014209895237727865,
+      "r1m": -0.009440537342672028,
+      "r3m": 0.03617333281729396,
+      "ytd": 0.12324032505984062,
+      "off_high": -0.015323674602766513,
+      "vs_ma50": 0.011039408548476848,
+      "vs_ma200": 0.07475661971340242
+    },
+    {
+      "id": "qqq",
+      "label": "Nasdaq-100",
+      "last": 718.35999,
+      "r1w": 0.0022322394911513666,
+      "r1m": -0.006458984836355874,
+      "r3m": 0.003197983392713155,
+      "ytd": 0.1693770083508328,
+      "off_high": -0.03725739937509642,
+      "vs_ma50": 0.00989452340976893,
+      "vs_ma200": 0.09120589345880536
+    },
+    {
+      "id": "rut",
+      "label": "Russell 2000",
+      "last": 2960.20361,
+      "r1w": 0.0012696511233007968,
+      "r1m": -0.024480680524505583,
+      "r3m": 0.036696420469042756,
+      "ytd": 0.19271195061226054,
+      "off_high": -0.0352677641331437,
+      "vs_ma50": -0.009132910508673708,
+      "vs_ma200": 0.07728590366649013
+    },
+    {
+      "id": "mdy",
+      "label": "S&P Midcap 400",
+      "last": 686.96002,
+      "r1w": -0.0002473767700434948,
+      "r1m": -0.031304572930138774,
+      "r3m": 0.015837367837338245,
+      "ytd": 0.13870837063842467,
+      "off_high": -0.04177644509533052,
+      "vs_ma50": -0.011663304093435523,
+      "vs_ma200": 0.0483252974484647
+    },
+    {
+      "id": "rsp",
+      "label": "S&P 500 Equal Weight",
+      "last": 216.73,
+      "r1w": -0.01212452709786227,
+      "r1m": -0.015266481893770778,
+      "r3m": 0.04392851982081769,
+      "ytd": 0.13139486322823135,
+      "off_high": -0.027113166045697468,
+      "vs_ma50": -0.0023889610605037914,
+      "vs_ma200": 0.06353587666896243
+    }
+  ],
+  "ratios": [
+    {
+      "id": "iwm_spy",
+      "label": "IWM / SPY",
+      "note": "small caps vs large",
+      "r1m": -0.013535065594688533,
+      "r3m": 0.000960689797651737
+    },
+    {
+      "id": "rsp_spy",
+      "label": "RSP / SPY",
+      "note": "broad participation vs mega-cap",
+      "r1m": -0.005881468776714915,
+      "r3m": 0.007484449520079872
+    },
+    {
+      "id": "xlp_spy",
+      "label": "XLP / SPY",
+      "note": "defensives \u2014 a risk-off tell",
+      "r1m": -0.0035155839900948838,
+      "r3m": -0.023873606699888028
+    },
+    {
+      "id": "xlu_spy",
+      "label": "XLU / SPY",
+      "note": "utilities \u2014 the other one",
+      "r1m": 0.005826660868534006,
+      "r3m": -0.036462807430992616
+    }
+  ],
+  "risk_ratios": [
+    {
+      "id": "qqq_spy",
+      "label": "QQQ / SPY",
+      "note": "tech vs the market",
+      "r1m": 0.003009968223732562,
+      "r3m": -0.03182416337131799
+    },
+    {
+      "id": "smh_spy",
+      "label": "SMH / SPY",
+      "note": "semis \u2014 the high-beta engine",
+      "r1m": -0.006010108720137519,
+      "r3m": -0.07432659277668296
+    },
+    {
+      "id": "arkk_spy",
+      "label": "ARKK / SPY",
+      "note": "long-duration speculation",
+      "r1m": 0.0940499350668218,
+      "r3m": 0.09481950255825278
+    }
+  ],
+  "risk": [
+    {
+      "id": "beta",
+      "label": "High-beta vs low-beta",
+      "unit": "%",
+      "value": -3.1,
+      "pct": 23.57142857142857,
+      "note": "1 month, equal-weight quintiles",
+      "extra": {
+        "1w": 0.027549607342236326,
+        "2w": 0.03328225283164454,
+        "3m": -0.06534773546213113
+      }
+    },
+    {
+      "id": "lead_breadth",
+      "label": "Leaders above 50-day",
+      "unit": "%",
+      "value": 51.0,
+      "pct": 27.3015873015873,
+      "note": "top-quintile 6m momentum"
+    },
+    {
+      "id": "spread",
+      "label": "Leaders less index breadth",
+      "unit": "pt",
+      "value": 8.4,
+      "pct": 44.920634920634924,
+      "note": "negative = defensives carrying it"
+    },
+    {
+      "id": "lead_rel",
+      "label": "Leaders vs index",
+      "unit": "%",
+      "value": 2.8,
+      "pct": 79.52380952380952,
+      "note": "1 month, equal-weight cohort"
+    }
+  ],
+  "themes": [
+    {
+      "id": "neocloud",
+      "label": "Neocloud",
+      "kind": "basket",
+      "n": 6,
+      "r1w": 0.18076197862555476,
+      "r1m": 0.11055781933423381,
+      "r3m": -0.12799851434498632,
+      "rank": 3,
+      "drank": 32
+    },
+    {
+      "id": "btm",
+      "label": "Behind-the-meter power",
+      "kind": "basket",
+      "n": 6,
+      "r1w": 0.16501083922347548,
+      "r1m": 0.0882920851100315,
+      "r3m": -0.10265887565193976,
+      "rank": 7,
+      "drank": 33
+    },
+    {
+      "id": "solutil",
+      "label": "Industrial Solar",
+      "kind": "basket",
+      "n": 11,
+      "r1w": 0.0973275734800314,
+      "r1m": -0.05360276905664618,
+      "r3m": -0.21195664303474504,
+      "rank": 31,
+      "drank": 2
+    },
+    {
+      "id": "solresi",
+      "label": "Residential Solar",
+      "kind": "basket",
+      "n": 3,
+      "r1w": 0.09153249588136148,
+      "r1m": -0.009874667501418077,
+      "r3m": -0.34077358370173294,
+      "rank": 18,
+      "drank": 24
+    },
+    {
+      "id": "photonics",
+      "label": "Photonics",
+      "kind": "basket",
+      "n": 7,
+      "r1w": 0.07616337897280001,
+      "r1m": -0.11012517719395931,
+      "r3m": -0.1934111365021206,
+      "rank": 40,
+      "drank": -37
+    },
+    {
+      "id": "aiserver",
+      "label": "AI Servers",
+      "kind": "basket",
+      "n": 6,
+      "r1w": 0.07426061710795806,
+      "r1m": 0.10027193449758531,
+      "r3m": 0.07109968265685285,
+      "rank": 6,
+      "drank": 19
+    },
+    {
+      "id": "nuclear",
+      "label": "Nuclear",
+      "kind": "basket",
+      "n": 9,
+      "r1w": 0.06543741248425228,
+      "r1m": 0.004531282436323947,
+      "r3m": -0.013163467655915917,
+      "rank": 12,
+      "drank": -5
+    },
+    {
+      "id": "cpuasic",
+      "label": "CPU + ASIC",
+      "kind": "basket",
+      "n": 5,
+      "r1w": 0.06541961356334025,
+      "r1m": -0.020438214154222867,
+      "r3m": -0.14468750583989265,
+      "rank": 23,
+      "drank": 11
+    },
+    {
+      "id": "memory",
+      "label": "Memory",
+      "kind": "basket",
+      "n": 6,
+      "r1w": 0.06273492275372128,
+      "r1m": 0.10439657743103914,
+      "r3m": -0.058266950575366794,
+      "rank": 5,
+      "drank": 36
+    },
+    {
+      "id": "gpu",
+      "label": "GPU",
+      "kind": "basket",
+      "n": 3,
+      "r1w": 0.05191366360211891,
+      "r1m": 0.03574471588843697,
+      "r3m": 0.05817363066532488,
+      "rank": 8,
+      "drank": 18
+    },
+    {
+      "id": "semicap",
+      "label": "Semicap",
+      "kind": "basket",
+      "n": 5,
+      "r1w": 0.050034843042676025,
+      "r1m": -0.04325553854390862,
+      "r3m": -0.059659246533587895,
+      "rank": 28,
+      "drank": 10
+    },
+    {
+      "id": "gas",
+      "label": "Gas Power",
+      "kind": "basket",
+      "n": 15,
+      "r1w": 0.04519261303196376,
+      "r1m": -0.05782836150747217,
+      "r3m": -0.18514963198790357,
+      "rank": 32,
+      "drank": 4
+    },
+    {
+      "id": "epc",
+      "label": "EPC",
+      "kind": "basket",
+      "n": 11,
+      "r1w": 0.04366055834691274,
+      "r1m": -0.06873846673544459,
+      "r3m": -0.15533142639424158,
+      "rank": 34,
+      "drank": -5
+    },
+    {
+      "id": "space",
+      "label": "Space",
+      "kind": "basket",
+      "n": 8,
+      "r1w": 0.035914605276410994,
+      "r1m": -0.10147804719973696,
+      "r3m": -0.31302687043168187,
+      "rank": 38,
+      "drank": -15
+    },
+    {
+      "id": "elecind",
+      "label": "Electric Industrial",
+      "kind": "basket",
+      "n": 10,
+      "r1w": 0.029584069990136852,
+      "r1m": -0.06948542350372411,
+      "r3m": -0.1385321708577798,
+      "rank": 35,
+      "drank": -4
+    },
+    {
+      "id": "xlu",
+      "label": "Utilities \u00b7 XLU",
+      "kind": "sector",
+      "n": null,
+      "r1w": 0.028889415107743455,
+      "r1m": -0.003668883283650448,
+      "r3m": -0.0016084558823529216,
+      "rank": 15,
+      "drank": 15
+    },
+    {
+      "id": "utilities",
+      "label": "Utilities & IPPs",
+      "kind": "basket",
+      "n": 29,
+      "r1w": 0.026562293794223146,
+      "r1m": -0.01647051730484972,
+      "r3m": -0.017373883990345118,
+      "rank": 21,
+      "drank": 11
+    },
+    {
+      "id": "hyperscale",
+      "label": "Hyperscalers",
+      "kind": "basket",
+      "n": 5,
+      "r1w": 0.023957325349808434,
+      "r1m": 0.0047009002280864465,
+      "r3m": 0.0009523653855008085,
+      "rank": 11,
+      "drank": -3
+    },
+    {
+      "id": "materials",
+      "label": "Materials",
+      "kind": "basket",
+      "n": 7,
+      "r1w": 0.015481588257094225,
+      "r1m": -0.00939222658211547,
+      "r3m": -0.07888742804658078,
+      "rank": 17,
+      "drank": -13
+    },
+    {
+      "id": "xle",
+      "label": "Energy \u00b7 XLE",
+      "kind": "sector",
+      "n": null,
+      "r1w": 0.012664165103189351,
+      "r1m": 0.12643478260869556,
+      "r3m": 0.11040630893193892,
+      "rank": 1,
+      "drank": 9
+    },
+    {
+      "id": "robotics",
+      "label": "Robotics",
+      "kind": "basket",
+      "n": 24,
+      "r1w": 0.011527046361021087,
+      "r1m": -0.08901261668588056,
+      "r3m": -0.10031510041951652,
+      "rank": 37,
+      "drank": -13
+    },
+    {
+      "id": "xlk",
+      "label": "Technology \u00b7 XLK",
+      "kind": "sector",
+      "n": null,
+      "r1w": 0.007345844504021537,
+      "r1m": -0.0005319997872000881,
+      "r3m": 0.02003480399798052,
+      "rank": 14,
+      "drank": 7
+    },
+    {
+      "id": "powersemi",
+      "label": "Power Semis",
+      "kind": "basket",
+      "n": 10,
+      "r1w": 0.006587553229862264,
+      "r1m": -0.1423479035674935,
+      "r3m": -0.3158465699571027,
+      "rank": 41,
+      "drank": -4
+    },
+    {
+      "id": "miners",
+      "label": "Metals \u2014 Miners",
+      "kind": "basket",
+      "n": 21,
+      "r1w": 0.006078083480476559,
+      "r1m": 0.11255064068445964,
+      "r3m": 0.25933412155276603,
+      "rank": 2,
+      "drank": -1
+    },
+    {
+      "id": "xlc",
+      "label": "Comm. Svcs \u00b7 XLC",
+      "kind": "sector",
+      "n": null,
+      "r1w": 0.0005383097075184473,
+      "r1m": 0.002426966292134791,
+      "r3m": 0.003870735439733375,
+      "rank": 13,
+      "drank": 9
+    },
+    {
+      "id": "xli",
+      "label": "Industrials \u00b7 XLI",
+      "kind": "sector",
+      "n": null,
+      "r1w": -0.004054131216810419,
+      "r1m": -0.05810557609383182,
+      "r3m": 0.004549904970339247,
+      "rank": 33,
+      "drank": -16
+    },
+    {
+      "id": "xlre",
+      "label": "Real Estate \u00b7 XLRE",
+      "kind": "sector",
+      "n": null,
+      "r1w": -0.004760825209703001,
+      "r1m": -0.024010671409515294,
+      "r3m": -0.0029525323642971557,
+      "rank": 25,
+      "drank": -5
+    },
+    {
+      "id": "xlf",
+      "label": "Financials \u00b7 XLF",
+      "kind": "sector",
+      "n": null,
+      "r1w": -0.007104487957026562,
+      "r1m": -0.00520833333333337,
+      "r3m": 0.10255916875120263,
+      "rank": 16,
+      "drank": -3
+    },
+    {
+      "id": "networking",
+      "label": "Networking",
+      "kind": "basket",
+      "n": 2,
+      "r1w": -0.007561882244460305,
+      "r1m": -0.03454851723691865,
+      "r3m": 0.053554249452455904,
+      "rank": 26,
+      "drank": -12
+    },
+    {
+      "id": "biotech",
+      "label": "Biotechnology",
+      "kind": "basket",
+      "n": 21,
+      "r1w": -0.00906816331647553,
+      "r1m": 0.11045553302452404,
+      "r3m": 0.2687631282548142,
+      "rank": 4,
+      "drank": 23
+    },
+    {
+      "id": "xlp",
+      "label": "Cons. Staples \u00b7 XLP",
+      "kind": "sector",
+      "n": null,
+      "r1w": -0.011296775711932328,
+      "r1m": -0.012922932330827197,
+      "r3m": 0.01143613819670164,
+      "rank": 19,
+      "drank": -3
+    },
+    {
+      "id": "xlb",
+      "label": "Materials \u00b7 XLB",
+      "kind": "sector",
+      "n": null,
+      "r1w": -0.014234200037957834,
+      "r1m": -0.017404464623533844,
+      "r3m": 0.03963170536429139,
+      "rank": 22,
+      "drank": -13
+    },
+    {
+      "id": "xlv",
+      "label": "Health Care \u00b7 XLV",
+      "kind": "sector",
+      "n": null,
+      "r1w": -0.01999525155360915,
+      "r1m": 0.008751871605013894,
+      "r3m": 0.09485758891959306,
+      "rank": 10,
+      "drank": 8
+    },
+    {
+      "id": "defense",
+      "label": "Defense & Aero",
+      "kind": "basket",
+      "n": 19,
+      "r1w": -0.021722487498120557,
+      "r1m": -0.10936568879942399,
+      "r3m": -0.04909766252544212,
+      "rank": 39,
+      "drank": -34
+    },
+    {
+      "id": "xly",
+      "label": "Cons. Disc. \u00b7 XLY",
+      "kind": "sector",
+      "n": null,
+      "r1w": -0.022300368813791938,
+      "r1m": -0.04897380276989827,
+      "r3m": -0.01213276713753364,
+      "rank": 30,
+      "drank": -15
+    },
+    {
+      "id": "consumerstaples",
+      "label": "Consumer Staples",
+      "kind": "basket",
+      "n": 46,
+      "r1w": -0.025279141188186416,
+      "r1m": -0.02246317079167326,
+      "r3m": 0.056772204508572566,
+      "rank": 24,
+      "drank": -13
+    },
+    {
+      "id": "consumerdisc",
+      "label": "Consumer Discretionary",
+      "kind": "basket",
+      "n": 61,
+      "r1w": -0.026997290919524075,
+      "r1m": -0.07413941281924008,
+      "r3m": -0.008220878080405614,
+      "rank": 36,
+      "drank": -24
+    },
+    {
+      "id": "japan",
+      "label": "Japan \u00b7 elec & grid",
+      "kind": "basket",
+      "n": 4,
+      "r1w": -0.049287056657492334,
+      "r1m": -0.04158724392128821,
+      "r3m": -0.10827656069772784,
+      "rank": 27,
+      "drank": 1
+    },
+    {
+      "id": "cdnedge",
+      "label": "CDN / Edge",
+      "kind": "basket",
+      "n": 3,
+      "r1w": -0.050400561290061874,
+      "r1m": -0.04759507050853895,
+      "r3m": -0.0020780391022089395,
+      "rank": 29,
+      "drank": -10
+    },
+    {
+      "id": "connectivity",
+      "label": "Connectivity",
+      "kind": "basket",
+      "n": 3,
+      "r1w": -0.07859999911337401,
+      "r1m": -0.14684903813852246,
+      "r3m": -0.19170127112585778,
+      "rank": 42,
+      "drank": -3
+    },
+    {
+      "id": "software",
+      "label": "Software",
+      "kind": "basket",
+      "n": 17,
+      "r1w": -0.07987689191230418,
+      "r1m": 0.026155905716318095,
+      "r3m": 0.23129656575689017,
+      "rank": 9,
+      "drank": -7
+    },
+    {
+      "id": "cyber",
+      "label": "Cybersecurity",
+      "kind": "basket",
+      "n": 7,
+      "r1w": -0.08373956429017804,
+      "r1m": -0.01631602056968473,
+      "r3m": 0.2818079708701764,
+      "rank": 20,
+      "drank": -14
+    }
+  ],
+  "volume": [
+    {
+      "t": "ARBE",
+      "date": "2026-09-08",
+      "hv_year": true,
+      "hv_ever": false,
+      "hv_ipo": false,
+      "rvol": 119.67398007590133,
+      "chg": 0.16823899371069184,
+      "off_high": -0.7237918215613384,
+      "dvol_m": 74.97546129999999,
+      "r1w": 0.13782542113323126
+    },
+    {
+      "t": "LULU",
+      "date": "2026-09-04",
+      "hv_year": true,
+      "hv_ever": false,
+      "hv_ipo": false,
+      "rvol": 13.224805653710247,
+      "chg": -0.17377022255071028,
+      "off_high": -0.5220029646099684,
+      "dvol_m": 3765.449982,
+      "r1w": -0.14194245800765015
+    },
+    {
+      "t": "GTLB",
+      "date": "2026-09-02",
+      "hv_year": true,
+      "hv_ever": true,
+      "hv_ipo": false,
+      "rvol": 7.231947319847348,
+      "chg": 0.09980039920159678,
+      "off_high": -0.07621473354231978,
+      "dvol_m": 1437.792624,
+      "r1w": 0.013107004727116456
+    },
+    {
+      "t": "WARTSILA",
+      "date": "2026-08-31",
+      "hv_year": true,
+      "hv_ever": false,
+      "hv_ipo": false,
+      "rvol": 4.855522622998551,
+      "chg": -0.04877216916780358,
+      "off_high": -0.26520312894272013,
+      "dvol_m": 119.06687240000001,
+      "r1w": -0.006821282401091366
+    },
+    {
+      "t": "SYK",
+      "date": "2026-09-08",
+      "hv_year": true,
+      "hv_ever": false,
+      "hv_ipo": false,
+      "rvol": 2.7631855156127,
+      "chg": -0.08808105433312452,
+      "off_high": -0.29681260453340297,
+      "dvol_m": 1746.567605817,
+      "r1w": -0.1462940131653494
+    }
+  ],
+  "flags": [
+    {
+      "t": "TEAM",
+      "gain": 1.3421264059989286,
+      "hold": 12,
+      "pull": 0.048138985764107134,
+      "volratio": 0.8156562263133441,
+      "off_high": -0.09379489900323101
+    }
+  ],
+  "scoreboard": [
+    {
+      "id": "pct_above_20",
+      "label": "% above 20-day",
+      "unit": "%",
+      "value": 26.8,
+      "pct": 13.730158730158731,
+      "note": "S&P members"
+    },
+    {
+      "id": "pct_above_50",
+      "label": "% above 50-day",
+      "unit": "%",
+      "value": 42.6,
+      "pct": 26.031746031746035,
+      "note": "S&P members"
+    },
+    {
+      "id": "pct_above_200",
+      "label": "% above 200-day",
+      "unit": "%",
+      "value": 60.6,
+      "pct": 49.047619047619044,
+      "note": "S&P members"
+    },
+    {
+      "id": "net_highs",
+      "label": "52-week highs \u2212 lows",
+      "unit": "",
+      "value": -8,
+      "pct": 12.857142857142856,
+      "note": "5 up, 13 down"
+    },
+    {
+      "id": "flags",
+      "label": "High tight flags",
+      "unit": "",
+      "value": 1,
+      "pct": 28.41269841269841,
+      "note": "speculative appetite"
+    },
+    {
+      "id": "volhighs",
+      "label": "Volume highs this week",
+      "unit": "",
+      "value": 4,
+      "pct": 7.301587301587302,
+      "note": "participation"
+    }
+  ],
+  "narrative": {
+    "tone": "off",
+    "call": "Risk-off",
+    "detail": "Risk is being sold and participation is narrow.",
+    "summary": "SPY finished the week -0.1%; QQQ +0.2%; high beta versus low beta is -3.1% over one month (24th percentile); leader breadth is +8.4 points versus the index; 43% of S&P names are above the 50-day; net 52-week highs are -8; Neocloud leads themes at +18.1%.",
+    "market": "SPY finished the week -0.1%; QQQ +0.2%.",
+    "winners": "Neocloud +18.1%, Behind-the-meter power +16.5%, Industrial Solar +9.7%.",
+    "laggards": "Cybersecurity -8.4%, Software -8.0%, Connectivity -7.9%.",
+    "why": "Weak high beta and narrow participation point to a broad contraction in risk appetite; high beta/low beta -3.1%, leader breadth spread +8.4pt, 43% above the 50-day.",
+    "comparison": "Since 2026-09-04, the Risk-off call is unchanged; high beta -0.5pt, leader spread +8.6pt, 50-day breadth -4.6pt.",
+    "tally": "1 of 4 risk gauges and 0 of 6 participation gauges are above their five-year medians",
+    "volume": "ARBE printed 119.67\u00d7 relative volume on a +16.8% day, while LULU printed 13.22\u00d7 relative volume on a -17.4% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

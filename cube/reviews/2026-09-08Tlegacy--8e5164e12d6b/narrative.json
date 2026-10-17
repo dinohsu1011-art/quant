@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "off",
+    "call": "Risk-off",
+    "detail": "Risk is being sold and participation is narrow.",
+    "summary": "SPY finished the week -0.1%; QQQ +0.2%; high beta versus low beta is -3.1% over one month (24th percentile); leader breadth is +8.4 points versus the index; 43% of S&P names are above the 50-day; net 52-week highs are -8; Neocloud leads themes at +18.1%.",
+    "market": "SPY finished the week -0.1%; QQQ +0.2%.",
+    "winners": "Neocloud +18.1%, Behind-the-meter power +16.5%, Industrial Solar +9.7%.",
+    "laggards": "Cybersecurity -8.4%, Software -8.0%, Connectivity -7.9%.",
+    "why": "Weak high beta and narrow participation point to a broad contraction in risk appetite; high beta/low beta -3.1%, leader breadth spread +8.4pt, 43% above the 50-day.",
+    "comparison": "Since 2026-09-04, the Risk-off call is unchanged; high beta -0.5pt, leader spread +8.6pt, 50-day breadth -4.6pt.",
+    "tally": "1 of 4 risk gauges and 0 of 6 participation gauges are above their five-year medians",
+    "volume": "ARBE printed 119.67\u00d7 relative volume on a +16.8% day, while LULU printed 13.22\u00d7 relative volume on a -17.4% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "off",
+    "call": "Risk-off",
+    "detail": "Risk is being sold and participation is narrow.",
+    "summary": "SPY finished the week +0.1%; QQQ +0.4%; high beta versus low beta is -2.6% over one month (26th percentile); leader breadth is -0.2 points versus the index; 47% of S&P names are above the 50-day; net 52-week highs are +1; Neocloud leads themes at +10.3%.",
+    "market": "SPY finished the week +0.1%; QQQ +0.4%.",
+    "winners": "Neocloud +10.3%, Behind-the-meter power +5.9%, Memory +5.5%.",
+    "laggards": "CDN / Edge -6.6%, Connectivity -6.2%, Japan \u00b7 elec & grid -5.0%.",
+    "why": "Weak high beta and narrow participation point to a broad contraction in risk appetite; high beta/low beta -2.6%, leader breadth spread -0.2pt, 47% above the 50-day.",
+    "comparison": "Since 2026-09-02, the Risk-off call is unchanged; high beta +4.9pt, leader spread +12.3pt, 50-day breadth -1.0pt. Weekly leadership changed from Energy \u00b7 XLE to Neocloud.",
+    "tally": "1 of 4 risk gauges and 2 of 6 participation gauges are above their five-year medians",
+    "volume": "LULU printed 13.18\u00d7 relative volume on a -17.4% day, while AVY printed 10.42\u00d7 relative volume on a -2.0% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

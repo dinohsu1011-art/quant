@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "off",
+    "call": "Risk-off",
+    "detail": "Risk is being sold and participation is narrow.",
+    "summary": "SPY finished the week -0.2%; QQQ -0.9%; high beta versus low beta is +0.8% over one month (45th percentile); leader breadth is -15.3 points versus the index; 58% of S&P names are above the 50-day; net 52-week highs are +13; Metals \u2014 Miners leads themes at +18.4%.",
+    "market": "SPY finished the week -0.2%; QQQ -0.9%.",
+    "winners": "Metals \u2014 Miners +18.4%, Biotechnology +14.2%, Nuclear +6.7%.",
+    "laggards": "Space -9.9%, CDN / Edge -9.7%, Cybersecurity -9.4%.",
+    "why": "Weak high beta and narrow participation point to a broad contraction in risk appetite; high beta/low beta +0.8%, leader breadth spread -15.3pt, 58% above the 50-day.",
+    "comparison": "Since 2026-08-24, the Risk-off call is unchanged; high beta +2.0pt, leader spread -0.1pt, 50-day breadth -0.9pt.",
+    "tally": "0 of 4 risk gauges and 2 of 6 participation gauges are above their five-year medians",
+    "volume": "MRNA printed 32.75\u00d7 relative volume on a +177.0% day, while DKS printed 30.97\u00d7 relative volume on a -30.7% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "",
+    "call": "Mixed",
+    "detail": "Leadership is thin and risk appetite is undecided.",
+    "summary": "SPY finished the week -1.0%; QQQ -0.1%; high beta versus low beta is -3.6% over one month (21st percentile); leader breadth is +13.4 points versus the index; 34% of S&P names are above the 50-day; net 52-week highs are -21; Neocloud leads themes at +11.0%.",
+    "market": "SPY finished the week -1.0%; QQQ -0.1%.",
+    "winners": "Neocloud +11.0%, CDN / Edge +9.0%, Photonics +7.7%.",
+    "laggards": "Materials -5.6%, Biotechnology -5.3%, Consumer Staples -5.2%.",
+    "why": "Risk and participation disagree, leaving a rotation-led rather than directional tape; high beta/low beta -3.6%, leader breadth spread +13.4pt, 34% above the 50-day.",
+    "comparison": "Since 2026-09-08, the call moved from Risk-off to Mixed; high beta -0.5pt, leader spread +5.0pt, 50-day breadth -9.0pt.",
+    "tally": "2 of 4 risk gauges and 0 of 6 participation gauges are above their five-year medians",
+    "volume": "ARBE printed 120.05\u00d7 relative volume on a +16.8% day, while LULU printed 13.22\u00d7 relative volume on a -17.4% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}

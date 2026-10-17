@@ -1,0 +1,16 @@
+{
+  "status": "legacy",
+  "content": {
+    "tone": "off",
+    "call": "Risk-off",
+    "detail": "Risk is being sold into a mixed tape.",
+    "summary": "SPY finished the week -0.1%; QQQ -0.3%; high beta versus low beta is -7.5% over one month (9th percentile); leader breadth is -12.5 points versus the index; 48% of S&P names are above the 50-day; net 52-week highs are +10; Energy \u00b7 XLE leads themes at +4.3%.",
+    "market": "SPY finished the week -0.1%; QQQ -0.3%.",
+    "winners": "Energy \u00b7 XLE +4.3%, Software +2.7%, Memory +2.0%.",
+    "laggards": "Connectivity -16.5%, Utilities & IPPs -14.4%, Photonics -10.5%.",
+    "why": "The pattern points to rotation away from established high-beta leadership, not indiscriminate index selling; high beta/low beta -7.5%, leader breadth spread -12.5pt, 48% above the 50-day.",
+    "comparison": "Since 2026-08-28, the Risk-off call is unchanged; high beta -7.5pt, leader spread -4.2pt, 50-day breadth -5.0pt. Weekly leadership changed from Cybersecurity to Energy \u00b7 XLE.",
+    "tally": "0 of 4 risk gauges and 3 of 6 participation gauges are above their five-year medians",
+    "volume": "ANF printed 15.66\u00d7 relative volume on a +35.7% day, while AVY printed 10.53\u00d7 relative volume on a -2.4% day. None of the volume leaders also sits in a current high tight flag."
+  }
+}
